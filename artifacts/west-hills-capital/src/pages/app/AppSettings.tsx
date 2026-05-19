@@ -4739,11 +4739,22 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
     finally { setRevokingDeviceId(null); }
   }
 
-  function deviceIcon(device: string) {
-    if (device === "Mobile") {
+  function deviceIcon(device: string, os?: string) {
+    const d = (device ?? "").toLowerCase();
+    const o = (os ?? "").toLowerCase();
+    const isMobile = d === "mobile" || o.includes("android") || (o.includes("ios") && !o.includes("ipad"));
+    const isTablet = d === "tablet" || o.includes("ipad");
+    if (isMobile) {
       return (
         <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18h3" />
+        </svg>
+      );
+    }
+    if (isTablet) {
+      return (
+        <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5h3m-6.75 2.25h10.5a2.25 2.25 0 002.25-2.25v-15a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 4.5v15a2.25 2.25 0 002.25 2.25z" />
         </svg>
       );
     }
@@ -4948,14 +4959,12 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
               {trustedDevices.length === 0 ? (
                 <p className="text-xs text-gray-400 italic">No trusted devices. Check "Remember this device for 30 days" when verifying 2FA to skip the prompt on trusted machines.</p>
               ) : (
-                <ul className="space-y-2">
+                <ul className="divide-y divide-gray-100 rounded-lg border border-gray-100 overflow-hidden">
                   {trustedDevices.map((d) => (
-                    <li key={d.id} className="flex items-center gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2.5">
-                      <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25z" />
-                      </svg>
+                    <li key={d.id} className="flex items-center gap-3 bg-white px-3 py-2.5">
+                      {deviceIcon(d.label ?? "", "")}
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-800 truncate">{d.label || "Unknown device"}</p>
+                        <p className="text-xs font-medium text-gray-700 truncate">{d.label || "Unknown device"}</p>
                         <p className="text-[11px] text-gray-400 truncate">
                           {d.ipAddress ?? "Unknown IP"} · Trusted {formatRelative(d.createdAt)} · Expires {formatRelative(d.expiresAt)}
                         </p>
@@ -4964,7 +4973,7 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
                         type="button"
                         disabled={revokingDeviceId === d.id}
                         onClick={() => { void handleRevokeTrustedDevice(d.id); }}
-                        className="shrink-0 text-[11px] font-medium text-red-600 hover:text-red-800 disabled:opacity-50 transition-colors"
+                        className="shrink-0 rounded border border-red-200 bg-transparent px-2.5 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50 hover:border-red-300 disabled:opacity-50 transition-colors"
                       >
                         {revokingDeviceId === d.id ? "Revoking…" : "Revoke"}
                       </button>
@@ -4984,16 +4993,18 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
             {sessions.length === 0 ? (
               <p className="text-xs text-gray-400 italic">No active sessions recorded yet. Sessions appear here after your next page load.</p>
             ) : (
-              <ul className="space-y-2">
+              <ul className="divide-y divide-[#E2E8F0] rounded-lg border border-[#E2E8F0] overflow-hidden">
                 {sessions.map((s) => (
-                  <li key={s.id} className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${s.isCurrent ? "border-gray-900 bg-gray-50" : "border-gray-100 bg-white"}`}>
-                    {deviceIcon(s.device)}
+                  <li key={s.id} className={`flex items-center gap-3 px-3 py-2.5 ${s.isCurrent ? "bg-gray-50" : "bg-white"}`}>
+                    {deviceIcon(s.device, s.os)}
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-gray-800 truncate">
+                      <p className={`text-xs font-medium truncate ${s.isCurrent ? "text-gray-800" : "text-gray-500"}`}>
                         {s.browser} on {s.os}
-                        {s.isCurrent && <span className="ml-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Current</span>}
+                        {s.isCurrent && (
+                          <span className="ml-1.5 inline-flex items-center rounded-full bg-green-100 px-1.5 py-0.5 text-[9px] font-semibold text-green-700 uppercase tracking-wide">Current</span>
+                        )}
                       </p>
-                      <p className="text-[11px] text-gray-400 truncate">
+                      <p className={`text-[11px] truncate ${s.isCurrent ? "text-gray-400" : "text-gray-300"}`}>
                         {s.ipAddress ?? "Unknown IP"}{s.location ? ` · ${s.location}` : ""} · Last active {formatRelative(s.lastActiveAt)}
                       </p>
                     </div>
@@ -5002,7 +5013,7 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
                         type="button"
                         disabled={revokingId === s.id}
                         onClick={() => { void handleRevokeSession(s.id); }}
-                        className="shrink-0 text-[11px] font-medium text-red-600 hover:text-red-800 disabled:opacity-50 transition-colors"
+                        className="shrink-0 rounded border border-red-200 bg-transparent px-2.5 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50 hover:border-red-300 disabled:opacity-50 transition-colors"
                       >
                         {revokingId === s.id ? "Revoking…" : "Revoke"}
                       </button>
@@ -5019,13 +5030,13 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
             {loginHistory.length === 0 ? (
               <p className="text-xs text-gray-400 italic">No login history recorded yet.</p>
             ) : (
-              <ul className="space-y-1.5">
+              <ul className="divide-y divide-[#E2E8F0] rounded-lg border border-[#E2E8F0] overflow-hidden">
                 {loginHistory.slice(0, 10).map((entry) => (
-                  <li key={entry.id} className="flex items-center gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2.5">
-                    {deviceIcon(entry.device)}
+                  <li key={entry.id} className="flex items-center gap-3 bg-white px-3 py-2.5">
+                    {deviceIcon(entry.device, entry.os)}
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-gray-800 truncate">{entry.browser} on {entry.os}</p>
-                      <p className="text-[11px] text-gray-400 truncate">
+                      <p className="text-xs font-medium text-gray-500 truncate">{entry.browser} on {entry.os}</p>
+                      <p className="text-[11px] text-gray-300 truncate">
                         {entry.ipAddress ?? "Unknown IP"}{entry.location ? ` · ${entry.location}` : ""} · {formatRelative(entry.createdAt)}
                       </p>
                     </div>
