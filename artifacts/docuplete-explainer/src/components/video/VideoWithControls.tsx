@@ -196,27 +196,11 @@ export default function VideoWithControls() {
   const [started, setStarted] = useState(false);
   const bgRef = useRef<HTMLAudioElement | null>(null);
 
-  // Set up background music and attempt auto-play when iframed
+  // Set up background music — playback starts only via postMessage or manual button
   useEffect(() => {
     const bg = new Audio(`${BASE}audio/background.wav`);
     bg.loop = true; bg.volume = 0; bg.muted = true;
     bgRef.current = bg;
-
-    // When embedded, try to start immediately — the parent page's click
-    // gesture propagates through the iframe's allow="autoplay" attribute.
-    if (isIframed) {
-      bg.muted = false;
-      bg.play()
-        .then(() => {
-          fadeVolume(bg, 0, 0.07, 1200);
-          setMuted(false);
-          setStarted(true);
-        })
-        .catch(() => {
-          bg.muted = true;
-          // Falls back to manual start via the sound button or postMessage
-        });
-    }
 
     return () => { bg.pause(); bg.src = ''; bgRef.current = null; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -282,6 +266,16 @@ export default function VideoWithControls() {
     setStarted(true);
   }, [jumpTo]);
 
+  const handlePlaySplash = useCallback(() => {
+    const bg = bgRef.current;
+    if (bg) {
+      bg.muted = false;
+      bg.play().then(() => fadeVolume(bg, 0, 0.07, 1200)).catch(() => {});
+      setMuted(false);
+    }
+    setStarted(true);
+  }, []);
+
   const toggleMute = useCallback(() => {
     const bg = bgRef.current;
     if (!bg) return;
@@ -342,7 +336,25 @@ export default function VideoWithControls() {
 
   const barVisible = !collapsed || hovering || tapPinned;
 
-  if (!isIframed) return <VideoTemplate />;
+  if (!started) {
+    return (
+      <div className="relative w-full h-full bg-[#0B1220] flex items-center justify-center">
+        <div className="text-center px-8">
+          <div className="text-white/40 text-xs uppercase tracking-widest mb-4">Tom &amp; Sally present</div>
+          <h1 className="text-white text-3xl font-bold mb-10">Docuplete</h1>
+          <button
+            onClick={handlePlaySplash}
+            className="flex items-center gap-3 mx-auto bg-[#C49A38] hover:bg-[#D4AA48] text-white font-semibold text-lg px-8 py-4 rounded-2xl shadow-2xl transition-all active:scale-95"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M8 5v14l11-7z" /></svg>
+            Watch the video
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isIframed) return <VideoTemplate key={mountKey} />;
 
   return (
     <div className="relative w-full h-full">
