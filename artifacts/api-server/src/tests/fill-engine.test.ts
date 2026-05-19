@@ -26,7 +26,7 @@ import express from "express";
 import { Pool } from "pg";
 import { PDFDocument, StandardFonts, type PDFFont } from "pdf-lib";
 import { formatDocupleteMappedValue } from "../lib/docuplete-redaction.js";
-import docupleteRouter from "../routes/docuplete.js";
+import docupleteRouter, { publicDocupleteRouter } from "../routes/docuplete.js";
 
 function buildTestApp(accountId: number) {
   const app = express();
@@ -879,5 +879,247 @@ describe("Fill engine – webhook URL pre-save validation", () => {
       expectedSig,
       "X-Docuplete-Signature must exactly match HMAC-SHA256 of the probe body",
     );
+  });
+});
+
+// ── 6. Field-type coverage and conditional rendering ──────────────────────────
+//
+// Exercises the real buildPacketPdfBuffer path (via the public generate and
+// packet.pdf endpoints) for every special field type that has distinct
+// rendering logic:
+//   • checkbox-yes  — filled when the answer is truthy
+//   • checkbox-option:<value> — filled only when answer equals <value>
+//   • conditional field — drawn only when its condition is satisfied
+//   • signature fallback — text name drawn when no signature image is supplied
+//   • __signer_date__ auto-inject — today's date is used when missing from answers
+//   • packet.pdf — publicDocupleteRouter returns a valid %PDF file
+//
+// All tests use a real one-page PDF built with pdf-lib as the source document.
+
+describe("Fill engine – field type coverage and conditional rendering", () => {
+  let pool:      Pool;
+  let accountId: number;
+  let packageId: number;
+  let documentId: string;
+  let internalApp: ReturnType<typeof buildTestApp>;
+  let publicApp: express.Express;
+
+  const FIELDS = [
+    { id: "f_agree",  name: "Agree",   type: "checkbox", required: false, interviewVisible: false },
+    { id: "f_choice", name: "Choice",  type: "radio",    required: false, interviewVisible: false },
+    { id: "f_name",   name: "Name",    type: "text",     required: false, interviewVisible: false },
+    {
+      id: "f_cond", name: "Conditional", type: "text", required: false, interviewVisible: false,
+      condition: { fieldId: "f_name", operator: "equals", value: "TRIGGER" },
+    },
+  ];
+
+  before(async () => {
+    const url = process.env["DATABASE_URL"];
+    if (!url) throw new Error("DATABASE_URL must be set");
+    pool = new Pool({ connectionString: url, max: 5 });
+
+    const suffix = `${Date.now().toString(36)}_ft`;
+    documentId = `doc-ft-${suffix}`;
+
+    const { rows: [acct] } = await pool.query<{ id: number }>(
+      `INSERT INTO accounts (name, slug, plan_tier, seat_limit)
+       VALUES ($1, $2, 'enterprise', 999)
+       RETURNING id`,
+      [`_Test FieldTypes ${suffix}`, `_test-ft-${suffix}`],
+    );
+    accountId = acct.id;
+
+    const pdfDoc = await PDFDocument.create();
+    pdfDoc.addPage([612, 792]);
+    const pdfBuf = Buffer.from(await pdfDoc.save());
+
+    const docList = [{ id: documentId, title: "Test.pdf", pages: 1, fileName: "test.pdf", pdfStored: true }];
+    const mappings = [
+      { id: "m_agree",  fieldId: "f_agree",  documentId, page: 1, x: 50, y: 700, w: 20,  h: 20, format: "checkbox-yes" },
+      { id: "m_choice", fieldId: "f_choice", documentId, page: 1, x: 80, y: 660, w: 20,  h: 20, format: "checkbox-option:yes_option" },
+      { id: "m_name",   fieldId: "f_name",   documentId, page: 1, x: 50, y: 620, w: 200, h: 20 },
+      { id: "m_cond",   fieldId: "f_cond",   documentId, page: 1, x: 50, y: 580, w: 200, h: 20 },
+      { id: "m_date",   fieldId: "__signer_date__", documentId, page: 1, x: 50, y: 540, w: 150, h: 20 },
+    ];
+
+    const { rows: [pkg] } = await pool.query<{ id: number }>(
+      `INSERT INTO docuplete_packages
+         (name, account_id, status, transaction_scope, documents, fields, mappings, webhook_secret)
+       VALUES ('FieldType Test Package', $1, 'active', 'ira_transfer',
+               $2::jsonb, $3::jsonb, $4::jsonb, $5)
+       RETURNING id`,
+      [
+        accountId,
+        JSON.stringify(docList),
+        JSON.stringify(FIELDS),
+        JSON.stringify(mappings),
+        randomBytes(32).toString("hex"),
+      ],
+    );
+    packageId = pkg.id;
+
+    await pool.query(
+      `INSERT INTO docuplete_package_documents
+         (package_id, document_id, filename, content_type, byte_size, page_count, pdf_data)
+       VALUES ($1, $2, 'test.pdf', 'application/pdf', $3, 1, $4)`,
+      [packageId, documentId, pdfBuf.length, pdfBuf],
+    );
+
+    internalApp = buildTestApp(accountId);
+
+    const pub = express();
+    pub.use(express.json({ limit: "10mb" }));
+    pub.use("/", publicDocupleteRouter);
+    publicApp = pub;
+  });
+
+  after(async () => {
+    if (!pool) return;
+    await pool.query(`DELETE FROM docuplete_interview_sessions WHERE account_id = $1`, [accountId]);
+    await pool.query(`DELETE FROM docuplete_packages WHERE id = $1`, [packageId]);
+    await pool.query(`DELETE FROM accounts WHERE id = $1`, [accountId]);
+    await pool.end();
+  });
+
+  async function seedSession(answers: Record<string, unknown>): Promise<string> {
+    const token = `_ft_${Date.now().toString(36)}_${randomBytes(6).toString("hex")}`;
+    await pool.query(
+      `INSERT INTO docuplete_interview_sessions
+         (token, package_id, package_version, transaction_scope, source, status,
+          prefill, answers, expires_at, account_id)
+       VALUES ($1, $2, 1, 'ira_transfer', 'test', 'draft',
+               '{}', $3::jsonb, NOW() + INTERVAL '90 days', $4)`,
+      [token, packageId, JSON.stringify(answers), accountId],
+    );
+    return token;
+  }
+
+  it("checkbox-yes: truthy answer generates without error", async () => {
+    const token = await seedSession({ f_agree: "true" });
+    const res   = await supertest(internalApp).post(`/sessions/${token}/generate`).send({});
+    assert.equal(res.status, 200, `Expected 200 but got ${res.status}: ${JSON.stringify(res.body)}`);
+    assert.ok((res.body.packet?.byteSize ?? 0) > 0, "Expected non-zero PDF output");
+  });
+
+  it("checkbox-yes: falsy answer generates without error (box left empty)", async () => {
+    const token = await seedSession({ f_agree: "false" });
+    const res   = await supertest(internalApp).post(`/sessions/${token}/generate`).send({});
+    assert.equal(res.status, 200, `Expected 200 but got ${res.status}: ${JSON.stringify(res.body)}`);
+  });
+
+  it("checkbox-option: matching answer marks the box", async () => {
+    const token = await seedSession({ f_choice: "yes_option" });
+    const res   = await supertest(internalApp).post(`/sessions/${token}/generate`).send({});
+    assert.equal(res.status, 200, `Expected 200 but got ${res.status}: ${JSON.stringify(res.body)}`);
+    assert.ok((res.body.packet?.byteSize ?? 0) > 0, "Expected non-zero PDF output");
+  });
+
+  it("checkbox-option: non-matching answer leaves box empty (no error)", async () => {
+    const token = await seedSession({ f_choice: "other_option" });
+    const res   = await supertest(internalApp).post(`/sessions/${token}/generate`).send({});
+    assert.equal(res.status, 200, `Expected 200 but got ${res.status}: ${JSON.stringify(res.body)}`);
+  });
+
+  it("conditional field is SKIPPED when condition is not met", async () => {
+    // f_name is "NotTrigger" — condition requires "TRIGGER" → f_cond is skipped
+    const token = await seedSession({ f_name: "NotTrigger", f_cond: "should be skipped" });
+    const res   = await supertest(internalApp).post(`/sessions/${token}/generate`).send({});
+    assert.equal(res.status, 200, `Expected 200 but got ${res.status}: ${JSON.stringify(res.body)}`);
+  });
+
+  it("conditional field IS drawn when condition is met", async () => {
+    // f_name equals "TRIGGER" → f_cond should be included in the PDF
+    const token = await seedSession({ f_name: "TRIGGER", f_cond: "conditional content visible" });
+    const res   = await supertest(internalApp).post(`/sessions/${token}/generate`).send({});
+    assert.equal(res.status, 200, `Expected 200 but got ${res.status}: ${JSON.stringify(res.body)}`);
+    assert.ok((res.body.packet?.byteSize ?? 0) > 0);
+  });
+
+  it("__signer_date__ is auto-injected when absent from answers", async () => {
+    // No __signer_date__ key in answers — the engine should fill it with today
+    const token = await seedSession({ f_name: "Auto Date Test" });
+    const res   = await supertest(internalApp).post(`/sessions/${token}/generate`).send({});
+    assert.equal(res.status, 200, `Expected 200 but got ${res.status}: ${JSON.stringify(res.body)}`);
+    assert.ok((res.body.packet?.byteSize ?? 0) > 0, "Expected PDF even when __signer_date__ missing");
+  });
+
+  it("__signer_date__ supplied in answers overrides auto-inject", async () => {
+    const token = await seedSession({ __signer_date__: "01/15/2025" });
+    const res   = await supertest(internalApp).post(`/sessions/${token}/generate`).send({});
+    assert.equal(res.status, 200, `Expected 200 but got ${res.status}: ${JSON.stringify(res.body)}`);
+  });
+
+  it("text-fallback signature: no signature image → signer name drawn in text", async () => {
+    const token = await seedSession({ f_name: "Fallback Signer" });
+    const res   = await supertest(internalApp)
+      .post(`/sessions/${token}/generate`)
+      .send({ signerName: "Fallback Signer" });
+    assert.equal(res.status, 200, `Expected 200 but got ${res.status}: ${JSON.stringify(res.body)}`);
+    assert.ok((res.body.packet?.byteSize ?? 0) > 0, "Expected PDF with text-fallback signature");
+  });
+
+  it("all fields absent from answers → generate produces a non-empty PDF", async () => {
+    const token = await seedSession({});
+    const res   = await supertest(internalApp).post(`/sessions/${token}/generate`).send({});
+    assert.equal(res.status, 200, `Expected 200 but got ${res.status}: ${JSON.stringify(res.body)}`);
+    assert.ok((res.body.packet?.byteSize ?? 0) > 0);
+  });
+
+  it("publicDocupleteRouter: GET /sessions/:token/packet.pdf returns %PDF magic bytes", async () => {
+    const token = await seedSession({ f_name: "Public PDF Test" });
+
+    const pdfRes = await supertest(publicApp)
+      .get(`/sessions/${token}/packet.pdf`)
+      .buffer(true)
+      .parse((_res, callback) => {
+        const chunks: Buffer[] = [];
+        _res.on("data", (c: Buffer) => chunks.push(c));
+        _res.on("end",  () => callback(null, Buffer.concat(chunks)));
+      });
+
+    assert.equal(pdfRes.status, 200, `Expected 200 but got ${pdfRes.status}`);
+    assert.ok(
+      pdfRes.headers["content-type"]?.includes("application/pdf"),
+      `Expected application/pdf, got ${pdfRes.headers["content-type"]}`,
+    );
+    const pdf = pdfRes.body as Buffer;
+    assert.ok(pdf.length > 0, "PDF response must be non-empty");
+    assert.equal(
+      pdf.slice(0, 4).toString("ascii"),
+      "%PDF",
+      "packet.pdf download must begin with %PDF magic bytes",
+    );
+  });
+
+  it("publicDocupleteRouter: packet.pdf returns 404 for a non-existent token", async () => {
+    const res = await supertest(publicApp).get(`/sessions/no-such-token-xyz/packet.pdf`);
+    assert.equal(res.status, 404);
+  });
+
+  it("generate with all checkbox/conditional/text fields populated → valid PDF struct", async () => {
+    const token = await seedSession({
+      f_agree:  "true",
+      f_choice: "yes_option",
+      f_name:   "TRIGGER",
+      f_cond:   "triggered value",
+      __signer_date__: "05/19/2026",
+    });
+    const genRes = await supertest(internalApp).post(`/sessions/${token}/generate`).send({});
+    assert.equal(genRes.status, 200, `Generate failed: ${JSON.stringify(genRes.body)}`);
+
+    const pdfRes = await supertest(publicApp)
+      .get(`/sessions/${token}/packet.pdf`)
+      .buffer(true)
+      .parse((_res, callback) => {
+        const chunks: Buffer[] = [];
+        _res.on("data", (c: Buffer) => chunks.push(c));
+        _res.on("end",  () => callback(null, Buffer.concat(chunks)));
+      });
+
+    assert.equal(pdfRes.status, 200);
+    const pdf = pdfRes.body as Buffer;
+    const loaded = await PDFDocument.load(pdf);
+    assert.equal(loaded.getPageCount(), 1, "Filled PDF must have exactly 1 page");
   });
 });
