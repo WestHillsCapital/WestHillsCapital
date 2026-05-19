@@ -1214,11 +1214,29 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                       {availableLibraryFields.filter((f) => f.inherited).map((item) => <option key={item.id} value={item.id}>{item.label} · {item.category}</option>)}
                     </optgroup>
                   )}
-                  {availableLibraryFields.some((f) => !f.inherited) && (
-                    <optgroup label="Shared Library">
-                      {availableLibraryFields.filter((f) => !f.inherited).map((item) => <option key={item.id} value={item.id}>{item.label} · {item.category}</option>)}
-                    </optgroup>
-                  )}
+                  {(() => {
+                    const ownAvailable = availableLibraryFields.filter((f) => !f.inherited);
+                    if (ownAvailable.length === 0) return null;
+                    const groupedFieldIdSet = new Set(fieldGroups.flatMap((g) => g.fieldIds));
+                    const ungrouped = ownAvailable.filter((f) => !groupedFieldIdSet.has(f.id));
+                    const groupsWithFields = fieldGroups
+                      .map((g) => ({ group: g, fields: ownAvailable.filter((f) => g.fieldIds.includes(f.id)) }))
+                      .filter(({ fields }) => fields.length > 0);
+                    return (
+                      <>
+                        {ungrouped.length > 0 && (
+                          <optgroup label="Shared Library">
+                            {ungrouped.map((item) => <option key={item.id} value={item.id}>{item.label} · {item.category}</option>)}
+                          </optgroup>
+                        )}
+                        {groupsWithFields.map(({ group, fields }) => (
+                          <optgroup key={group.id} label={group.name}>
+                            {fields.map((item) => <option key={item.id} value={item.id}>{item.label} · {item.category}</option>)}
+                          </optgroup>
+                        ))}
+                      </>
+                    );
+                  })()}
                   {availableEsignFields.length > 0 && (
                     <optgroup label="E-Sign Fields">
                       {availableEsignFields.map((sf) => <option key={sf.id} value={sf.id}>{sf.name}</option>)}
