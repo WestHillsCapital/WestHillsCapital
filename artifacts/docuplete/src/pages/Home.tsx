@@ -304,7 +304,7 @@ function VideoSection() {
                 </svg>
               </div>
               <div className="text-center">
-                <p className="text-white font-bold text-xl">Sally &amp; Tom's Story</p>
+                <p className="text-white font-bold text-xl">See Docuplete in Action (60s)</p>
               </div>
             </div>
             <div className="absolute bottom-0 inset-x-0 h-12 bg-gradient-to-t from-black/60 to-transparent flex items-end px-6 pb-3">
@@ -327,7 +327,7 @@ function VideoSection() {
         >
           {/* Top bar */}
           <div className="shrink-0 flex items-center justify-between px-6 py-3">
-            <p className="text-white/50 text-sm">Sally &amp; Tom's Story</p>
+            <p className="text-white/50 text-sm">See Docuplete in Action (60s)</p>
             <button
               className="text-white/60 hover:text-white text-4xl leading-none font-light"
               onClick={() => setOpen(false)}
@@ -850,7 +850,7 @@ export default function Home() {
             <p className="text-[#5B8DEF] text-sm font-semibold uppercase tracking-widest mb-3">The problem</p>
             <h2 className="text-3xl sm:text-4xl font-bold">The cost of doing it manually.</h2>
             <p className="mt-4 text-white/60 max-w-lg mx-auto">
-              Every team thinks their document process is "fine." Until they add it up.
+              Every team thinks their document process is {"\u201C"}fine.{"\u201D"} Until they add it up.
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-12">
@@ -972,7 +972,7 @@ export default function Home() {
                   </p>
                   <a
                     href={NAV_SIGNUP}
-                    className="inline-flex items-center gap-1.5 bg-[#1B4FD8] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#1740B8] transition-colors whitespace-nowrap"
+                    className="inline-flex items-center gap-1.5 bg-[#F5A623] hover:bg-[#e09510] text-[#0d1224] text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors whitespace-nowrap shadow-lg shadow-[#F5A623]/25"
                   >
                     Start free trial
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -1034,7 +1034,7 @@ export default function Home() {
               <div className="bg-[#1B4FD8] rounded-2xl p-6">
                 <div className="text-xl font-black text-white">Reduced resistance. Repeatable wins.</div>
               </div>
-              <div className="bg-white border border-[#E8EDF5] rounded-2xl p-6 col-span-2">
+              <div className="bg-[#EEF3FB] border border-[#C8D5EE] rounded-2xl p-6 col-span-2">
                 <div className="text-2xl font-black text-[#1B4FD8] mb-1">Zero chasing.</div>
                 <div className="text-sm text-[#4B5A7A]">Clients complete on their own time. You get a finished document.</div>
               </div>
