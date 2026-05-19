@@ -5050,108 +5050,135 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
           <div className="px-6 py-5">
             <p className="text-sm font-medium text-gray-900 mb-0.5">{user?.passwordEnabled === false ? "Set a password" : "Change password"}</p>
             {user?.passwordEnabled === false ? (
-              <div className="mt-3 space-y-3 max-w-sm">
-                <p className="text-xs text-gray-500">
+              <div className="mt-3 max-w-md">
+                <p className="text-xs text-gray-500 mb-3">
                   Your account uses social sign-in. You can add a password to also sign in with your email.
                 </p>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="sp-new-pw">New password</label>
-                  <input
-                    id="sp-new-pw"
-                    type="password"
-                    autoComplete="new-password"
-                    value={spNew}
-                    onChange={(e) => { setSpNew(e.target.value); setSpError(null); setSpSaved(false); }}
-                    placeholder="••••••••"
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
-                  />
+                <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-4 space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="sp-new-pw">New password</label>
+                    <input
+                      id="sp-new-pw"
+                      type="password"
+                      autoComplete="new-password"
+                      value={spNew}
+                      onChange={(e) => { setSpNew(e.target.value); setSpError(null); setSpSaved(false); }}
+                      placeholder="Enter new password"
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="sp-confirm-pw">Confirm password</label>
+                    <input
+                      id="sp-confirm-pw"
+                      type="password"
+                      autoComplete="new-password"
+                      value={spConfirm}
+                      onChange={(e) => { setSpConfirm(e.target.value); setSpError(null); setSpSaved(false); }}
+                      placeholder="Re-enter new password"
+                      onKeyDown={(e) => { if (e.key === "Enter" && spNew && spConfirm && spNew === spConfirm) void handleSetPassword(); }}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+                    />
+                  </div>
+                  {spError && <p className="text-xs text-red-600">{spError}</p>}
+                  {spSaved && <p className="text-xs text-green-600 font-medium">✓ Password set successfully.</p>}
+                  {(() => {
+                    const ready = !isSettingPassword && !!spNew && !!spConfirm && spNew === spConfirm;
+                    return (
+                      <button
+                        type="button"
+                        disabled={!ready}
+                        onClick={() => { void handleSetPassword(); }}
+                        className={[
+                          "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150",
+                          ready
+                            ? "text-white brand-btn-hover cursor-pointer"
+                            : "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed",
+                        ].join(" ")}
+                        style={ready ? { backgroundColor: bc } : {}}
+                      >
+                        {isSettingPassword ? "Setting…" : "Set password"}
+                      </button>
+                    );
+                  })()}
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="sp-confirm-pw">Confirm password</label>
-                  <input
-                    id="sp-confirm-pw"
-                    type="password"
-                    autoComplete="new-password"
-                    value={spConfirm}
-                    onChange={(e) => { setSpConfirm(e.target.value); setSpError(null); setSpSaved(false); }}
-                    placeholder="••••••••"
-                    onKeyDown={(e) => { if (e.key === "Enter") void handleSetPassword(); }}
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
-                  />
-                </div>
-                {spError && <p className="text-xs text-red-600">{spError}</p>}
-                {spSaved && <p className="text-xs text-green-600">Password set successfully.</p>}
-                <button
-                  type="button"
-                  disabled={isSettingPassword || !spNew || !spConfirm}
-                  onClick={() => { void handleSetPassword(); }}
-                  className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors brand-btn-hover"
-                  style={{ backgroundColor: bc }}
-                >
-                  {isSettingPassword ? "Setting…" : "Set password"}
-                </button>
               </div>
             ) : (
-              <div className="mt-3 space-y-3 max-w-sm">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="sec-cur-pw">Current password</label>
-                  <input
-                    id="sec-cur-pw"
-                    type="password"
-                    autoComplete="current-password"
-                    value={currentPassword}
-                    onChange={(e) => { setCurrentPassword(e.target.value); setPasswordError(null); setPasswordSaved(false); }}
-                    placeholder="••••••••"
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
-                  />
+              <div className="mt-3 max-w-md">
+                <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-4 space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="sec-cur-pw">Current password</label>
+                    <input
+                      id="sec-cur-pw"
+                      type="password"
+                      autoComplete="current-password"
+                      value={currentPassword}
+                      onChange={(e) => { setCurrentPassword(e.target.value); setPasswordError(null); setPasswordSaved(false); }}
+                      placeholder="Enter current password"
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="sec-new-pw">New password</label>
+                    <input
+                      id="sec-new-pw"
+                      type="password"
+                      autoComplete="new-password"
+                      value={newPassword}
+                      onChange={(e) => { setNewPassword(e.target.value); setPasswordError(null); setPasswordSaved(false); }}
+                      placeholder="Enter new password"
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="sec-confirm-pw">Confirm new password</label>
+                    <input
+                      id="sec-confirm-pw"
+                      type="password"
+                      autoComplete="new-password"
+                      value={confirmPassword}
+                      onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError(null); setPasswordSaved(false); }}
+                      placeholder="Re-enter new password"
+                      onKeyDown={(e) => {
+                        const ready = !!currentPassword && !!newPassword && !!confirmPassword && newPassword === confirmPassword;
+                        if (e.key === "Enter" && ready) void handlePasswordChange();
+                      }}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={signOutOtherDevices}
+                      onChange={(e) => setSignOutOtherDevices(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900/20"
+                    />
+                    <span className="text-xs text-gray-600">Sign out all other devices</span>
+                  </label>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="sec-new-pw">New password</label>
-                  <input
-                    id="sec-new-pw"
-                    type="password"
-                    autoComplete="new-password"
-                    value={newPassword}
-                    onChange={(e) => { setNewPassword(e.target.value); setPasswordError(null); setPasswordSaved(false); }}
-                    placeholder="••••••••"
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="sec-confirm-pw">Confirm new password</label>
-                  <input
-                    id="sec-confirm-pw"
-                    type="password"
-                    autoComplete="new-password"
-                    value={confirmPassword}
-                    onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError(null); setPasswordSaved(false); }}
-                    placeholder="••••••••"
-                    onKeyDown={(e) => { if (e.key === "Enter") void handlePasswordChange(); }}
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
-                  />
-                </div>
-                <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={signOutOtherDevices}
-                    onChange={(e) => setSignOutOtherDevices(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900/20"
-                  />
-                  <span className="text-xs text-gray-600">Sign out all other devices</span>
-                </label>
-                <div className="flex items-center gap-3 pt-1">
-                  <button
-                    type="button"
-                    disabled={isSavingPassword || !currentPassword || !newPassword || !confirmPassword}
-                    onClick={() => { void handlePasswordChange(); }}
-                    className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors brand-btn-hover"
-                    style={{ backgroundColor: bc }}
-                  >
-                    {isSavingPassword ? "Updating…" : "Update password"}
-                  </button>
-                  {passwordSaved && <span className="text-xs text-green-600 font-medium">✓ Password updated</span>}
-                  {passwordError && <span className="text-xs text-red-600">{passwordError}</span>}
-                </div>
+                {(() => {
+                  const ready = !isSavingPassword && !!currentPassword && !!newPassword && !!confirmPassword && newPassword === confirmPassword;
+                  return (
+                    <div className="flex items-center gap-3 mt-3">
+                      <button
+                        type="button"
+                        disabled={!ready}
+                        onClick={() => { void handlePasswordChange(); }}
+                        className={[
+                          "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150",
+                          ready
+                            ? "text-white brand-btn-hover cursor-pointer"
+                            : "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed",
+                        ].join(" ")}
+                        style={ready ? { backgroundColor: bc } : {}}
+                      >
+                        {isSavingPassword ? "Updating…" : "Update password"}
+                      </button>
+                      {passwordSaved && <span className="text-xs text-green-600 font-medium">✓ Password updated</span>}
+                      {passwordError && <span className="text-xs text-red-600">{passwordError}</span>}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
