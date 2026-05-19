@@ -4155,7 +4155,7 @@ const FEEDBACK_FIELDS: Record<FeedbackType, Array<{ key: string; label: string; 
     { key: "Steps to reproduce",         label: "Steps to reproduce",         type: "textarea", required: true,  placeholder: "1. Go to…\n2. Click…\n3. See error" },
     { key: "What you expected",          label: "What you expected to happen", type: "textarea", required: true,  placeholder: "I expected…" },
     { key: "What actually happened",     label: "What actually happened",      type: "textarea", required: true,  placeholder: "Instead…" },
-    { key: "Page or URL",                label: "Page or URL (optional)",      type: "text",     required: false, placeholder: "e.g. /app/settings or the full URL" },
+    { key: "Page or URL",                label: "Page or URL",                 type: "text",     required: false, placeholder: "e.g. /app/settings or the full URL" },
   ],
   idea: [
     { key: "Feature name",               label: "Feature name",                type: "text",     required: true,  placeholder: "e.g. Bulk export PDF" },
@@ -4233,6 +4233,8 @@ function FeedbackSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
     message: "Anything else on your mind.",
   };
 
+  const canSend = fieldDefs.filter(f => f.required).every(f => !!fields[f.key]?.trim());
+
   return (
     <section className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
       <div className="px-6 py-4">
@@ -4253,7 +4255,7 @@ function FeedbackSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
                 className={[
                   "flex flex-col items-start gap-0.5 rounded-lg border px-3.5 py-2.5 text-left transition-colors",
                   feedbackType === t
-                    ? "border-gray-900 bg-gray-50 ring-1 ring-gray-900"
+                    ? "border-[#0E1D4A] bg-[#0E1D4A]/5"
                     : "border-gray-200 hover:border-gray-300 hover:bg-gray-50",
                 ].join(" ")}
               >
@@ -4299,8 +4301,17 @@ function FeedbackSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
             type="checkbox"
             checked={sendCopy}
             onChange={e => setSendCopy(e.target.checked)}
-            className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+            className="sr-only"
           />
+          <span className={`flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+            sendCopy ? "bg-[#0E1D4A] border-[#0E1D4A]" : "bg-transparent border-[#0E1D4A]"
+          }`}>
+            {sendCopy && (
+              <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </span>
           <span className="text-sm text-gray-700">
             Send me a copy
             {userEmail && <span className="ml-1 text-gray-400 text-xs">({userEmail})</span>}
@@ -4318,8 +4329,8 @@ function FeedbackSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-60 transition-colors"
+            disabled={isSubmitting || !canSend}
+            className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             {isSubmitting ? "Sending…" : "Send message"}
           </button>
