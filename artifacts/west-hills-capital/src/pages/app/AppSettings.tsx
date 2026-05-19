@@ -2410,6 +2410,26 @@ interface AuditLogMetadataMap {
   "branding.remove_form_logo": Record<string, never>;
   "plan.checkout_initiated":   { plan: string };
   "plan.change":               { from_plan: string; to_plan: string; status: string; event_type: string };
+  "email_settings.update":     { senderName: string | null; replyTo: string | null; footerLength: number };
+  "interview_defaults.update": { linkExpiryDays: number | null; reminderEnabled: boolean; reminderDays: number; defaultLocale: string };
+  "settings.update_locale":    { timezone: string; dateFormat: string };
+  "data.update_retention":     { submissionRetentionDays: number | null };
+  "data.export_requested":     Record<string, never>;
+  "data.deletion_requested":   { graceWindowDays: number; stripeCancelled?: boolean };
+  "data.deletion_cancelled":   Record<string, never>;
+  "security.2fa_enabled":             Record<string, never>;
+  "security.2fa_disabled":            Record<string, never>;
+  "security.session_revoked":         Record<string, never>;
+  "security.trusted_device_revoked":  Record<string, never>;
+  "custom_domain.set":         Record<string, never>;
+  "custom_domain.verify":      { status: string; cnames: string[] };
+  "auth.login":                { method: string };
+  "auth.login_failed":         { reason?: string };
+  "integration.connect":       { provider: string };
+  "integration.disconnect":    { provider: string };
+  "field.create":              { fieldType: string };
+  "field.update":              { fieldType: string };
+  "field.delete":              Record<string, never>;
 }
 
 type KnownAuditAction = keyof AuditLogMetadataMap;
@@ -2443,28 +2463,65 @@ const ACTION_LABELS: Record<string, string> = {
   "branding.remove_form_logo": "Removed form logo",
   "plan.checkout_initiated":   "Initiated plan upgrade",
   "plan.change":               "Plan changed",
+  "email_settings.update":     "Updated email settings",
+  "interview_defaults.update": "Updated interview defaults",
+  "settings.update_locale":    "Updated locale settings",
+  "data.update_retention":     "Updated data retention",
+  "data.export_requested":     "Data export requested",
+  "data.deletion_requested":   "Account deletion requested",
+  "data.deletion_cancelled":   "Account deletion cancelled",
+  "security.2fa_enabled":      "Enabled two-factor auth",
+  "security.2fa_disabled":     "Disabled two-factor auth",
+  "security.session_revoked":  "Revoked session",
+  "security.trusted_device_revoked": "Revoked trusted device",
+  "custom_domain.set":         "Set custom domain",
+  "custom_domain.verify":      "Verified custom domain",
+  "auth.login":                "Logged in",
+  "auth.login_failed":         "Login failed",
+  "integration.connect":       "Connected integration",
+  "integration.disconnect":    "Disconnected integration",
+  "field.create":              "Created field",
+  "field.update":              "Updated field",
+  "field.delete":              "Deleted field",
 };
 
 const ACTION_FILTER_OPTIONS = [
-  { value: "",                      label: "All activity" },
-  { value: "team.invite",           label: "Team invites" },
-  { value: "team.remove",           label: "Member removals" },
-  { value: "team.role_change",      label: "Role changes" },
-  { value: "apikey.create",         label: "API key created" },
-  { value: "apikey.revoke",         label: "API key revoked" },
-  { value: "apikey.rename",         label: "API key renamed" },
-  { value: "branding.update_name",  label: "Org name change" },
-  { value: "branding.update_color", label: "Brand color change" },
-  { value: "branding.upload_logo",  label: "Logo uploaded" },
-  { value: "branding.remove_logo",  label: "Logo removed" },
-  { value: "plan.checkout_initiated", label: "Plan upgrade initiated" },
-  { value: "plan.change",           label: "Plan changed" },
+  { value: "",                                label: "All activity" },
+  { value: "auth.login",                      label: "Login" },
+  { value: "auth.login_failed",               label: "Login failed" },
+  { value: "team.invite",                     label: "Team invite" },
+  { value: "team.remove",                     label: "Member removal" },
+  { value: "team.role_change",                label: "Role change" },
+  { value: "apikey.create",                   label: "API key created" },
+  { value: "apikey.revoke",                   label: "API key revoked" },
+  { value: "apikey.rename",                   label: "API key renamed" },
+  { value: "security.2fa_enabled",            label: "2FA enabled" },
+  { value: "security.2fa_disabled",           label: "2FA disabled" },
+  { value: "security.session_revoked",        label: "Session revoked" },
+  { value: "security.trusted_device_revoked", label: "Trusted device revoked" },
+  { value: "integration.connect",             label: "Integration connected" },
+  { value: "integration.disconnect",          label: "Integration disconnected" },
+  { value: "field.create",                    label: "Field created" },
+  { value: "field.update",                    label: "Field updated" },
+  { value: "field.delete",                    label: "Field deleted" },
+  { value: "branding.update_name",            label: "Org name change" },
+  { value: "branding.update_color",           label: "Brand color change" },
+  { value: "branding.upload_logo",            label: "Logo uploaded" },
+  { value: "branding.remove_logo",            label: "Logo removed" },
+  { value: "email_settings.update",           label: "Email settings" },
+  { value: "interview_defaults.update",       label: "Interview defaults" },
+  { value: "settings.update_locale",          label: "Locale settings" },
+  { value: "data.update_retention",           label: "Retention policy" },
+  { value: "data.export_requested",           label: "Data export" },
+  { value: "data.deletion_requested",         label: "Deletion request" },
+  { value: "plan.checkout_initiated",         label: "Plan upgrade initiated" },
+  { value: "plan.change",                     label: "Plan changed" },
 ];
 
 function actionBadgeColor(action: string): string {
-  if (/revoke|remove|delete/.test(action))          return "bg-red-50 border-red-200 text-red-700";
-  if (/create|invite|upload|add|checkout/.test(action)) return "bg-green-50 border-green-200 text-green-700";
-  if (/update|rename|change|role/.test(action))     return "bg-blue-50 border-blue-200 text-blue-700";
+  if (/revoke|remove|delete|disconnect|failed/.test(action))                        return "bg-red-50 border-red-200 text-red-700";
+  if (/create|invite|upload|add|checkout|connect$|enabled|^auth\.login$/.test(action)) return "bg-green-50 border-green-200 text-green-700";
+  if (/update|rename|change|role|disabled|verify|\.set$|export|login/.test(action)) return "bg-blue-50 border-blue-200 text-blue-700";
   return "bg-gray-100 border-gray-200 text-gray-600";
 }
 
@@ -2692,16 +2749,21 @@ function AuditLogSection({ getAuthHeaders, isAdmin }: { getAuthHeaders: () => He
   const [actionFilter, setActionFilter] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
 
   const LIMIT = 25;
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
-  function loadEntries(p: number, action: string, s: string) {
+  function loadEntries(p: number, action: string, s: string, from?: string, to?: string) {
     setIsLoading(true);
     setLoadError(null);
     const params = new URLSearchParams({ page: String(p), limit: String(LIMIT) });
     if (action) params.set("action", action);
     if (s.trim()) params.set("search", s.trim());
+    if (from) params.set("after", from);
+    if (to) params.set("before", to + "T23:59:59.999Z");
     fetch(`${SETTINGS_BASE}/audit-log?${params.toString()}`, { headers: authHeaders() })
       .then(async (r) => {
         const data = await r.json() as { entries?: AuditLogEntry[]; total?: number; error?: string };
@@ -2715,8 +2777,8 @@ function AuditLogSection({ getAuthHeaders, isAdmin }: { getAuthHeaders: () => He
 
   useEffect(() => {
     if (!isAdmin) return;
-    loadEntries(page, actionFilter, search);
-  }, [page, actionFilter, search, isAdmin]);
+    loadEntries(page, actionFilter, search, dateFrom || undefined, dateTo || undefined);
+  }, [page, actionFilter, search, dateFrom, dateTo, isAdmin]);
 
   function handleSearchChange(v: string) {
     setSearchInput(v);
@@ -2725,6 +2787,30 @@ function AuditLogSection({ getAuthHeaders, isAdmin }: { getAuthHeaders: () => He
       setSearch(v);
       setPage(1);
     }, 350);
+  }
+
+  async function handleExport() {
+    setIsExporting(true);
+    try {
+      const params = new URLSearchParams();
+      if (actionFilter) params.set("action", actionFilter);
+      if (search.trim()) params.set("search", search.trim());
+      if (dateFrom) params.set("after", dateFrom);
+      if (dateTo) params.set("before", dateTo + "T23:59:59.999Z");
+      const r = await fetch(`${SETTINGS_BASE}/audit-log/export?${params.toString()}`, { headers: authHeaders() });
+      if (!r.ok) return;
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsExporting(false);
+    }
   }
 
   function handleActionFilterChange(v: string) {
@@ -2741,30 +2827,72 @@ function AuditLogSection({ getAuthHeaders, isAdmin }: { getAuthHeaders: () => He
           <h2 className="text-base font-semibold text-gray-900">Audit log</h2>
           <p className="text-xs text-gray-500 mt-0.5">A record of actions taken by admins and team members in your organization.</p>
         </div>
+        <button
+          onClick={handleExport}
+          disabled={isExporting}
+          className="shrink-0 flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+        >
+          {isExporting ? (
+            <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+          )}
+          Export CSV
+        </button>
       </div>
 
       {/* Filters */}
-      <div className="px-6 py-3 border-b border-gray-100 flex flex-col sm:flex-row gap-2">
-        <input
-          type="text"
-          value={searchInput}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          placeholder="Search by user or resource…"
-          className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300"
-        />
-        <div className="relative">
-          <select
-            value={actionFilter}
-            onChange={(e) => handleActionFilterChange(e.target.value)}
-            className="appearance-none rounded-lg border border-gray-200 bg-gray-50 pl-3 pr-8 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300 cursor-pointer"
-          >
-            {ACTION_FILTER_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-          <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
+      <div className="px-6 py-3 border-b border-gray-100 flex flex-col gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Search by user or resource…"
+            className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300"
+          />
+          <div className="relative">
+            <select
+              value={actionFilter}
+              onChange={(e) => handleActionFilterChange(e.target.value)}
+              className="appearance-none rounded-lg border border-gray-200 bg-gray-50 pl-3 pr-8 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300 cursor-pointer"
+            >
+              {ACTION_FILTER_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-xs text-gray-400 shrink-0">Date range</span>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+            className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          />
+          <span className="text-xs text-gray-300">–</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+            className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          />
+          {(dateFrom || dateTo) && (
+            <button
+              onClick={() => { setDateFrom(""); setDateTo(""); setPage(1); }}
+              className="text-xs text-gray-400 hover:text-gray-600 underline"
+            >
+              Clear
+            </button>
+          )}
         </div>
       </div>
 

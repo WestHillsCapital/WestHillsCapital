@@ -3328,6 +3328,8 @@ router.get("/audit-log", requireAdminRole, async (req, res) => {
     const offset = (page - 1) * limit;
     const actionFilter = typeof req.query.action === "string" && req.query.action ? req.query.action : null;
     const search = typeof req.query.search === "string" && req.query.search ? req.query.search.toLowerCase() : null;
+    const after  = typeof req.query.after  === "string" && req.query.after  ? req.query.after  : null;
+    const before = typeof req.query.before === "string" && req.query.before ? req.query.before : null;
 
     const whereParts: string[] = ["account_id = $1"];
     const params: unknown[] = [accountId];
@@ -3342,6 +3344,8 @@ router.get("/audit-log", requireAdminRole, async (req, res) => {
       params.push(`%${search}%`);
       pIdx++;
     }
+    if (after)  { whereParts.push(`created_at >= $${pIdx++}`); params.push(after);  }
+    if (before) { whereParts.push(`created_at <= $${pIdx++}`); params.push(before); }
 
     const whereClause = whereParts.join(" AND ");
     const [{ rows: rawEntries }, { rows: countRows }] = await Promise.all([
@@ -3370,6 +3374,61 @@ router.get("/audit-log", requireAdminRole, async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[AuditLog] Failed to fetch org audit log");
     res.status(500).json({ error: "Failed to fetch audit log." });
+  }
+});
+
+router.get("/audit-log/export", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const actionFilter = typeof req.query.action === "string" && req.query.action ? req.query.action : null;
+    const search = typeof req.query.search === "string" && req.query.search ? req.query.search.toLowerCase() : null;
+    const after  = typeof req.query.after  === "string" && req.query.after  ? req.query.after  : null;
+    const before = typeof req.query.before === "string" && req.query.before ? req.query.before : null;
+
+    const whereParts: string[] = ["account_id = $1"];
+    const params: unknown[] = [accountId];
+    let pIdx = 2;
+
+    if (actionFilter) { whereParts.push(`action = $${pIdx++}`); params.push(actionFilter); }
+    if (search) {
+      whereParts.push(`(LOWER(COALESCE(actor_email,'')) LIKE $${pIdx} OR LOWER(COALESCE(resource_label,'')) LIKE $${pIdx})`);
+      params.push(`%${search}%`);
+      pIdx++;
+    }
+    if (after)  { whereParts.push(`created_at >= $${pIdx++}`); params.push(after);  }
+    if (before) { whereParts.push(`created_at <= $${pIdx++}`); params.push(before); }
+
+    const { rows } = await getDb().query(
+      `SELECT id, actor_email, actor_user_id, action, resource_type, resource_id, resource_label, metadata, ip_address, created_at
+         FROM org_audit_log
+        WHERE ${whereParts.join(" AND ")}
+        ORDER BY created_at DESC
+        LIMIT 10000`,
+      params,
+    );
+
+    const header = ["timestamp", "actor_email", "action", "resource_type", "resource_label", "resource_id", "ip_address", "metadata"].join(",");
+    const csvRows = (rows as Array<Record<string, unknown>>).map(r =>
+      [
+        r.created_at,
+        r.actor_email ?? "",
+        r.action,
+        r.resource_type ?? "",
+        r.resource_label ?? "",
+        r.resource_id ?? "",
+        r.ip_address ?? "",
+        JSON.stringify(r.metadata ?? {}),
+      ].map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","),
+    );
+    const csv = [header, ...csvRows].join("\n");
+
+    const filename = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`;
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return void res.send(csv);
+  } catch (err) {
+    logger.error({ err }, "[AuditLog] Failed to export audit log");
+    res.status(500).json({ error: "Failed to export audit log." });
   }
 });
 

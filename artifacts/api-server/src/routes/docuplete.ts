@@ -4,6 +4,7 @@ import type { Pool, PoolClient } from "pg";
 import { PDFDocument as PdfLibDocument, StandardFonts, rgb, degrees, type PDFFont, type PDFPage } from "pdf-lib";
 import PDFDocument from "pdfkit";
 import { getDb, seedDefaultTransactionTypes } from "../db";
+import { insertAuditLog } from "../lib/auditLog";
 import { logger } from "../lib/logger";
 import {
   buildDocupleteFallbackSummaryRows,
@@ -2727,6 +2728,14 @@ router.post("/field-library", requireAdminRole, async (req, res) => {
       res.status(409).json({ error: "A field with that id already exists", fieldId: id });
       return;
     }
+    void insertAuditLog({
+      accountId,
+      action: "field.create",
+      resourceType: "field",
+      resourceId: String((rows[0] as Record<string, unknown>)?.id ?? id),
+      resourceLabel: label,
+      metadata: { fieldType: normalizeFieldType(body.type) },
+    });
     res.status(201).json({ field: rows[0] });
   } catch (err) {
     if (isUniqueViolation(err)) {
@@ -2861,6 +2870,14 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
         [id, accountId, callerEmail(req), JSON.stringify(rows[0])],
       );
       await client.query("COMMIT");
+      void insertAuditLog({
+        accountId,
+        action: "field.update",
+        resourceType: "field",
+        resourceId: id,
+        resourceLabel: label,
+        metadata: { fieldType: normalizeFieldType(body.type) },
+      });
       res.json({ field: rows[0] });
     } catch (err) {
       await client.query("ROLLBACK").catch(() => {});
@@ -3138,6 +3155,14 @@ router.delete("/field-library/:id", requireAdminRole, async (req, res) => {
         : `DELETE FROM docuplete_fields WHERE id = $1 AND account_id = $2`,
       isGlobalField ? [id] : [id, accountId],
     );
+    void insertAuditLog({
+      accountId,
+      action: "field.delete",
+      resourceType: "field",
+      resourceId: id,
+      resourceLabel: id,
+      metadata: {},
+    });
     res.json({ deletedFieldId: id });
   } catch (err) {
     logger.error({ err }, "[Docuplete] Failed to delete field library item");

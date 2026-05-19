@@ -524,6 +524,7 @@ router.post("/verify-2fa", async (req, res) => {
  */
 router.post("/api-keys", requireProductAuth, requireAdminRole, requirePlanFeature("apiAccess"), async (req, res) => {
   const accountId = req.internalAccountId!;
+  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? req.socket?.remoteAddress ?? null;
   const _parse = ApiKeyBodySchema.safeParse(req.body);
   if (!_parse.success) { return void res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); }
   const name = (_parse.data.name ?? "").trim();
@@ -570,6 +571,7 @@ router.post("/api-keys", requireProductAuth, requireAdminRole, requirePlanFeatur
       resourceType: "api_key",
       resourceId: String(row.id),
       resourceLabel: name,
+      ip,
     }, { critical: true });
 
     // Notify org members who want api_key_created notifications
@@ -767,6 +769,7 @@ router.get("/api-keys", requireProductAuth, requireAdminRole, async (req, res) =
  */
 router.patch("/api-keys/:id", requireProductAuth, requireAdminRole, async (req, res) => {
   const accountId = req.internalAccountId!;
+  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? req.socket?.remoteAddress ?? null;
   const keyId = parseInt(String(req.params.id ?? ""), 10);
 
   if (isNaN(keyId)) {
@@ -808,6 +811,7 @@ router.patch("/api-keys/:id", requireProductAuth, requireAdminRole, async (req, 
       resourceType: "api_key",
       resourceId: String(keyId),
       resourceLabel: name,
+      ip,
     });
     return void res.json({ success: true, id: keyId, name: result.rows[0].name });
   } catch (err) {
@@ -874,6 +878,7 @@ router.patch("/api-keys/:id", requireProductAuth, requireAdminRole, async (req, 
  */
 router.delete("/api-keys/:id", requireProductAuth, requireAdminRole, async (req, res) => {
   const accountId = req.internalAccountId!;
+  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? req.socket?.remoteAddress ?? null;
   const keyId = parseInt(String(req.params.id ?? ""), 10);
 
   if (isNaN(keyId)) {
@@ -907,6 +912,7 @@ router.delete("/api-keys/:id", requireProductAuth, requireAdminRole, async (req,
       resourceType: "api_key",
       resourceId: String(keyId),
       resourceLabel: revokedKeyName,
+      ip,
     }, { critical: true });
 
     // Notify org members who want api_key_revoked notifications
