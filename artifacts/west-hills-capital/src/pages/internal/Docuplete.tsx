@@ -2990,14 +2990,17 @@ export default function Docuplete() {
     const field = selectedPackage?.fields.find((f) => f.id === fieldId);
     if (!field) return;
     if (isSystemEsignFieldId(fieldId)) return; // system e-sign fields are read-only
-    // For library-linked fields with optionsMode:"inherit", the package-level options
-    // array is empty — the real options live in the library field. Load them so the
-    // editor shows what the field actually uses.
+    // For library-linked fields, the real options may live in the library record.
+    // Use library options when: (a) optionsMode is "inherit", or (b) the package
+    // field's own options are empty (can happen if the user saved the editor before
+    // options were shown). This prevents the editor from displaying "No options yet"
+    // for fields that genuinely have options defined in the library.
     const libField = field.libraryFieldId ? fieldLibrary.find((f) => f.id === field.libraryFieldId) : undefined;
+    const packageOpts = field.options ?? [];
     const effectiveOptions =
-      field.optionsMode === "inherit" && libField?.options?.length
+      libField?.options?.length && (field.optionsMode === "inherit" || packageOpts.length === 0)
         ? libField.options
-        : (field.options ?? []);
+        : packageOpts;
     setFieldEditorDraft({
       name: field.name, color: field.color, type: field.type,
       options: effectiveOptions,
