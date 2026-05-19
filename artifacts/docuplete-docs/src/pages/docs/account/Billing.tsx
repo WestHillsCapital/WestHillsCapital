@@ -84,8 +84,8 @@ export default function Billing() {
 
       <h2>Adding or removing seats</h2>
       <p>Seats can be adjusted at any time from <strong>Settings → Billing → Manage Seats</strong>. Adding seats is immediate — billing is prorated to the end of the current billing cycle. Removing seats takes effect at the start of the next billing cycle.</p>
+      <p>Additional seats are <strong>$15 / seat / month</strong> on Starter, Pro, and Enterprise. Developer plan seats are org-wide — all members of your organization have a seat at no additional per-seat cost.</p>
       <p>You cannot reduce seats below the number of active users in your organization. Deactivate users first if you need to reduce seat count.</p>
-      <p>Developer plan seats are org-wide — all members of your organization can have a seat at no additional per-seat cost.</p>
 
       <h2>Upgrading your plan</h2>
       <ol>

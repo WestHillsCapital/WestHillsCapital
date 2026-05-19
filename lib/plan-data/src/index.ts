@@ -38,7 +38,7 @@ export const PLAN_DATA: Record<PlanKey, PlanData> = {
     maxSeats:               2,
     seatsLabel:             "2 seats",
     overage:                "Overage: $0.50 / additional session",
-    eSign:                  false,
+    eSign:                  true,
     clientLinks:            false,
     csvBatch:               false,
     apiAccess:              false,

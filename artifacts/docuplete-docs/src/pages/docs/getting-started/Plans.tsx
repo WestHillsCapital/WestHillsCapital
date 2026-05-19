@@ -23,8 +23,9 @@ export default function Plans() {
               <td colSpan={5} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Seats & Sessions</td>
             </tr>
             <tr><td>Seats included</td><td>2</td><td>10</td><td>Org-wide (unlimited)</td><td>25</td></tr>
+            <tr><td>Additional seats</td><td>$15 / seat / mo</td><td>$15 / seat / mo</td><td>Org-wide — no extra cost</td><td>$15 / seat / mo</td></tr>
             <tr><td>Sessions / generations included</td><td>150 sessions/mo</td><td>400 sessions/mo</td><td>500 generations/mo</td><td>Unlimited</td></tr>
-            <tr><td>Overage</td><td>$0.50 / additional session</td><td>$0.50 / additional session</td><td>$75 / 100 generations</td><td>$15 / extra seat</td></tr>
+            <tr><td>Session / generation overage</td><td>$0.50 / additional session</td><td>$0.50 / additional session</td><td>$75 / 100 generations</td><td>Unlimited — no overage</td></tr>
 
             <tr>
               <td colSpan={5} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Packages & Templates</td>
@@ -117,7 +118,7 @@ export default function Plans() {
 
       <h2>Seats</h2>
       <p>A seat is a user account within your organization. Admins, members, and read-only users each consume a seat.</p>
-      <p>On <strong>Starter</strong> and <strong>Pro</strong>, seats beyond the included count cannot be purchased separately — upgrade to a higher plan for more. On <strong>Developer</strong>, seats are org-wide, meaning every member of your organization can have a seat at no additional per-seat cost. On <strong>Enterprise</strong>, the base plan includes 25 seats and extra seats are $15/seat/month.</p>
+      <p>On <strong>Starter</strong>, <strong>Pro</strong>, and <strong>Enterprise</strong>, additional seats beyond the included count are <strong>$15 / seat / month</strong>, billed prorated to your current billing cycle. Adding a seat takes effect immediately; removing a seat takes effect at the start of the next billing cycle. On <strong>Developer</strong>, seats are org-wide — every member of your organization can have a seat at no additional per-seat cost.</p>
 
       <h2>Free trial</h2>
       <p>Every new account starts with a 14-day free trial — no credit card required. During the trial, you have access to all Pro-tier features. After the trial, choose a plan to continue.</p>
