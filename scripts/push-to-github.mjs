@@ -37,6 +37,7 @@ const DEFAULT_FILES = [
   "artifacts/docuplete/index.html",
   "artifacts/api-server/src/lib/plans.ts",
   "artifacts/api-server/src/lib/stripeBillingSync.ts",
+  "artifacts/west-hills-capital/src/pages/app/AppSettings.tsx",
 ];
 
 const h = {

@@ -5522,64 +5522,103 @@ function ProfileSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
               <p className="text-xs text-gray-400 mt-0.5">Used to sign in</p>
             </div>
             <div className="flex-1 flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <input
-                  id="profile-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => { setEmail(e.target.value); setEmailError(null); setEmailSaved(false); setEmailVerificationSent(false); setEmailDeliveryFailed(false); }}
-                  onKeyDown={(e) => { if (e.key === "Enter") void handleEmailSave(); }}
-                  placeholder="you@company.com"
-                  className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
-                />
-                <button
-                  type="button"
-                  disabled={isSavingEmail || email.trim().toLowerCase() === profile.email.toLowerCase()}
-                  onClick={() => { void handleEmailSave(); }}
-                  className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors"
-                >
-                  {isSavingEmail ? "Saving…" : "Save"}
-                </button>
-              </div>
+              {(() => {
+                const isPending = !!profile.pending_email;
+                const isChanged = email.trim().toLowerCase() !== profile.email.toLowerCase();
+                const isBtnDisabled = isSavingEmail || !isChanged || isPending;
+                return (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="profile-email"
+                        type="email"
+                        value={email}
+                        readOnly={isPending}
+                        onChange={(e) => { setEmail(e.target.value); setEmailError(null); setEmailSaved(false); setEmailVerificationSent(false); setEmailDeliveryFailed(false); }}
+                        onKeyDown={(e) => { if (e.key === "Enter" && !isPending) void handleEmailSave(); }}
+                        placeholder="you@company.com"
+                        className={[
+                          "flex-1 rounded-lg border px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none transition-colors",
+                          isPending
+                            ? "bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed"
+                            : "bg-gray-50 text-gray-900 border-gray-200 focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900",
+                        ].join(" ")}
+                      />
+                      <button
+                        type="button"
+                        disabled={isBtnDisabled}
+                        onClick={() => { void handleEmailSave(); }}
+                        className={[
+                          "shrink-0 rounded-lg border px-3 py-2 text-sm font-medium transition-all duration-150",
+                          isBtnDisabled
+                            ? "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
+                            : "bg-[#0E1D4A] text-white border-[#0E1D4A] hover:bg-[#1a2d5a] shadow-sm cursor-pointer",
+                        ].join(" ")}
+                      >
+                        {isSavingEmail ? "Saving…" : "Save"}
+                      </button>
+                    </div>
 
-              {emailError && <span className="text-[11px] text-red-600">{emailError}</span>}
-              {emailSaved && <span className="text-[11px] text-green-600 font-medium">✓ Email updated</span>}
+                    {emailError && <span className="text-[11px] text-red-600">{emailError}</span>}
+                    {emailSaved && <span className="text-[11px] text-green-600 font-medium">✓ Email updated</span>}
 
-              {/* Pending email verification notice */}
-              {profile.pending_email && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 flex items-start gap-2">
-                  <svg className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                  </svg>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-amber-800 font-medium">Verification pending</p>
-                    {emailDeliveryFailed ? (
-                      <p className="text-[11px] text-amber-700 mt-0.5">
-                        Change staged for <strong>{profile.pending_email}</strong>, but the verification email could not be delivered.
-                        Please try again or contact your team admin.
-                      </p>
-                    ) : (
-                      <p className="text-[11px] text-amber-700 mt-0.5">
-                        Click the link in the verification email sent to <strong>{profile.pending_email}</strong> to confirm the change.
-                      </p>
+                    {/* Persistent pending notice — shown on page load when a change was already staged */}
+                    {isPending && !emailVerificationSent && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 flex items-start gap-2">
+                        <svg className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-amber-800 font-medium">Verification pending</p>
+                          {emailDeliveryFailed ? (
+                            <p className="text-[11px] text-amber-700 mt-0.5">
+                              Change staged for <strong>{profile.pending_email}</strong>, but the verification email could not be delivered.
+                              Please try again or contact your team admin.
+                            </p>
+                          ) : (
+                            <p className="text-[11px] text-amber-700 mt-0.5">
+                              Click the link sent to <strong>{profile.pending_email}</strong> to confirm the change.
+                              Your login remains <strong>{profile.email}</strong> until then.
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { void handleCancelPendingEmail(); }}
+                          className="text-amber-500 hover:text-amber-700 shrink-0 text-xs leading-none"
+                          title="Cancel pending change"
+                        >
+                          ✕
+                        </button>
+                      </div>
                     )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => { void handleCancelPendingEmail(); }}
-                    className="text-amber-500 hover:text-amber-700 shrink-0 text-xs leading-none"
-                    title="Cancel pending change"
-                  >
-                    ✕
-                  </button>
-                </div>
-              )}
 
-              {emailVerificationSent && (
-                <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-[11px] text-green-700">
-                  ✓ Verification email sent. Check your inbox to confirm the change.
-                </div>
-              )}
+                    {/* Just-submitted: richer notice naming both addresses */}
+                    {emailVerificationSent && isPending && (
+                      <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 flex items-start gap-2">
+                        <svg className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-blue-900 font-medium">Verification email sent</p>
+                          <p className="text-[11px] text-blue-700 mt-0.5">
+                            We sent a confirmation link to <strong>{profile.pending_email}</strong>. Click it to finalize the change.
+                            Your login remains <strong>{profile.email}</strong> until verified.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { void handleCancelPendingEmail(); }}
+                          className="text-blue-400 hover:text-blue-600 shrink-0 text-xs leading-none"
+                          title="Cancel pending change"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </div>
         </>
