@@ -370,25 +370,21 @@ const NAV_SIGNUP = "https://app.docuplete.com/signup";
 function Logo({ light = false }: { light?: boolean }) {
   return (
     <div className="flex items-center gap-3">
-      {/* Icon mark */}
-      <div className="relative w-8 h-8 flex items-center justify-center shrink-0">
-        {/* Document shape */}
-        <svg className="w-full h-full" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path
-            d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-4h4v-4h4V5c0-1.1-.9-2-2-2z"
-            fill={light ? "white" : "#0E1D4A"}
-          />
+      {/* Icon — corner fold with gold check */}
+      <div className="w-9 h-9 shrink-0">
+        <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+          <path d="M6 4h18l6 6v22H6V4z" fill={light ? "rgba(255,255,255,0.15)" : "#0E1D4A"} />
+          <path d="M24 4l6 6h-6V4z" fill="#C49A38" />
+          <rect x="10" y="14" width="10" height="1.5" rx="0.75" fill={light ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.5)"} />
+          <rect x="10" y="18" width="14" height="1.5" rx="0.75" fill={light ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.5)"} />
+          <rect x="10" y="22" width="8" height="1.5" rx="0.75" fill={light ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.5)"} />
+          <circle cx="26" cy="28" r="5" fill="#C49A38" />
+          <path d="M23.5 28l2 2 3.5-3.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        {/* Gold badge with checkmark */}
-        <div className="absolute bottom-0 right-0 w-4 h-4 bg-[#C49A38] rounded-sm flex items-center justify-center shadow-sm">
-          <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={4}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
       </div>
       {/* Wordmark */}
       <span className={`text-xl font-bold tracking-tight ${light ? "text-white" : "text-[#0E1D4A]"}`}>
-        Docuplete<span className="text-[#C49A38] font-black">.</span>
+        Docuplete
       </span>
     </div>
   );
