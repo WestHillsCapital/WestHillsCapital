@@ -3635,12 +3635,16 @@ function EmailCustomizationSection({ getAuthHeaders, isAdmin }: { getAuthHeaders
   const [replyTo, setReplyTo] = useState("");
   const [footer, setFooter] = useState("");
   const [senderEmail, setSenderEmail] = useState("noreply@westhillscapital.com");
+  const [baseSenderName, setBaseSenderName] = useState("");
+  const [baseReplyTo, setBaseReplyTo] = useState("");
+  const [baseFooter, setBaseFooter] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDirty = senderName !== baseSenderName || replyTo !== baseReplyTo || footer !== baseFooter;
 
   useEffect(() => {
     setIsLoading(true);
@@ -3649,9 +3653,12 @@ function EmailCustomizationSection({ getAuthHeaders, isAdmin }: { getAuthHeaders
         const data = await r.json() as { email?: EmailSettings; error?: string };
         if (!r.ok) { setLoadError(data.error ?? "Failed to load email settings"); return; }
         if (data.email) {
-          setSenderName(data.email.senderName ?? "");
-          setReplyTo(data.email.replyTo ?? "");
-          setFooter(data.email.footer ?? "");
+          const sn = data.email.senderName ?? "";
+          const rt = data.email.replyTo ?? "";
+          const ft = data.email.footer ?? "";
+          setSenderName(sn); setBaseSenderName(sn);
+          setReplyTo(rt);    setBaseReplyTo(rt);
+          setFooter(ft);     setBaseFooter(ft);
           if (data.email.senderEmail) setSenderEmail(data.email.senderEmail);
         }
       })
@@ -3678,9 +3685,12 @@ function EmailCustomizationSection({ getAuthHeaders, isAdmin }: { getAuthHeaders
       const data = await res.json() as { email?: EmailSettings; error?: string };
       if (!res.ok) { setSaveError(data.error ?? "Failed to save email settings"); return; }
       if (data.email) {
-        setSenderName(data.email.senderName ?? "");
-        setReplyTo(data.email.replyTo ?? "");
-        setFooter(data.email.footer ?? "");
+        const sn = data.email.senderName ?? "";
+        const rt = data.email.replyTo ?? "";
+        const ft = data.email.footer ?? "";
+        setSenderName(sn); setBaseSenderName(sn);
+        setReplyTo(rt);    setBaseReplyTo(rt);
+        setFooter(ft);     setBaseFooter(ft);
       }
       setSaved(true);
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
@@ -3725,7 +3735,7 @@ function EmailCustomizationSection({ getAuthHeaders, isAdmin }: { getAuthHeaders
                 maxLength={100}
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-900/20"
               />
-              <p className="text-right text-[10px] text-gray-400 mt-1">{senderName.length}/100</p>
+              <p className={`text-right text-[10px] mt-1 transition-colors ${senderName.length >= 100 ? "text-red-500 font-medium" : "text-gray-400"}`}>{senderName.length}/100</p>
             </div>
 
             {/* Reply-to address */}
@@ -3746,14 +3756,14 @@ function EmailCustomizationSection({ getAuthHeaders, isAdmin }: { getAuthHeaders
               <label className="block text-sm font-medium text-gray-900 mb-1">Email footer</label>
               <p className="text-xs text-gray-500 mb-2">Plain-text message appended to all outbound emails. Max 500 characters.</p>
               <textarea
-                rows={3}
+                rows={4}
                 value={footer}
                 onChange={(e) => setFooter(e.target.value.slice(0, 500))}
                 placeholder="e.g. Questions? Reach us at support@acmelegal.com · 123 Main St, City, State"
                 maxLength={500}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-900/20 resize-none"
+                className="w-full min-h-[100px] rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-900/20 resize-none"
               />
-              <p className="text-right text-[10px] text-gray-400 mt-1">{footer.length}/500</p>
+              <p className={`text-right text-[10px] mt-1 transition-colors ${footer.length >= 500 ? "text-red-500 font-medium" : "text-gray-400"}`}>{footer.length}/500</p>
             </div>
 
             {/* Custom sender domain note */}
@@ -3776,18 +3786,18 @@ function EmailCustomizationSection({ getAuthHeaders, isAdmin }: { getAuthHeaders
             <div className="rounded-lg border border-gray-200 overflow-hidden text-xs font-mono">
               <div className="bg-gray-50 px-4 py-3 space-y-1.5 border-b border-gray-200 font-sans">
                 <div className="flex gap-2">
-                  <span className="text-gray-400 w-16 shrink-0 text-right">From</span>
-                  <span className="text-gray-900">{previewFrom} &lt;{senderEmail}&gt;</span>
+                  <span className="text-[#0E1D4A] font-semibold w-16 shrink-0 text-right">From</span>
+                  <span className="text-gray-600">{previewFrom} &lt;{senderEmail}&gt;</span>
                 </div>
                 {previewReplyTo && (
                   <div className="flex gap-2">
-                    <span className="text-gray-400 w-16 shrink-0 text-right">Reply-To</span>
-                    <span className="text-gray-700">{previewReplyTo}</span>
+                    <span className="text-[#0E1D4A] font-semibold w-16 shrink-0 text-right">Reply-To</span>
+                    <span className="text-gray-600">{previewReplyTo}</span>
                   </div>
                 )}
                 <div className="flex gap-2">
-                  <span className="text-gray-400 w-16 shrink-0 text-right">Subject</span>
-                  <span className="text-gray-600 italic">Your document interview is ready</span>
+                  <span className="text-[#0E1D4A] font-semibold w-16 shrink-0 text-right">Subject</span>
+                  <span className="text-gray-500 italic">Your document interview is ready</span>
                 </div>
               </div>
               <div className="bg-white px-4 py-4 space-y-2">
@@ -3817,9 +3827,9 @@ function EmailCustomizationSection({ getAuthHeaders, isAdmin }: { getAuthHeaders
               </div>
               <button
                 type="button"
-                disabled={isSaving}
+                disabled={isSaving || !isDirty}
                 onClick={() => { void handleSave(); }}
-                className="rounded-lg px-4 py-1.5 text-sm font-medium text-white transition-colors brand-btn-hover"
+                className="rounded-lg px-4 py-1.5 text-sm font-medium text-white transition-all brand-btn-hover disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ backgroundColor: bc }}
               >
                 {isSaving ? "Saving…" : "Save"}
