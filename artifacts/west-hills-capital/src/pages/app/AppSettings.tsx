@@ -6300,8 +6300,9 @@ function SourceKeyMappingSection({
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {pkgFields.map((f) => {
-                      const isEditing = editing?.fieldId === f.fieldId;
-                      const isSaved   = savedId === f.fieldId;
+                      const isEditing   = editing?.fieldId === f.fieldId;
+                      const isSaved     = savedId === f.fieldId;
+                      const isSystemKey = (f as unknown as { sourceKey: string }).sourceKey === "esign-system";
                       return (
                         <tr
                           key={f.fieldId}
@@ -6309,16 +6310,28 @@ function SourceKeyMappingSection({
                         >
                           <td className="px-4 py-2.5">
                             <div className="flex items-center gap-1.5">
-                              {f.sensitive && (
-                                <svg className="w-3 h-3 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                </svg>
-                              )}
+                              <span className="w-4 shrink-0 flex items-center justify-center">
+                                {f.sensitive && (
+                                  <svg className="w-3 h-3 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                  </svg>
+                                )}
+                              </span>
                               <span className="text-gray-800 font-medium">{f.fieldLabel}</span>
                             </div>
                           </td>
                           <td className="px-4 py-2.5">
-                            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 font-medium">{f.fieldType}</span>
+                            <span className={`font-mono rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                              (f.fieldType?.toLowerCase() === "signature" || f.fieldType?.toLowerCase() === "initials")
+                                ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                : f.fieldType?.toLowerCase() === "date"
+                                  ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                  : (f.fieldType?.toLowerCase() === "number" || f.fieldType?.toLowerCase() === "integer")
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : f.fieldType?.toLowerCase() === "boolean"
+                                      ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                      : "bg-gray-100 text-gray-600 border border-gray-200"
+                            }`}>{f.fieldType}</span>
                           </td>
                           <td className="px-4 py-2.5">
                             {isEditing ? (
@@ -6341,13 +6354,20 @@ function SourceKeyMappingSection({
                                 )}
                               </div>
                             ) : (
-                              <code
-                                className={`font-mono text-[11px] px-1.5 py-0.5 rounded ${
-                                  isSaved ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-                                }`}
-                              >
-                                {isSaved ? "✓ saved" : f.sourceKey}
-                              </code>
+                              <div className="flex items-center gap-1.5">
+                                <code
+                                  className={`font-mono text-[11px] px-1.5 py-0.5 rounded ${
+                                    isSaved ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+                                  }`}
+                                >
+                                  {isSaved ? "✓ saved" : f.sourceKey}
+                                </code>
+                                {isSystemKey && (
+                                  <svg className="w-3 h-3 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                                  </svg>
+                                )}
+                              </div>
                             )}
                           </td>
                           <td className="px-4 py-2.5">
@@ -6375,7 +6395,8 @@ function SourceKeyMappingSection({
                               ) : (
                                 <button
                                   onClick={() => setEditing({ fieldId: f.fieldId, value: f.sourceKey })}
-                                  className="rounded px-2 py-1 text-[10px] font-medium text-gray-500 border border-gray-200 hover:bg-gray-50 transition-colors"
+                                  disabled={isSystemKey}
+                                  className="w-16 rounded px-2 py-1 text-[10px] font-medium text-gray-500 border border-gray-200 hover:border-[#0E1D4A] hover:text-[#0E1D4A] transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:text-gray-500"
                                 >
                                   Edit
                                 </button>
