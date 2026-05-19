@@ -11,6 +11,60 @@ export default function Changelog() {
 
         <div>
           <div className="flex items-center gap-3 mb-3">
+            <span className="text-xs font-mono text-white/40">May 2026</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-500/15 text-green-400">Fix</span>
+          </div>
+          <h2 className="mt-0">OTP attempt limit corrected to 5</h2>
+          <p>The e-sign identity verification flow allows up to <strong>5 OTP attempts</strong> before the code expires and a new one must be requested. Previous documentation incorrectly stated 3. The 5-attempt limit has been the live behavior since OTP verification launched; the docs now reflect this accurately.</p>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-xs font-mono text-white/40">May 2026</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#5B8DEF]/15 text-[#5B8DEF]">Improvement</span>
+          </div>
+          <h2 className="mt-0">Answer input sanitization — null bytes and password-mask glyphs</h2>
+          <p>Docuplete now strips two classes of problematic characters from interview answer values before saving: <strong>null bytes</strong> (U+0000) and <strong>password-mask glyphs</strong> (U+25CF ●). Null bytes can corrupt PDF generation in some PDF libraries; the password-mask glyph (●●●●) is occasionally pasted into text fields by autofill managers. Both are silently removed so the rest of the answer text is preserved without error.</p>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-xs font-mono text-white/40">May 2026</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#5B8DEF]/15 text-[#5B8DEF]">Improvement</span>
+          </div>
+          <h2 className="mt-0">is_answered and is_not_answered condition operators</h2>
+          <p>Two additional condition operators are now documented for field show/hide logic: <code>is_answered</code> (show this field when the trigger has any non-empty value) and <code>is_not_answered</code> (show this field only while the trigger is still blank). These complement the existing <code>equals</code> and <code>not_equals</code> operators. All four are enforced both in the interview UI and at PDF generation time.</p>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-xs font-mono text-white/40">May 2026</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#5B8DEF]/15 text-[#5B8DEF]">Improvement</span>
+          </div>
+          <h2 className="mt-0">Signer Date auto-injection at generation time</h2>
+          <p>The <strong>Signer Date</strong> system field is now auto-injected by the server at the moment the packet PDF is generated if the session does not already carry an explicit signing date. This means packages with a Signer Date placement never produce a blank date field — even for sessions completed through the API without an explicit <code>signedAt</code> value.</p>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-xs font-mono text-white/40">May 2026</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#5B8DEF]/15 text-[#5B8DEF]">Improvement</span>
+          </div>
+          <h2 className="mt-0">Signature text fallback for non-e-sign sessions</h2>
+          <p>When a package has a Signature placement but the session was not completed with a captured signature image, Docuplete now renders the signer's name as plain text in the signature box rather than leaving it blank. This applies to sessions where e-sign verification was not required or was bypassed via the API. The resulting PDF always has something in the signature position.</p>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-xs font-mono text-white/40">May 2026</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#5B8DEF]/15 text-[#5B8DEF]">Improvement</span>
+          </div>
+          <h2 className="mt-0">Cross-tenant isolation — 404 instead of 403 for foreign resources</h2>
+          <p>API requests that target a resource belonging to a different organization (a session token, signer record, or package owned by another account) now consistently return <code>404 Not Found</code> rather than <code>403 Forbidden</code>. This removes resource-existence disclosure: a caller with a valid API key cannot probe whether a given token or ID exists in another tenant's data by observing whether they receive a 403 or 404. The behavior is documented in the <a href="/enterprise/security">Security &amp; Compliance</a> page under Tenant Isolation.</p>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-3 mb-3">
             <span className="text-xs font-mono text-white/40">May 2025</span>
             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-500/15 text-purple-400">New</span>
           </div>

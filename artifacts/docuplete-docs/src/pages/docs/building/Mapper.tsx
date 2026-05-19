@@ -66,7 +66,7 @@ export default function Mapper() {
           </tr>
           <tr>
             <td><strong>Signer Date</strong></td>
-            <td>A read-only date auto-populated with the date of signing — cannot be edited by the signer</td>
+            <td>A read-only date auto-populated with the date the packet is generated. If the signer does not supply a date, the server injects today's date automatically — cannot be edited by the signer</td>
           </tr>
         </tbody>
       </table>
@@ -79,6 +79,10 @@ export default function Mapper() {
 
       <h2>Signature mappings</h2>
       <p>Signature and initials fields are mapped the same way as text fields — draw a bounding box at the signature line. The signature image is scaled to fit within the box while preserving its aspect ratio.</p>
+
+      <div className="callout callout-info">
+        <strong>Text fallback for signatures:</strong> If a session completes without a captured signature image (for example, the package does not require e-sign identity verification), Docuplete falls back to rendering the signer's name as plain text in the signature box rather than leaving it blank. This ensures every generated PDF has something in the signature position regardless of how the session was completed.
+      </div>
 
       <div className="callout callout-tip">
         <strong>Testing your mappings:</strong> After setting up mappings, create a test session from the package and fill it with dummy data. Download the generated PDF to confirm every field lands exactly where you expect.

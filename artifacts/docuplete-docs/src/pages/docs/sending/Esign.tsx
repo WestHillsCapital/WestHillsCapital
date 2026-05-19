@@ -14,7 +14,7 @@ export default function EsignSending() {
       <ol>
         <li><strong>Email collection</strong> — If the session wasn't created with a client email, the client is asked to enter their email address.</li>
         <li><strong>OTP delivery</strong> — Docuplete sends a 6-digit one-time passcode to that email address.</li>
-        <li><strong>Code entry</strong> — The client enters the code on the interview screen. They have 5 minutes and 3 attempts before the code expires. A new code can be requested after expiry.</li>
+        <li><strong>Code entry</strong> — The client enters the code on the interview screen. They have 5 minutes and up to 5 attempts before the code expires. A new code can be requested after expiry.</li>
         <li><strong>Verification confirmed</strong> — Once the correct code is entered, the signature fields unlock. The verified email and timestamp are recorded in the session's audit trail.</li>
       </ol>
 
@@ -53,7 +53,7 @@ export default function EsignSending() {
       <p>If you create the session with a client email already set, the OTP is sent to that email immediately when the client reaches the signature step — they don't need to type their email again. This is the recommended approach: supply the email when creating the session so verification is seamless.</p>
 
       <h2>Failed verification</h2>
-      <p>After 3 failed OTP attempts, the code expires and the client must request a new one. If the client cannot receive the OTP (wrong email address, spam filter), void the session and create a new one with the corrected email address.</p>
+      <p>After 5 failed OTP attempts, the code expires and the client must request a new one. If the client cannot receive the OTP (wrong email address, spam filter), void the session and create a new one with the corrected email address.</p>
 
       <h2>Legal compliance</h2>
       <p>Docuplete's e-sign implementation satisfies the requirements of:</p>

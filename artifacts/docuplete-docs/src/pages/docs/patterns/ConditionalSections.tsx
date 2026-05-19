@@ -86,6 +86,38 @@ export default function ConditionalSections() {
       <h2>Value picker — dropdown for choice fields</h2>
       <p>When the trigger field is a <strong>radio</strong>, <strong>dropdown</strong>, or <strong>checkbox</strong> type, the <strong>Value</strong> input in the condition editor becomes a dropdown of that field's defined options rather than a free-form text box. This prevents silent failures caused by value mismatches — for example, the option label is "Yes, I agree" but you typed "Yes". Selecting directly from the list ensures an exact match every time.</p>
       <p>For text and date trigger fields the input remains free-form.</p>
+
+      <h2>All condition operators</h2>
+      <p>Fields support four condition operators. You can combine a primary and a secondary condition (AND logic) in the field editor.</p>
+      <div className="overflow-x-auto">
+        <table>
+          <thead>
+            <tr><th>Operator</th><th>When the field is shown</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>equals</code></td>
+              <td>The trigger field's answer exactly matches the specified value. Case-sensitive for text fields.</td>
+            </tr>
+            <tr>
+              <td><code>not_equals</code></td>
+              <td>The trigger field's answer is anything <em>other than</em> the specified value, including when the field is unanswered.</td>
+            </tr>
+            <tr>
+              <td><code>is_answered</code></td>
+              <td>The trigger field has any non-empty answer — regardless of what it is. Useful when you only need to know "did they answer this at all?"</td>
+            </tr>
+            <tr>
+              <td><code>is_not_answered</code></td>
+              <td>The trigger field is blank or has not been filled in. Shows the dependent field only when the trigger is still empty.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div className="callout callout-info">
+        <strong>Backend enforcement:</strong> All four operators are enforced during PDF generation — not just in the interview UI. A field hidden by an unmet condition is completely skipped when writing to the PDF, even if the answer is submitted directly via the API.
+      </div>
     </div>
   );
 }

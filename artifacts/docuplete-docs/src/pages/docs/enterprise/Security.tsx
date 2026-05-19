@@ -97,6 +97,21 @@ export default function Security() {
         seconds, the IP is temporarily blocked from further attempts.
       </p>
 
+      <h3>Tenant isolation</h3>
+      <p>
+        Every API endpoint is scoped to the authenticated organization. A request using Account A's
+        API key can never read, modify, or enumerate resources belonging to Account B — packages,
+        sessions, signers, or audit logs. Cross-tenant access returns <code>404 Not Found</code>{" "}
+        rather than <code>403 Forbidden</code>. This design avoids <strong>resource disclosure</strong>:
+        a caller cannot distinguish "this resource exists but you can't access it" from "this resource
+        does not exist."
+      </p>
+      <p>
+        Tenant scoping is enforced at the database query layer on every route, not only at the
+        middleware level. Removing or forging an API key header returns <code>401</code>; a valid key
+        for the wrong tenant returns <code>404</code> with no detail about the resource.
+      </p>
+
       <h3>Role-based access control (RBAC)</h3>
       <p>
         Every user within an organization is assigned one of two roles:
