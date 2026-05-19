@@ -21,7 +21,7 @@ export function LogoD() {
           </svg>
         </div>
         <span className="text-xl font-bold tracking-tight text-[#0E1D4A]">
-          Docuplete<span className="text-[#C49A38]">.</span>
+          Docuplete
         </span>
       </div>
 
@@ -52,7 +52,7 @@ export function LogoD() {
           </svg>
         </div>
         <span className="text-xl font-bold tracking-tight text-white">
-          Docuplete<span className="text-[#C49A38]">.</span>
+          Docuplete
         </span>
       </div>
     </div>
