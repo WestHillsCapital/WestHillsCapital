@@ -316,7 +316,7 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
       const legacyMode: FieldInterviewMode = (!raw.interviewVisible || raw.adminOnly) ? "omitted" : raw.required ? "required" : "optional";
       return {
         ...field,
-        libraryFieldId: field.libraryFieldId ?? "",
+        libraryFieldId: field.libraryFieldId ? String(field.libraryFieldId) : "",
         sensitive: field.sensitive === true,
         interviewMode: isSystemEsignFieldId(field.id) ? "omitted" : (validModes.includes(raw.interviewMode) ? raw.interviewMode : legacyMode),
         options: Array.isArray(field.options) ? field.options : undefined,
@@ -362,6 +362,9 @@ function normalizeFieldLibrary(items: FieldLibraryItem[]): FieldLibraryItem[] {
     const raw = item as FieldLibraryItem & { isGlobal?: boolean };
     return {
       ...item,
+      // Numeric DB ids (account-created fields) must be coerced to strings so that
+      // strict-equality comparisons against libraryFieldId (always a string) work.
+      id: String((item as FieldLibraryItem & { id: unknown }).id ?? ""),
       category: item.category || "General",
       type: ["text", "date", "radio", "checkbox", "dropdown"].includes(item.type) ? item.type : "text",
       source: item.source || "interview",
