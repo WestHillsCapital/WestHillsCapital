@@ -771,15 +771,15 @@ export default function Home() {
             14-day free trial · No credit card required
           </div>
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight tracking-tight mb-6">
-            Upload your PDF.<br />
-            Send a link.<br />
-            <span className="text-[#5B8DEF]">Get it back — filled,<br className="hidden sm:block" /> signed, and tracked.</span>
+            Cut Cost.{" "}
+            <span className="text-[#5B8DEF]">Save Time.</span>{" "}
+            Get It Right.
           </h1>
           <p className="text-lg sm:text-xl text-white/70 max-w-2xl mx-auto mb-3">
-            Client paperwork, on autopilot. Stop chasing docs — start closing deals.
+            Upload your PDFs, send one link, and get documents back filled, signed, and tracked — without the follow-ups.
           </p>
           <p className="text-base text-white/45 max-w-xl mx-auto mb-10">
-            No follow-ups. No confusion. No delays.
+            No chasing. No confusion. No delays.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <a
