@@ -369,22 +369,26 @@ const NAV_SIGNUP = "https://app.docuplete.com/signup";
 
 function Logo({ light = false }: { light?: boolean }) {
   return (
-    <div className="flex items-center gap-2">
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="28" height="28" rx="7" fill={light ? "white" : "#1B4FD8"} />
-        <path
-          d="M8 8h8.5a3.5 3.5 0 0 1 0 7H8V8Z"
-          fill={light ? "#1B4FD8" : "white"}
-          opacity="0.9"
-        />
-        <path
-          d="M8 15h9a3.5 3.5 0 0 1 0 7H8v-7Z"
-          fill={light ? "#1B4FD8" : "white"}
-        />
-        <path d="M17.5 19.5 L21 19.5" stroke={light ? "white" : "#1B4FD8"} strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-      <span className={`text-lg font-bold tracking-tight ${light ? "text-white" : "text-[#0B1220]"}`}>
-        Docuplete
+    <div className="flex items-center gap-3">
+      {/* Icon mark */}
+      <div className="relative w-8 h-8 flex items-center justify-center shrink-0">
+        {/* Document shape */}
+        <svg className="w-full h-full" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-4h4v-4h4V5c0-1.1-.9-2-2-2z"
+            fill={light ? "white" : "#0E1D4A"}
+          />
+        </svg>
+        {/* Gold badge with checkmark */}
+        <div className="absolute bottom-0 right-0 w-4 h-4 bg-[#C49A38] rounded-sm flex items-center justify-center shadow-sm">
+          <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={4}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+      </div>
+      {/* Wordmark */}
+      <span className={`text-xl font-bold tracking-tight ${light ? "text-white" : "text-[#0E1D4A]"}`}>
+        Docuplete<span className="text-[#C49A38] font-black">.</span>
       </span>
     </div>
   );
