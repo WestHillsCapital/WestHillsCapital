@@ -1606,6 +1606,7 @@ async function buildPacketPdfBuffer(
       }
       if (!pdfBuffer) continue;
       const sourcePdf = await PdfLibDocument.load(pdfBuffer, { ignoreEncryption: true, throwOnInvalidObject: false });
+      try { sourcePdf.getForm().flatten(); } catch { /* malformed or absent AcroForm — proceed without flattening */ }
       const copiedPages = await merged.copyPages(sourcePdf, sourcePdf.getPageIndices());
       copiedPages.forEach((page) => merged.addPage(page));
       const documentMappings = mappingsByDocument.get(sourceDoc.id) ?? [];
