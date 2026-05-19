@@ -773,8 +773,8 @@ export default function Home() {
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight tracking-tight mb-6">
             Cut Cost.{" "}
             <span className="text-[#5B8DEF]">Save Time.</span>
-            <br />
-            <span className="text-3xl sm:text-4xl md:text-5xl">Get It Right.</span>
+
+            <br />Get It Right.
           </h1>
           <p className="text-lg sm:text-xl text-white/70 max-w-2xl mx-auto mb-3">
             Upload your PDFs, send one link, and get documents back filled, signed, and tracked — without the follow-ups.
