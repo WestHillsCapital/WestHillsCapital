@@ -2994,12 +2994,24 @@ export default function Docuplete() {
     if (!field) return;
     if (isSystemEsignFieldId(fieldId)) return; // system e-sign fields are read-only
     // For library-linked fields, the real options may live in the library record.
-    // Use library options when: (a) optionsMode is "inherit", or (b) the package
-    // field's own options are empty (can happen if the user saved the editor before
-    // options were shown). This prevents the editor from displaying "No options yet"
-    // for fields that genuinely have options defined in the library.
-    const libField = field.libraryFieldId ? fieldLibrary.find((f) => f.id === field.libraryFieldId) : undefined;
+    // Strategy 1: exact ID match (IDs already coerced to strings by normalizers).
+    // Strategy 2: if ID lookup misses (stale/missing libraryFieldId) and the package
+    //             field has no options of its own, fall back to matching by label+type
+    //             so that fields like "Primary/Contingent" in new packages automatically
+    //             pick up the library options without the user having to re-enter them.
     const packageOpts = field.options ?? [];
+    const isChoiceField = field.type === "radio" || field.type === "checkbox" || field.type === "dropdown";
+    let libField = field.libraryFieldId
+      ? fieldLibrary.find((f) => f.id === field.libraryFieldId)
+      : undefined;
+    if (!libField && isChoiceField && packageOpts.length === 0) {
+      libField = fieldLibrary.find(
+        (f) =>
+          f.label.toLowerCase() === field.name.toLowerCase() &&
+          f.type === field.type &&
+          (f.options?.length ?? 0) > 0,
+      );
+    }
     const effectiveOptions =
       libField?.options?.length && (field.optionsMode === "inherit" || packageOpts.length === 0)
         ? libField.options
