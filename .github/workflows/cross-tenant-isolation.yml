@@ -54,7 +54,21 @@ jobs:
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
 
-      - name: Run cross-tenant isolation tests
+      - name: Run all API tests
         run: pnpm --filter @workspace/api-server test
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
+
+      - name: API coverage report
+        run: pnpm --filter @workspace/api-server test:coverage
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+        continue-on-error: true
+
+      - name: Upload API coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-coverage
+          path: artifacts/api-server/coverage
+          retention-days: 14

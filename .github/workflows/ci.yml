@@ -44,3 +44,18 @@ jobs:
 
       - name: Build artifacts
         run: pnpm -r --filter '!@workspace/mockup-sandbox' --if-present run build
+
+      - name: Frontend unit tests (vitest)
+        run: pnpm --filter @workspace/west-hills-capital test
+
+      - name: Frontend coverage report (vitest)
+        run: pnpm --filter @workspace/west-hills-capital exec vitest run --coverage --config vitest.config.ts
+        continue-on-error: true
+
+      - name: Upload frontend coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage
+          path: artifacts/west-hills-capital/coverage
+          retention-days: 14
