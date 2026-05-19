@@ -6995,7 +6995,7 @@ export default function AppSettings() {
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 mt-1">
               {isAdmin ? (
                 <>
                   {displayLogoUrl && (
@@ -7012,7 +7012,7 @@ export default function AppSettings() {
                     <button
                       type="button"
                       onClick={() => { void handleRemoveLogo(); }}
-                      className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                      className="text-xs rounded-lg border border-red-200 bg-white px-3 py-1.5 text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors"
                     >
                       Remove
                     </button>
@@ -7085,7 +7085,7 @@ export default function AppSettings() {
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 mt-1">
               {isAdmin ? (
                 <>
                   {displayFormLogoUrl && (
@@ -7102,7 +7102,7 @@ export default function AppSettings() {
                     <button
                       type="button"
                       onClick={() => { void handleRemoveFormLogo(); }}
-                      className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                      className="text-xs rounded-lg border border-red-200 bg-white px-3 py-1.5 text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors"
                     >
                       Remove
                     </button>
@@ -7132,17 +7132,21 @@ export default function AppSettings() {
               disabled={!isAdmin}
               onClick={() => { if (isAdmin) void handleLogoOnWhiteToggle(!logoOnWhite); }}
               className={[
-                "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 brand-btn-hover",
+                "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#0E1D4A]/30 disabled:opacity-50",
                 isAdmin ? "" : "cursor-not-allowed",
               ].join(" ")}
-              style={{ backgroundColor: logoOnWhite ? (/^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38") : "#D1D5DB" }}
+              style={logoOnWhite
+                ? { backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38", borderColor: "transparent" }
+                : { backgroundColor: "transparent", borderColor: "#0E1D4A" }
+              }
             >
               <span
                 aria-hidden="true"
                 className={[
-                  "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                  "pointer-events-none inline-block h-4 w-4 transform rounded-full shadow ring-0 transition-all duration-200 ease-in-out",
                   logoOnWhite ? "translate-x-4" : "translate-x-0",
                 ].join(" ")}
+                style={{ backgroundColor: logoOnWhite ? "#ffffff" : "#0E1D4A" }}
               />
             </button>
             <span className="text-sm text-gray-700">{logoOnWhite ? "White background" : "Brand color background"}</span>

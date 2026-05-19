@@ -4,12 +4,12 @@ export type BrandPreset = {
 };
 
 export const BRAND_PRESETS: BrandPreset[] = [
-  { name: "Classic Gold",     hex: "#C49A38" },
-  { name: "Corporate Blue",   hex: "#1E4DA0" },
-  { name: "Forest Green",     hex: "#2E7D32" },
-  { name: "Slate",            hex: "#455A64" },
-  { name: "Ruby",             hex: "#C62828" },
-  { name: "Ocean",            hex: "#0277BD" },
-  { name: "Violet",           hex: "#6A1B9A" },
-  { name: "Amber",            hex: "#E65100" },
+  { name: "Classic Gold",      hex: "#C49A38" },
+  { name: "Slate Blue",        hex: "#4A6FA5" },
+  { name: "Deep Navy",         hex: "#0E2552" },
+  { name: "Emerald",           hex: "#1A6B4A" },
+  { name: "Rich Charcoal",     hex: "#2D3142" },
+  { name: "Dark Burgundy",     hex: "#6B1F2A" },
+  { name: "Warm Bronze",       hex: "#8B6914" },
+  { name: "Pewter",            hex: "#4E5A6A" },
 ];

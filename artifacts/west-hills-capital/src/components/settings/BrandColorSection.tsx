@@ -34,12 +34,12 @@ const SCHEMES: Record<ColorScheme, {
     activePresetBorder: "border-[#0F1C3F]",
   },
   product: {
-    border:             "border-gray-200",
+    border:             "border-[#E2E8F0]",
     bg:                 "bg-gray-50",
     text:               "text-gray-900",
     muted:              "text-gray-500",
-    ring:               "focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900",
-    activePresetBorder: "border-gray-900",
+    ring:               "focus:ring-2 focus:ring-[#0E1D4A]/20 focus:border-[#0E1D4A]",
+    activePresetBorder: "border-[#0E1D4A]",
   },
 };
 
@@ -144,10 +144,10 @@ export function BrandColorSection({
         </div>
       </div>
 
-      {/* Extract from website */}
-      <div>
-        <div className="flex items-center gap-1.5 mb-2">
-          <p className={`text-xs ${s.muted}`}>Extract from your website</p>
+      {/* Extract from website — sub-card */}
+      <div className={`rounded-xl border px-4 py-3.5 space-y-3 ${s.border} bg-gray-50/60`}>
+        <div className="flex items-center gap-1.5">
+          <p className={`text-xs font-medium ${s.muted}`}>Extract from your website</p>
           <Tooltip>
             <TooltipTrigger asChild>
               <span className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border text-[9px] leading-none cursor-default select-none ${s.border} ${s.muted}`}>?</span>
@@ -164,7 +164,7 @@ export function BrandColorSection({
             onKeyDown={(e) => { if (e.key === "Enter") void handleExtract(); }}
             placeholder="https://yourcompany.com"
             disabled={isExtracting}
-            className={`flex-1 min-w-0 rounded-lg border px-3 py-2 text-sm placeholder:opacity-50 focus:outline-none disabled:opacity-60 ${s.border} ${s.bg} ${s.text} ${s.ring}`}
+            className={`flex-1 min-w-0 rounded-lg border px-3 py-2 text-sm placeholder:opacity-50 focus:outline-none disabled:opacity-60 ${s.border} bg-white ${s.text} ${s.ring}`}
           />
           <Tooltip>
             <TooltipTrigger asChild>
@@ -172,12 +172,12 @@ export function BrandColorSection({
                 type="button"
                 onClick={() => { void handleExtract(); }}
                 disabled={isExtracting || !extractUrl.trim()}
-                className={`shrink-0 text-sm rounded-lg border px-3 py-2 bg-white hover:opacity-80 disabled:opacity-40 transition-opacity ${s.border} ${s.text}`}
+                className="shrink-0 text-sm rounded-lg border border-[#0E1D4A] bg-white px-3 py-2 text-[#0E1D4A] font-medium hover:bg-[#0E1D4A]/5 disabled:opacity-40 transition-colors"
               >
                 {isExtracting ? (
                   <span className="flex items-center gap-1.5">
-                    <span className={`w-3 h-3 border border-t-transparent rounded-full animate-spin inline-block ${s.border}`} />
-                    Extracting…
+                    <span className="w-3 h-3 border-2 border-[#0E1D4A]/30 border-t-[#0E1D4A] rounded-full animate-spin inline-block" />
+                    <span>Extracting…</span>
                   </span>
                 ) : "Extract"}
               </button>
@@ -187,11 +187,11 @@ export function BrandColorSection({
         </div>
 
         {extractError && (
-          <p className="mt-1.5 text-xs text-red-600">{extractError}</p>
+          <p className="text-xs text-red-600">{extractError}</p>
         )}
 
         {candidates.length > 0 && (
-          <div className="mt-3 pb-6">
+          <div className="pt-1 pb-5">
             <p className={`text-xs mb-2 ${s.muted}`}>Found — click to apply</p>
             <div className="flex gap-2 flex-wrap">
               {candidates.map((c) => (
