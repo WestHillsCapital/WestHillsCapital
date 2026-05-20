@@ -201,7 +201,7 @@ export default function Calculator() {
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
           <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M6 4h18l6 6v22H6V4z" fill="#0E1D4A" />
+            <path d="M6 4h18l6 6v22H6V4z" fill="white" opacity="0.15" />
             <path d="M24 4l6 6h-6V4z" fill="#C49A38" />
             <rect x="10" y="14" width="10" height="1.5" rx="0.75" fill="white" opacity="0.5" />
             <rect x="10" y="18" width="14" height="1.5" rx="0.75" fill="white" opacity="0.5" />
