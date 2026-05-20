@@ -26,6 +26,7 @@ import { logger } from "./logger.js";
 const RESEND_API_KEY      = process.env.RESEND_API_KEY;
 const FROM_EMAIL          = process.env.FROM_EMAIL ?? "Docuplete <noreply@westhillscapital.com>";
 const PROBE_ALERT_EMAIL   = process.env.PROBE_ALERT_EMAIL ?? process.env.ADMIN_EMAIL ?? "";
+const IS_PRODUCTION       = process.env.NODE_ENV === "production";
 
 const PROBE_TIMEOUT_MS    = 20_000; // per-step HTTP timeout
 const PROBE_INTERVAL_MS   = 5 * 60 * 1_000; // 5 minutes
@@ -311,8 +312,13 @@ async function cleanupSession(
 // ── Alert ─────────────────────────────────────────────────────────────────────
 
 async function sendProbeAlertEmail(result: SandboxProbeResult): Promise<void> {
-  // Email alert — requires RESEND_API_KEY and a recipient address.
-  // Sentry is already captured at the call site on every failure tick.
+  // Email alerts are production-only. In development the server restarts
+  // constantly (expected), so probe failures are not actionable and should
+  // never hit your inbox.
+  if (!IS_PRODUCTION) {
+    logger.debug("[SandboxProbe] Non-production environment — alert email suppressed");
+    return;
+  }
   if (!RESEND_API_KEY || !PROBE_ALERT_EMAIL) return;
 
   const stepRows = Object.entries(result.steps)
@@ -397,32 +403,32 @@ async function tick(baseUrl: string): Promise<void> {
         { consecutiveFailures: _consecutiveFailures, error: result.error, steps: result.steps },
         "[SandboxProbe] Probe FAILED",
       );
-      // Sentry alert fires on EVERY failure so no breakage is silently missed.
-      // Email alert is rate-limited: only send if no alert has been sent within
-      // the cooldown window (1 hour). This prevents inbox flooding when the server
-      // cycles repeatedly or an outage persists across many probe ticks.
-      const sentryErr = new Error(
-        `[SandboxProbe] Probe failed: ${result.error ?? "see steps for details"}`,
-      );
-      Sentry.captureException(sentryErr, {
-        tags: { probe: "sandbox", consecutiveFailures: _consecutiveFailures },
-        extra: {
-          checkedAt:  result.checkedAt,
-          durationMs: result.durationMs,
-          steps:      result.steps,
-        },
-      });
-      const now = Date.now();
-      const cooldownExpired = _lastAlertSentAt === null || (now - _lastAlertSentAt) >= ALERT_COOLDOWN_MS;
-      if (cooldownExpired) {
-        _lastAlertSentAt = now;
-        void sendProbeAlertEmail(result);
-      } else {
-        const minutesUntilNext = Math.ceil((ALERT_COOLDOWN_MS - (now - _lastAlertSentAt)) / 60_000);
-        logger.debug(
-          { consecutiveFailures: _consecutiveFailures, minutesUntilNext },
-          "[SandboxProbe] Alert suppressed — within cooldown window",
+      // Sentry + email alerts are production-only. In development the server
+      // restarts constantly and probe failures are expected/non-actionable.
+      if (IS_PRODUCTION) {
+        const sentryErr = new Error(
+          `[SandboxProbe] Probe failed: ${result.error ?? "see steps for details"}`,
         );
+        Sentry.captureException(sentryErr, {
+          tags: { probe: "sandbox", consecutiveFailures: _consecutiveFailures },
+          extra: {
+            checkedAt:  result.checkedAt,
+            durationMs: result.durationMs,
+            steps:      result.steps,
+          },
+        });
+        const now = Date.now();
+        const cooldownExpired = _lastAlertSentAt === null || (now - _lastAlertSentAt) >= ALERT_COOLDOWN_MS;
+        if (cooldownExpired) {
+          _lastAlertSentAt = now;
+          void sendProbeAlertEmail(result);
+        } else {
+          const minutesUntilNext = Math.ceil((ALERT_COOLDOWN_MS - (now - _lastAlertSentAt)) / 60_000);
+          logger.debug(
+            { consecutiveFailures: _consecutiveFailures, minutesUntilNext },
+            "[SandboxProbe] Alert suppressed — within cooldown window",
+          );
+        }
       }
     }
   } catch (err) {
