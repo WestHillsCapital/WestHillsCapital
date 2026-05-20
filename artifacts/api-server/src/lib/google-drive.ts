@@ -3,11 +3,11 @@
  *
  * Folder structure under the root deals folder:
  *   {ROOT_FOLDER_ID}
- *     └─ {YYYY}                          e.g. "2026"
- *          └─ {MM – Month Name}          e.g. "04 – April"
- *               └─ {FI} {LastName}       e.g. "J Smith"
- *                    └─ {MMDDYY} {FI} {LastName} Invoice.pdf
- *                                        e.g. "041526 J Smith Invoice.pdf"
+ *     └─ {Full Client Name}              e.g. "John Smith"
+ *          └─ {YYYY-MM-DD}              e.g. "2026-05-20"
+ *               └─ {Invoice ID}         e.g. "WHC-42-20260520"
+ *                    └─ {First} {Last} Invoice.pdf
+ *                                       e.g. "John Smith Invoice.pdf"
  *
  * Uses the same service-account credentials as google-sheets.ts.
  */
@@ -103,6 +103,7 @@ export async function saveDealPdfToDrive(
   pdfBuffer:    Buffer,
   deal: {
     id:         number;
+    invoiceId:  string;
     firstName:  string;
     lastName:   string;
     dealType:   string;
@@ -113,40 +114,29 @@ export async function saveDealPdfToDrive(
   const drive = getDriveClient();
   if (!drive) throw new Error("Google Drive client unavailable (check GOOGLE_SERVICE_ACCOUNT_KEY)");
 
-  const d     = new Date(deal.lockedAt);
-  const yyyy  = String(d.getFullYear());
-  const mm    = String(d.getMonth() + 1).padStart(2, "0");
-  const dd    = String(d.getDate()).padStart(2, "0");
-  const yy    = yyyy.slice(2);
-  const month = d.toLocaleString("en-US", { month: "long" });
+  const d    = new Date(deal.lockedAt);
+  const yyyy = String(d.getFullYear());
+  const mm   = String(d.getMonth() + 1).padStart(2, "0");
+  const dd   = String(d.getDate()).padStart(2, "0");
 
-  // First initial + last name
-  const firstInitial = (deal.firstName.trim()[0] ?? "").toUpperCase();
-  const lastName     = deal.lastName.trim();
-  const clientLabel  = `${firstInitial} ${lastName}`;   // e.g. "J Smith"
-  const dateLabel    = `${mm}${dd}${yy}`;               // e.g. "041526"
+  const clientFolder = `${deal.firstName.trim()} ${deal.lastName.trim()}`; // e.g. "John Smith"
+  const dateFolder   = `${yyyy}-${mm}-${dd}`;                               // e.g. "2026-05-20"
+  const dealFolder   = deal.invoiceId;                                       // e.g. "WHC-42-20260520"
+  const fileName     = `${clientFolder} Invoice.pdf`;                        // e.g. "John Smith Invoice.pdf"
 
-  const yearName    = yyyy;                             // "2026"
-  const monthName   = `${mm} \u2013 ${month}`;         // "04 – April"
-  const clientFolder = clientLabel;                     // "J Smith"
-  const fileName    = `${dateLabel} ${clientLabel} Invoice.pdf`; // "041526 J Smith Invoice.pdf"
-
-  // Traverse / create folder hierarchy
-  const yearFolderId   = await getOrCreateFolder(drive, yearName,    rootFolderId);
-  const monthFolderId  = await getOrCreateFolder(drive, monthName,   yearFolderId);
-  const clientFolderId = await getOrCreateFolder(drive, clientFolder, monthFolderId);
-
-  // Wrap the Buffer in a Readable stream for the Drive multipart upload
-  const stream = Readable.from(pdfBuffer);
+  // Traverse / create folder hierarchy: Client → Date → Deal
+  const clientFolderId = await getOrCreateFolder(drive, clientFolder, rootFolderId);
+  const dateFolderId   = await getOrCreateFolder(drive, dateFolder,   clientFolderId);
+  const dealFolderId   = await getOrCreateFolder(drive, dealFolder,   dateFolderId);
 
   const uploaded = await drive.files.create({
     requestBody: {
       name:    fileName,
-      parents: [clientFolderId],
+      parents: [dealFolderId],
     },
     media: {
       mimeType: "application/pdf",
-      body:     stream,
+      body:     Readable.from(pdfBuffer),
     },
     fields: "id, webViewLink",
     supportsAllDrives: true,
@@ -155,7 +145,7 @@ export async function saveDealPdfToDrive(
   const fileId      = uploaded.data.id      as string;
   const webViewLink = (uploaded.data.webViewLink ?? `https://drive.google.com/file/d/${fileId}/view`) as string;
 
-  logger.info({ dealId: deal.id, fileId, clientFolder, fileName }, "[Drive] PDF uploaded");
+  logger.info({ dealId: deal.id, fileId, clientFolder, dealFolder, fileName }, "[Drive] PDF uploaded");
   return { fileId, webViewLink };
 }
 

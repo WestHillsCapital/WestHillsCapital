@@ -423,7 +423,7 @@ async function tick(baseUrl: string): Promise<void> {
           _lastAlertSentAt = now;
           void sendProbeAlertEmail(result);
         } else {
-          const minutesUntilNext = Math.ceil((ALERT_COOLDOWN_MS - (now - _lastAlertSentAt)) / 60_000);
+          const minutesUntilNext = Math.ceil((ALERT_COOLDOWN_MS - (now - _lastAlertSentAt!)) / 60_000);
           logger.debug(
             { consecutiveFailures: _consecutiveFailures, minutesUntilNext },
             "[SandboxProbe] Alert suppressed — within cooldown window",

@@ -418,7 +418,7 @@ router.post("/", async (req, res) => {
     const rootFolderId = process.env.GOOGLE_DRIVE_DEALS_FOLDER_ID;
     if (pdfBuffer && rootFolderId) {
       try {
-        const driveResult = await saveDealPdfToDrive(pdfBuffer, { id: dealId, firstName, lastName, dealType, lockedAt: lockedAt.toISOString() }, rootFolderId);
+        const driveResult = await saveDealPdfToDrive(pdfBuffer, { id: dealId, invoiceId: finalInvoiceId, firstName, lastName, dealType, lockedAt: lockedAt.toISOString() }, rootFolderId);
         invoiceUrl = driveResult.webViewLink;
         await db.query(
           `UPDATE deals SET invoice_url = $1, updated_at = NOW() WHERE id = $2`,
