@@ -201,11 +201,11 @@ export default function Calculator() {
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
           <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M6 4h18l6 6v22H6V4z" fill="white" opacity="0.15" />
+            <path d="M6 4h18l6 6v22H6V4z" fill="white" fillOpacity="0.28" stroke="white" strokeOpacity="0.35" strokeWidth="0.75" />
             <path d="M24 4l6 6h-6V4z" fill="#C49A38" />
-            <rect x="10" y="14" width="10" height="1.5" rx="0.75" fill="white" opacity="0.5" />
-            <rect x="10" y="18" width="14" height="1.5" rx="0.75" fill="white" opacity="0.5" />
-            <rect x="10" y="22" width="8" height="1.5" rx="0.75" fill="white" opacity="0.5" />
+            <rect x="10" y="14" width="10" height="1.5" rx="0.75" fill="white" opacity="0.7" />
+            <rect x="10" y="18" width="14" height="1.5" rx="0.75" fill="white" opacity="0.7" />
+            <rect x="10" y="22" width="8" height="1.5" rx="0.75" fill="white" opacity="0.7" />
             <circle cx="26" cy="28" r="5" fill="#C49A38" />
             <path d="M23.5 28l2 2 3.5-3.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
