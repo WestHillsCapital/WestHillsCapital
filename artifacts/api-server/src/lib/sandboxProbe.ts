@@ -61,7 +61,7 @@ let _warmupTimer: ReturnType<typeof setTimeout> | null = null;
 let _consecutiveFailures = 0;
 let _lastAlertSentAt: number | null = null;
 
-const ALERT_COOLDOWN_MS = 60 * 60 * 1_000; // 1 hour between alert emails
+const ALERT_COOLDOWN_MS = 15 * 60 * 1_000; // 15 minutes between alert emails
 
 export function getLastProbeResult(): SandboxProbeResult | null {
   return _lastResult;
