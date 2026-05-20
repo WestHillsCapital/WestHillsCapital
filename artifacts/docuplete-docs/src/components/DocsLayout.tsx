@@ -8,11 +8,14 @@ const DOCS_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 function Logo() {
   return (
     <div className="flex items-center gap-2">
-      <svg width="24" height="24" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="28" height="28" rx="7" fill="#1B4FD8" />
-        <path d="M8 8h8.5a3.5 3.5 0 0 1 0 7H8V8Z" fill="white" opacity="0.9" />
-        <path d="M8 15h9a3.5 3.5 0 0 1 0 7H8v-7Z" fill="white" />
-        <path d="M17.5 19.5 L21 19.5" stroke="#1B4FD8" strokeWidth="1.5" strokeLinecap="round" />
+      <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6 4h18l6 6v22H6V4z" fill="white" opacity="0.15" />
+        <path d="M24 4l6 6h-6V4z" fill="#C49A38" />
+        <rect x="10" y="14" width="10" height="1.5" rx="0.75" fill="white" opacity="0.5" />
+        <rect x="10" y="18" width="14" height="1.5" rx="0.75" fill="white" opacity="0.5" />
+        <rect x="10" y="22" width="8" height="1.5" rx="0.75" fill="white" opacity="0.5" />
+        <circle cx="26" cy="28" r="5" fill="#C49A38" />
+        <path d="M23.5 28l2 2 3.5-3.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
       <span className="text-base font-bold tracking-tight text-white">Docuplete</span>
       <span className="text-xs font-medium text-white/40 bg-white/10 px-1.5 py-0.5 rounded ml-0.5">Docs</span>

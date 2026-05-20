@@ -200,17 +200,15 @@ export default function Calculator() {
         height: "60px",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: 7,
-            background: "var(--blue)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <rect x="2" y="1" width="7" height="9" rx="1.2" stroke="white" strokeWidth="1.4"/>
-              <path d="M5 11h5a1 1 0 0 0 1-1V5" stroke="white" strokeWidth="1.4" strokeLinecap="round"/>
-              <path d="M4.5 4.5h4M4.5 6.5h4M4.5 8.5h2" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
-            </svg>
-          </div>
+          <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M6 4h18l6 6v22H6V4z" fill="#0E1D4A" />
+            <path d="M24 4l6 6h-6V4z" fill="#C49A38" />
+            <rect x="10" y="14" width="10" height="1.5" rx="0.75" fill="white" opacity="0.5" />
+            <rect x="10" y="18" width="14" height="1.5" rx="0.75" fill="white" opacity="0.5" />
+            <rect x="10" y="22" width="8" height="1.5" rx="0.75" fill="white" opacity="0.5" />
+            <circle cx="26" cy="28" r="5" fill="#C49A38" />
+            <path d="M23.5 28l2 2 3.5-3.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
           <span style={{ fontWeight: 700, fontSize: "0.95rem", letterSpacing: "-0.01em" }}>Docuplete</span>
         </div>
         <a

@@ -211,11 +211,15 @@ export default function Wrapped() {
 
     // Scene 5: Outro
     <motion.div key="scene-5" className="flex flex-col items-center justify-center h-full text-center px-6 w-full max-w-4xl mx-auto" variants={sceneVariants} initial="initial" animate="animate" exit="exit">
-      <motion.div variants={textVariants} className="w-16 h-16 rounded-2xl bg-[var(--blue)] flex items-center justify-center mb-8 shadow-[0_0_30px_rgba(27,79,216,0.5)]">
-        <svg width="24" height="24" viewBox="0 0 14 14" fill="none">
-          <rect x="2" y="1" width="7" height="9" rx="1.2" stroke="white" strokeWidth="1.4"/>
-          <path d="M5 11h5a1 1 0 0 0 1-1V5" stroke="white" strokeWidth="1.4" strokeLinecap="round"/>
-          <path d="M4.5 4.5h4M4.5 6.5h4M4.5 8.5h2" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+      <motion.div variants={textVariants} className="mb-8">
+        <svg width="64" height="64" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6 4h18l6 6v22H6V4z" fill="white" opacity="0.15" />
+          <path d="M24 4l6 6h-6V4z" fill="#C49A38" />
+          <rect x="10" y="14" width="10" height="1.5" rx="0.75" fill="white" opacity="0.5" />
+          <rect x="10" y="18" width="14" height="1.5" rx="0.75" fill="white" opacity="0.5" />
+          <rect x="10" y="22" width="8" height="1.5" rx="0.75" fill="white" opacity="0.5" />
+          <circle cx="26" cy="28" r="5" fill="#C49A38" />
+          <path d="M23.5 28l2 2 3.5-3.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </motion.div>
       <motion.h2 variants={numberVariants} className="text-4xl md:text-6xl font-black font-['Space_Grotesk'] text-white mb-6">
