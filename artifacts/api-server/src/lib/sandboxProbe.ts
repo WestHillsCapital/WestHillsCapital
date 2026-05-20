@@ -58,6 +58,9 @@ let _lastResult: SandboxProbeResult | null = null;
 let _probeInterval: ReturnType<typeof setInterval> | null = null;
 let _warmupTimer: ReturnType<typeof setTimeout> | null = null;
 let _consecutiveFailures = 0;
+let _lastAlertSentAt: number | null = null;
+
+const ALERT_COOLDOWN_MS = 60 * 60 * 1_000; // 1 hour between alert emails
 
 export function getLastProbeResult(): SandboxProbeResult | null {
   return _lastResult;
@@ -395,8 +398,9 @@ async function tick(baseUrl: string): Promise<void> {
         "[SandboxProbe] Probe FAILED",
       );
       // Sentry alert fires on EVERY failure so no breakage is silently missed.
-      // Email alert is rate-limited to the 1st + every 3rd consecutive failure to
-      // avoid inbox flooding during extended outages.
+      // Email alert is rate-limited: only send if no alert has been sent within
+      // the cooldown window (1 hour). This prevents inbox flooding when the server
+      // cycles repeatedly or an outage persists across many probe ticks.
       const sentryErr = new Error(
         `[SandboxProbe] Probe failed: ${result.error ?? "see steps for details"}`,
       );
@@ -408,8 +412,17 @@ async function tick(baseUrl: string): Promise<void> {
           steps:      result.steps,
         },
       });
-      if (_consecutiveFailures === 1 || _consecutiveFailures % 3 === 0) {
+      const now = Date.now();
+      const cooldownExpired = _lastAlertSentAt === null || (now - _lastAlertSentAt) >= ALERT_COOLDOWN_MS;
+      if (cooldownExpired) {
+        _lastAlertSentAt = now;
         void sendProbeAlertEmail(result);
+      } else {
+        const minutesUntilNext = Math.ceil((ALERT_COOLDOWN_MS - (now - _lastAlertSentAt)) / 60_000);
+        logger.debug(
+          { consecutiveFailures: _consecutiveFailures, minutesUntilNext },
+          "[SandboxProbe] Alert suppressed — within cooldown window",
+        );
       }
     }
   } catch (err) {
