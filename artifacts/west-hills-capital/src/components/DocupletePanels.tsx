@@ -1074,7 +1074,7 @@ export function FieldLibraryPanel({
     ? items.filter((i) =>
         i.label.toLowerCase().includes(q) ||
         (i.category ?? "").toLowerCase().includes(q) ||
-        (i.source ?? "").toLowerCase().includes(q)
+        String(i.id).toLowerCase().includes(q)
       )
     : items;
 
