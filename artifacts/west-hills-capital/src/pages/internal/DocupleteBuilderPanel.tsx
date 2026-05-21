@@ -631,7 +631,37 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                                         <span className="text-[10px] font-normal bg-[#EAF0FB] border border-[#C5D0E6] text-[#4A6FA8] rounded px-1.5 py-0.5 leading-none">Logic input</span>
                                       )}
                                     </div>
-                                    <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.validationType && field.validationType !== "none" ? ` · ${field.validationType}` : ""}{field.sensitive ? " · masked" : ""}</div>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      <span className="text-[10px] rounded px-1.5 py-0.5 leading-none bg-gray-100 border border-gray-200 text-gray-500 capitalize">{field.type}</span>
+                                      {(field.interviewMode ?? "optional") === "required" && (
+                                        <span className="text-[10px] rounded px-1.5 py-0.5 leading-none border bg-[#FDF3DC] border-[#E8C96B] text-[#7A5800]">Required</span>
+                                      )}
+                                      {(field.interviewMode ?? "optional") === "readonly" && (
+                                        <span className="text-[10px] rounded px-1.5 py-0.5 leading-none border bg-[#EAF0FB] border-[#C5D0E6] text-[#4A6FA8]">Read-only</span>
+                                      )}
+                                      {field.condition && (
+                                        <span className="text-[10px] rounded px-1.5 py-0.5 leading-none bg-purple-50 border border-purple-200 text-purple-700">
+                                          ↳ If {packageInterviewFields.find((f) => f.id === field.condition?.fieldId)?.name ?? "…"}
+                                        </span>
+                                      )}
+                                      {field.condition2 && (
+                                        <span className="text-[10px] rounded px-1.5 py-0.5 leading-none bg-purple-50 border border-purple-100 text-purple-500">
+                                          {field.conditionOperator === "or" ? "or" : "and"} {packageInterviewFields.find((f) => f.id === field.condition2?.fieldId)?.name ?? "…"}
+                                        </span>
+                                      )}
+                                      {field.sensitive && (
+                                        <span className="text-[10px] rounded px-1.5 py-0.5 leading-none bg-red-50 border border-red-200 text-red-700">🔒 Sensitive</span>
+                                      )}
+                                      {field.copyFrom && (
+                                        <span className="text-[10px] rounded px-1.5 py-0.5 leading-none bg-teal-50 border border-teal-200 text-teal-700">Auto-fill</span>
+                                      )}
+                                      {field.sumGroup && (
+                                        <span className="text-[10px] rounded px-1.5 py-0.5 leading-none bg-orange-50 border border-orange-200 text-orange-700">Σ {field.sumGroup}</span>
+                                      )}
+                                      {field.validationType && field.validationType !== "none" && (
+                                        <span className="text-[10px] rounded px-1.5 py-0.5 leading-none bg-gray-50 border border-gray-200 text-gray-400">{field.validationType}</span>
+                                      )}
+                                    </div>
                                   </div>
                                   <svg className="w-3 h-3.5 text-[#C4B99A] shrink-0 mt-0.5" viewBox="0 0 10 16" fill="currentColor">
                                     <circle cx="2.5" cy="3" r="1.3"/><circle cx="2.5" cy="8" r="1.3"/><circle cx="2.5" cy="13" r="1.3"/>
