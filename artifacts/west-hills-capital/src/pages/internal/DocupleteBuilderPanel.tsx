@@ -725,10 +725,9 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                       </div>
                     )}
                     </div>
-                    <div className="shrink-0 -mx-4 -mb-4 border-t border-gray-200 bg-gray-100/80 rounded-b-xl px-4 pt-2.5 pb-3">
-                      <div className="w-full border border-transparent rounded-md px-4 py-2.5 flex items-center gap-2">
-                        <span className="text-xs text-[#6B7A99]">👥 Staff View Preview · {packageInterviewFields.length} Question{packageInterviewFields.length !== 1 ? "s" : ""} Visible</span>
-                      </div>
+                    <div className="shrink-0 -mx-4 -mb-4 border-t border-gray-200 bg-gray-100/80 rounded-b-xl px-4 pt-2.5 pb-3 flex flex-col gap-2">
+                      <span className="text-xs font-semibold text-[#6B7A99]">{packageInterviewFields.length} Question{packageInterviewFields.length !== 1 ? "s" : ""} Visible</span>
+                      <button type="button" className="w-full text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md px-4 py-2.5 text-center hover:bg-gray-50 hover:shadow-sm active:shadow-none transition-all">Preview Form</button>
                     </div>
                   </div>
                 </div>
