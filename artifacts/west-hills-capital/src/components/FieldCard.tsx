@@ -58,9 +58,22 @@ export function FieldCard({
             {field?.name ?? "Placement"}
           </h2>
         </div>
-        <button type="button" onClick={onClose} className="text-[#8A9BB8] hover:text-[#0F1C3F] flex-shrink-0">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {field && !isSystemEsignFieldId(field.id) && (
+            <button
+              type="button"
+              onClick={() => onOpenFieldEditor(field.id)}
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-[#C49A38] border border-[#C49A38]/40 hover:bg-[#FEF3C7] transition-colors"
+              title="Edit field definition"
+            >
+              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" /></svg>
+              Edit field
+            </button>
+          )}
+          <button type="button" onClick={onClose} className="text-[#8A9BB8] hover:text-[#0F1C3F]">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
 
@@ -182,15 +195,6 @@ export function FieldCard({
           </div>
         )}
 
-        {field && (
-          <div className="border-t border-[#EFE8D8] pt-3">
-            <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1.5">Field</div>
-            <button type="button" onClick={() => onOpenFieldEditor(field.id)} className="w-full text-left rounded border border-[#D4C9B5] px-2.5 py-2 text-xs text-[#334155] hover:bg-[#F8F6F0] flex items-center justify-between">
-              <span>Edit field definition</span>
-              <svg className="w-3 h-3 text-[#8A9BB8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-            </button>
-          </div>
-        )}
 
       </div>
       <div className="flex gap-2 border-t border-[#EFE8D8] px-3 py-2.5 flex-shrink-0">
