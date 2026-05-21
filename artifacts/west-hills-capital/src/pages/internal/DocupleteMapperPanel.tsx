@@ -571,12 +571,22 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
     if (!pageMappingIds.includes(selectedMappingId)) setSelectedMappingId(null);
   }, [pageMappingIds, selectedMappingId, setSelectedMappingId]);
 
-  // Scroll the active field card into view whenever the selected field changes
+  // Scroll the active field card into view whenever the selected field changes.
+  // If the field is filtered out (unplaced-only mode), clear the filter first so
+  // the card becomes visible, then scroll on the next effect run.
   useEffect(() => {
     if (!selectedField?.id) return;
     const el = fieldListScrollRef.current?.querySelector(`[data-field-id="${selectedField.id}"]`);
-    el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [selectedField?.id]);
+    if (!el) {
+      if (showUnplacedOnly) {
+        setShowUnplacedOnly(false);
+        try { localStorage.setItem("docuplete-field-filter-unplaced", ""); } catch {}
+      }
+      return;
+    }
+    el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedField?.id, showUnplacedOnly]);
 
   // ── Load PDFs for all docs when scroll mode is active ────────────────────
   useEffect(() => {
