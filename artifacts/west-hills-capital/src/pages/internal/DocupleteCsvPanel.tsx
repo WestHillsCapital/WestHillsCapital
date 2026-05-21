@@ -359,45 +359,49 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
           <p className="text-sm text-[#6B7A99] mt-1">Select a package, upload a filled CSV, and generate one packet per row.</p>
         </div>
 
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm font-medium mb-1">Package</label>
-            <select
-              value={csvBatchPackageId}
-              onChange={(e) => {
-                setCsvBatchPackageId(e.target.value);
-                setCsvBatchMismatch(false);
-                setCsvBatchError(null);
-                setShowCsvFieldKey(false);
-                setCsvEditingCell(null);
-                if (csvCorrectedDownloadedTimerRef.current) {
-                  clearTimeout(csvCorrectedDownloadedTimerRef.current);
-                  csvCorrectedDownloadedTimerRef.current = null;
+        {/* ── Package selector (above the vault) ───────────────────── */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Package</label>
+          <select
+            value={csvBatchPackageId}
+            onChange={(e) => {
+              setCsvBatchPackageId(e.target.value);
+              setCsvBatchMismatch(false);
+              setCsvBatchError(null);
+              setShowCsvFieldKey(false);
+              setCsvEditingCell(null);
+              if (csvCorrectedDownloadedTimerRef.current) {
+                clearTimeout(csvCorrectedDownloadedTimerRef.current);
+                csvCorrectedDownloadedTimerRef.current = null;
+              }
+              setCsvCorrectedDownloaded(false);
+              if (csvBatchRows.length > 0 && e.target.value) {
+                const pkg = packages.find((p) => String(p.id) === e.target.value);
+                if (pkg) {
+                  const pkgFieldNames = new Set(pkg.fields.filter((f) => f.interviewMode !== "omitted").map((f) => f.name.toLowerCase().trim()));
+                  const hasMatch = csvBatchHeaders.some((h) => {
+                    const n = h.toLowerCase().trim();
+                    return n !== "__package_id__" && n !== "__package_name__" && pkgFieldNames.has(n);
+                  });
+                  setCsvBatchMismatch(!hasMatch);
                 }
-                setCsvCorrectedDownloaded(false);
-                if (csvBatchRows.length > 0 && e.target.value) {
-                  const pkg = packages.find((p) => String(p.id) === e.target.value);
-                  if (pkg) {
-                    const pkgFieldNames = new Set(pkg.fields.filter((f) => f.interviewMode !== "omitted").map((f) => f.name.toLowerCase().trim()));
-                    const hasMatch = csvBatchHeaders.some((h) => {
-                      const n = h.toLowerCase().trim();
-                      return n !== "__package_id__" && n !== "__package_name__" && pkgFieldNames.has(n);
-                    });
-                    setCsvBatchMismatch(!hasMatch);
-                  }
-                }
-              }}
-              className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-sm bg-white"
-            >
-              <option value="">Select active package</option>
-              {activePackages.map((pkg) => (
-                <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.transaction_scope ? ` · ${labelForTransactionScope(pkg.transaction_scope)}` : ""}</option>
-              ))}
-            </select>
-          </div>
+              }
+            }}
+            className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-sm bg-white"
+          >
+            <option value="">Select active package</option>
+            {activePackages.map((pkg) => (
+              <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.transaction_scope ? ` · ${labelForTransactionScope(pkg.transaction_scope)}` : ""}</option>
+            ))}
+          </select>
+        </div>
 
-          {csvBatchPackageId && (
-            <div className="space-y-3">
+        {/* ── Processing Vault card (visible once a package is chosen) ── */}
+        {csvBatchPackageId && (
+          <div className="rounded-lg border border-gray-200 bg-gray-50/40 overflow-hidden">
+            {/* ── TOP: primary workflow ───────────────────────────── */}
+            <div className="p-5 space-y-4">
+              {/* 1 — Download template */}
               <button
                 type="button"
                 onClick={() => {
@@ -413,138 +417,103 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                 Download blank template
               </button>
 
-              {(() => {
-                const keyFields = [...csvBatchFieldMap.values()];
-                const selectedPkg = packages.find((p) => String(p.id) === csvBatchPackageId);
-                return (
-                  <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0]">
-                    <button
-                      type="button"
-                      onClick={() => setShowCsvFieldKey((v) => !v)}
-                      className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-[#0F1C3F] hover:bg-[#EFE8D8] rounded"
-                    >
-                      <span>{showCsvFieldKey ? "▲ Hide field reference" : "▼ Show field reference"} ({keyFields.length} field{keyFields.length === 1 ? "" : "s"})</span>
-                    </button>
-                    {showCsvFieldKey && (
-                      <div className="border-t border-[#DDD5C4] overflow-x-auto">
-                        <table className="text-xs min-w-full table-fixed">
-                          <colgroup>
-                            <col style={{ width: "35%" }} />
-                            <col style={{ width: "15%" }} />
-                            <col style={{ width: "35%" }} />
-                            <col style={{ width: "15%" }} />
-                          </colgroup>
-                          <tbody>
-                            {selectedPkg && (
-                              <>
-                                <tr className="bg-[#F0EDE5]">
-                                  <td className="px-3 py-2 text-[#6B7A99] font-medium whitespace-nowrap">Package Name</td>
-                                  <td className="px-3 py-2 text-[#0F1C3F] font-medium" colSpan={3}>{selectedPkg.name}</td>
-                                </tr>
-                                <tr className="bg-[#F0EDE5] border-t border-[#DDD5C4]">
-                                  <td className="px-3 py-2 text-[#6B7A99] font-medium whitespace-nowrap">Package ID</td>
-                                  <td className="px-3 py-2 font-mono text-[#0F1C3F]" colSpan={3}>{selectedPkg.id}</td>
-                                </tr>
-                                <tr className="bg-[#EFE8D8] border-t-2 border-[#DDD5C4]">
-                                  <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Field Name (CSV column header)</td>
-                                  <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Status</td>
-                                  <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Condition</td>
-                                  <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Type</td>
-                                </tr>
-                                <tr className="border-t border-[#DDD5C4]">
-                                  <td colSpan={4} className="px-3 py-1 text-[10px] text-[#6B7A99] uppercase tracking-wide font-medium bg-[#EFE8D8]">Fields</td>
-                                </tr>
-                              </>
-                            )}
-                            {keyFields.map((f) => {
-                              const condText = conditionToText(f);
-                              const hasOptions = (f.type === "dropdown" || f.type === "radio" || f.type === "checkbox") && (f.options ?? []).length > 0;
-                              const typeHint = f.type === "date" ? "MM/DD/YYYY" : validationTypeHint(f.validationType, f.validationMessage);
-                              return (
-                              <tr key={f.id} className={`border-t border-[#EFE8D8] align-top ${condText ? "bg-purple-50/40" : ""}`}>
-                                {/* Col 1: field name + option chips */}
-                                <td className="px-3 py-2">
-                                  <div className="font-mono text-[#0F1C3F]">
-                                    {f.name}
-                                    {f.sensitive && <span className="ml-1.5 text-[10px] text-red-600" title="Sensitive field">🔒</span>}
-                                  </div>
-                                  {hasOptions && (
-                                    <div className="mt-1.5 flex flex-wrap gap-1">
-                                      {(f.options ?? []).map((opt) => (
-                                        <span key={opt} className="inline-block rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[10px] text-[#334155]">{opt}</span>
-                                      ))}
-                                    </div>
-                                  )}
-                                  {!hasOptions && typeHint && (
-                                    <div className="mt-1 text-[10px] text-[#8A9BB8] font-mono">{typeHint}</div>
-                                  )}
-                                </td>
-                                {/* Col 2: status badge */}
-                                <td className="px-3 py-2 whitespace-nowrap">
-                                  {f.interviewMode === "required" && condText
-                                    ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200">Cond. Required</span>
-                                    : f.interviewMode === "required"
-                                      ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-700">Required</span>
-                                      : f.interviewMode === "readonly"
-                                        ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700">Auto-filled</span>
-                                        : <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-[#EFE8D8] text-[#6B7A99]">Optional</span>
-                                  }
-                                </td>
-                                {/* Col 3: condition */}
-                                <td className="px-3 py-2 text-[10px]">
-                                  {condText
-                                    ? <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 bg-purple-100 text-purple-800 font-medium">
-                                        <svg className="w-2.5 h-2.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h4.5"/></svg>
-                                        {condText}
-                                      </span>
-                                    : <span className="text-[#C0CBDA]">Always shown</span>
-                                  }
-                                </td>
-                                {/* Col 4: type */}
-                                <td className="px-3 py-2 capitalize text-[#334155]">{f.type}</td>
-                              </tr>
-                            );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+              {/* 2 — Drop zone */}
+              <div
+                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${csvBatchFile ? "border-[#C49A38] bg-[#FDFAF4]" : "border-[#D4C9B5] bg-white"}`}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const file = e.dataTransfer.files[0];
+                  if (file) handleCsvBatchFileChange(file);
+                }}
+              >
+                <input
+                  ref={csvBatchFileInputRef}
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={(e) => handleCsvBatchFileChange(e.target.files?.[0] ?? null)}
+                />
+                {csvBatchFile ? (
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-[#0F1C3F]">{csvBatchFile.name}</p>
+                    <p className="text-xs text-[#6B7A99]">{csvBatchRows.length} data row{csvBatchRows.length === 1 ? "" : "s"} · {csvBatchHeaders.length} column{csvBatchHeaders.length === 1 ? "" : "s"}</p>
+                    <button type="button" onClick={() => { handleCsvBatchFileChange(null); if (csvBatchFileInputRef.current) csvBatchFileInputRef.current.value = ""; }} className="text-xs text-[#8A9BB8] underline hover:text-[#0F1C3F]">Remove file</button>
                   </div>
-                );
-              })()}
-            </div>
-          )}
-        </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-[#6B7A99] mb-2">Drag a CSV file here or</p>
+                    <button type="button" onClick={() => csvBatchFileInputRef.current?.click()} className="text-sm text-[#C49A38] underline hover:text-[#b58c31]">Browse to upload</button>
+                  </div>
+                )}
+              </div>
 
-        <div
-          className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${csvBatchFile ? "border-[#C49A38] bg-[#FDFAF4]" : "border-[#D4C9B5] bg-[#F8F6F0]"}`}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            const file = e.dataTransfer.files[0];
-            if (file) handleCsvBatchFileChange(file);
-          }}
-        >
-          <input
-            ref={csvBatchFileInputRef}
-            type="file"
-            accept=".csv"
-            className="hidden"
-            onChange={(e) => handleCsvBatchFileChange(e.target.files?.[0] ?? null)}
-          />
-          {csvBatchFile ? (
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-[#0F1C3F]">{csvBatchFile.name}</p>
-              <p className="text-xs text-[#6B7A99]">{csvBatchRows.length} data row{csvBatchRows.length === 1 ? "" : "s"} · {csvBatchHeaders.length} column{csvBatchHeaders.length === 1 ? "" : "s"}</p>
-              <button type="button" onClick={() => { handleCsvBatchFileChange(null); if (csvBatchFileInputRef.current) csvBatchFileInputRef.current.value = ""; }} className="text-xs text-[#8A9BB8] underline hover:text-[#0F1C3F]">Remove file</button>
-            </div>
-          ) : (
-            <div>
-              <p className="text-sm text-[#6B7A99] mb-2">Drag a CSV file here or</p>
-              <button type="button" onClick={() => csvBatchFileInputRef.current?.click()} className="text-sm text-[#C49A38] underline hover:text-[#b58c31]">Browse to upload</button>
-            </div>
-          )}
-        </div>
+              {/* 3 — Import action (always visible, disabled until file ready) */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <Button
+                  onClick={() => handleCsvBatchImport()}
+                  disabled={!csvBatchPackageId || csvBatchRows.length === 0 || csvBatchIsImporting || csvBatchRows.length > CSV_BATCH_MAX}
+                  className="disabled:opacity-60"
+                >
+                  {csvBatchIsImporting ? "Importing…" : `Import & Generate ${csvBatchRows.length > 0 ? csvBatchRows.length : ""} row${csvBatchRows.length === 1 ? "" : "s"}`}
+                </Button>
+                {csvBatchHasEdits && csvBatchRows.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const q = (v: string) => /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+                      const lines = [
+                        csvBatchHeaders.map(q).join(","),
+                        ...csvBatchRows.map((row) => csvBatchHeaders.map((h) => q(row[h] ?? "")).join(",")),
+                      ];
+                      const dateStr = new Date().toISOString().slice(0, 10);
+                      const baseName = csvBatchFile?.name.replace(/\.csv$/i, "") ?? "corrected";
+                      downloadCsv(lines.join("\n"), `${baseName}-corrected-${dateStr}.csv`);
+                      if (csvCorrectedDownloadedTimerRef.current) clearTimeout(csvCorrectedDownloadedTimerRef.current);
+                      setCsvCorrectedDownloaded(true);
+                      csvCorrectedDownloadedTimerRef.current = setTimeout(() => setCsvCorrectedDownloaded(false), 2000);
+                    }}
+                    className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
+                  >
+                    {csvCorrectedDownloaded ? (
+                      <span className="flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5 text-green-600" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7l3.5 3.5L12 3" /></svg>
+                        <span className="text-green-700">Downloaded!</span>
+                      </span>
+                    ) : "Download corrected CSV"}
+                  </Button>
+                )}
+                {csvBatchHasEdits && csvBatchRows.length > 0 && csvBatchOriginalRows.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (!window.confirm("Discard all inline edits and restore the original uploaded data?")) return;
+                      setCsvBatchRows(csvBatchOriginalRows.map((r) => ({ ...r })));
+                      setCsvBatchHasEdits(false);
+                      setCsvEditingCell(null);
+                      if (csvCorrectedDownloadedTimerRef.current) {
+                        clearTimeout(csvCorrectedDownloadedTimerRef.current);
+                        csvCorrectedDownloadedTimerRef.current = null;
+                      }
+                      setCsvCorrectedDownloaded(false);
+                    }}
+                    className="border-red-200 text-red-700 hover:bg-red-50"
+                  >
+                    Discard edits
+                  </Button>
+                )}
+                {csvBatchHasEdits && csvBatchOriginalRows.length > 0 && (() => {
+                  const count = csvBatchRows.reduce((total, row, rowIdx) => {
+                    const orig = csvBatchOriginalRows[rowIdx];
+                    if (!orig) return total;
+                    return total + csvBatchHeaders.filter((h) => (orig[h] ?? "") !== (row[h] ?? "")).length;
+                  }, 0);
+                  return count > 0 ? <span className="text-xs text-[#6B7A99]">{count} cell{count === 1 ? "" : "s"} edited</span> : null;
+                })()}
+                {csvBatchIsImporting && <span className="text-xs text-[#6B7A99]">Processing rows sequentially, please wait…</span>}
+              </div>
 
         {csvBatchMismatch && (
           <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -1120,75 +1089,110 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
           </div>
         )}
 
-        <div className="flex items-center gap-3 flex-wrap">
-          <Button
-            onClick={() => handleCsvBatchImport()}
-            disabled={!csvBatchPackageId || csvBatchRows.length === 0 || csvBatchIsImporting || csvBatchRows.length > CSV_BATCH_MAX}
-            className="disabled:opacity-60"
-          >
-            {csvBatchIsImporting ? "Importing…" : `Import & Generate ${csvBatchRows.length > 0 ? csvBatchRows.length : ""} row${csvBatchRows.length === 1 ? "" : "s"}`}
-          </Button>
-          {csvBatchHasEdits && csvBatchRows.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const q = (v: string) => /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-                const lines = [
-                  csvBatchHeaders.map(q).join(","),
-                  ...csvBatchRows.map((row) => csvBatchHeaders.map((h) => q(row[h] ?? "")).join(",")),
-                ];
-                const dateStr = new Date().toISOString().slice(0, 10);
-                const baseName = csvBatchFile?.name.replace(/\.csv$/i, "") ?? "corrected";
-                downloadCsv(lines.join("\n"), `${baseName}-corrected-${dateStr}.csv`);
-                if (csvCorrectedDownloadedTimerRef.current) clearTimeout(csvCorrectedDownloadedTimerRef.current);
-                setCsvCorrectedDownloaded(true);
-                csvCorrectedDownloadedTimerRef.current = setTimeout(() => setCsvCorrectedDownloaded(false), 2000);
-              }}
-              className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
-            >
-              {csvCorrectedDownloaded ? (
-                <span className="flex items-center gap-1.5">
-                  <svg className="w-3.5 h-3.5 text-green-600" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2 7l3.5 3.5L12 3" />
-                  </svg>
-                  <span className="text-green-700">Downloaded!</span>
-                </span>
-              ) : "Download corrected CSV"}
-            </Button>
-          )}
-          {csvBatchHasEdits && csvBatchRows.length > 0 && csvBatchOriginalRows.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (!window.confirm("Discard all inline edits and restore the original uploaded data?")) return;
-                setCsvBatchRows(csvBatchOriginalRows.map((r) => ({ ...r })));
-                setCsvBatchHasEdits(false);
-                setCsvEditingCell(null);
-                if (csvCorrectedDownloadedTimerRef.current) {
-                  clearTimeout(csvCorrectedDownloadedTimerRef.current);
-                  csvCorrectedDownloadedTimerRef.current = null;
-                }
-                setCsvCorrectedDownloaded(false);
-              }}
-              className="border-red-200 text-red-700 hover:bg-red-50"
-            >
-              Discard edits
-            </Button>
-          )}
-          {csvBatchHasEdits && csvBatchOriginalRows.length > 0 && (() => {
-            const count = csvBatchRows.reduce((total, row, rowIdx) => {
-              const orig = csvBatchOriginalRows[rowIdx];
-              if (!orig) return total;
-              return total + csvBatchHeaders.filter((h) => (orig[h] ?? "") !== (row[h] ?? "")).length;
-            }, 0);
-            return count > 0 ? (
-              <span className="text-xs text-[#6B7A99]">{count} cell{count === 1 ? "" : "s"} edited</span>
-            ) : null;
-          })()}
-          {csvBatchIsImporting && <span className="text-xs text-[#6B7A99]">Processing rows sequentially, please wait…</span>}
-        </div>
+            </div>
+
+            {/* ── BOTTOM: Field guide accordion (pinned to vault floor) ── */}
+            {(() => {
+              const keyFields = [...csvBatchFieldMap.values()];
+              const selectedPkg = packages.find((p) => String(p.id) === csvBatchPackageId);
+              return (
+                <div className="border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => setShowCsvFieldKey((v) => !v)}
+                    className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-[#0F1C3F] hover:bg-[#EFE8D8] transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <svg className="w-3.5 h-3.5 text-[#8A9BB8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                      Field reference · {keyFields.length} field{keyFields.length === 1 ? "" : "s"}
+                    </span>
+                    <svg className={`w-4 h-4 text-[#8A9BB8] transition-transform ${showCsvFieldKey ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  {showCsvFieldKey && (
+                    <div className="border-t border-gray-200 overflow-x-auto">
+                      <table className="text-xs min-w-full table-fixed">
+                        <colgroup>
+                          <col style={{ width: "35%" }} />
+                          <col style={{ width: "15%" }} />
+                          <col style={{ width: "35%" }} />
+                          <col style={{ width: "15%" }} />
+                        </colgroup>
+                        <tbody>
+                          {selectedPkg && (
+                            <>
+                              <tr className="bg-[#F0EDE5]">
+                                <td className="px-3 py-2 text-[#6B7A99] font-medium whitespace-nowrap">Package Name</td>
+                                <td className="px-3 py-2 text-[#0F1C3F] font-medium" colSpan={3}>{selectedPkg.name}</td>
+                              </tr>
+                              <tr className="bg-[#F0EDE5] border-t border-[#DDD5C4]">
+                                <td className="px-3 py-2 text-[#6B7A99] font-medium whitespace-nowrap">Package ID</td>
+                                <td className="px-3 py-2 font-mono text-[#0F1C3F]" colSpan={3}>{selectedPkg.id}</td>
+                              </tr>
+                              <tr className="bg-[#EFE8D8] border-t-2 border-[#DDD5C4]">
+                                <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Field Name (CSV column header)</td>
+                                <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Status</td>
+                                <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Condition</td>
+                                <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Type</td>
+                              </tr>
+                              <tr className="border-t border-[#DDD5C4]">
+                                <td colSpan={4} className="px-3 py-1 text-[10px] text-[#6B7A99] uppercase tracking-wide font-medium bg-[#EFE8D8]">Fields</td>
+                              </tr>
+                            </>
+                          )}
+                          {keyFields.map((f) => {
+                            const condText = conditionToText(f);
+                            const hasOptions = (f.type === "dropdown" || f.type === "radio" || f.type === "checkbox") && (f.options ?? []).length > 0;
+                            const typeHint = f.type === "date" ? "MM/DD/YYYY" : validationTypeHint(f.validationType, f.validationMessage);
+                            return (
+                              <tr key={f.id} className={`border-t border-[#EFE8D8] align-top ${condText ? "bg-purple-50/40" : ""}`}>
+                                <td className="px-3 py-2">
+                                  <div className="font-mono text-[#0F1C3F]">
+                                    {f.name}
+                                    {f.sensitive && <span className="ml-1.5 text-[10px] text-red-600" title="Sensitive field">🔒</span>}
+                                  </div>
+                                  {hasOptions && (
+                                    <div className="mt-1.5 flex flex-wrap gap-1">
+                                      {(f.options ?? []).map((opt) => (
+                                        <span key={opt} className="inline-block rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[10px] text-[#334155]">{opt}</span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {!hasOptions && typeHint && (
+                                    <div className="mt-1 text-[10px] text-[#8A9BB8] font-mono">{typeHint}</div>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 whitespace-nowrap">
+                                  {f.interviewMode === "required" && condText
+                                    ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200">Cond. Required</span>
+                                    : f.interviewMode === "required"
+                                      ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-700">Required</span>
+                                      : f.interviewMode === "readonly"
+                                        ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700">Auto-filled</span>
+                                        : <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-[#EFE8D8] text-[#6B7A99]">Optional</span>
+                                  }
+                                </td>
+                                <td className="px-3 py-2 text-[10px]">
+                                  {condText
+                                    ? <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 bg-purple-100 text-purple-800 font-medium">
+                                        <svg className="w-2.5 h-2.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h4.5"/></svg>
+                                        {condText}
+                                      </span>
+                                    : <span className="text-[#C0CBDA]">Always shown</span>
+                                  }
+                                </td>
+                                <td className="px-3 py-2 capitalize text-[#334155]">{f.type}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
 
         {csvBatchResults && (
           <div>
