@@ -233,11 +233,11 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
         ) : (
           <div className="space-y-5">
             {builderStep === "documents" && (
-              <div className="space-y-4">
+              <div className="space-y-4 max-w-[1200px]">
                 <div className="rounded-lg bg-white p-4 space-y-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.03)]">
                   <div className="text-sm font-semibold text-[#0F1C3F]">Optional settings</div>
                   <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-2 gap-4 max-w-2xl">
                   {/* Groups */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -396,18 +396,17 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                     <Textarea value={selectedPackage.description ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, description: e.target.value }))} />
                   </label>
                   <div>
-                    <div className="flex items-center gap-1 mb-1">
+                    <div className="flex items-center gap-1 mb-2">
                       <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Tags</span>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className="flex items-center justify-center w-4 h-4 rounded-full border border-[#C4B99A] text-[#8A9BB8] text-[10px] leading-none cursor-help select-none">?</span>
                         </TooltipTrigger>
-                        <TooltipContent side="right" className="max-w-60">
-                          Tags appear as filter chips above the package list — click any tag there to show only matching packages. Add multiple tags to a package to make it show up under any of them.
+                        <TooltipContent side="right" className="max-w-64">
+                          Free-form labels for organizing and filtering packages. Tags appear as filter chips above the package list — click any to show only matching packages. Press Enter or comma to add.
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    <p className="text-[11px] text-[#8A9BB8] mb-2">Free-form labels for organizing and filtering packages. Press Enter or comma to add.</p>
                     <TagChipInput
                       tags={selectedPackage.tags ?? []}
                       onChange={(tags) => updateSelectedPackage((pkg) => ({ ...pkg, tags }))}
