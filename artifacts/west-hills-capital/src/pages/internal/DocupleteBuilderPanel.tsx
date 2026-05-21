@@ -582,8 +582,8 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
               const unmappedInterviewFields = packageInterviewFields.filter((f) => !packageMappedFieldIds.has(f.id));
               return (
               <div className="space-y-6">
-                <div className="grid lg:grid-cols-2 gap-4 h-[520px]">
-                  <div className="rounded-lg bg-gray-50/50 border border-gray-200 p-4 flex flex-col gap-2 h-full overflow-hidden">
+                <div className="flex flex-col lg:flex-row items-stretch gap-6 w-full">
+                  <div className="rounded-lg bg-gray-50/50 border border-gray-200 p-4 flex flex-col gap-2 flex-1 overflow-hidden">
                     <div>
                       <div className="flex items-center justify-between">
                         <h2 className="text-sm font-semibold">Interview order</h2>
@@ -593,7 +593,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                       </div>
                       <p className="text-xs text-[#8A9BB8] mt-0.5 opacity-70">Questions staff will be asked, top to bottom. Drag to reorder — the preview updates live.</p>
                     </div>
-                    <div className="flex-1 min-h-0 overflow-y-auto">
+                    <div className="h-[500px] overflow-y-auto">
                       {packageInterviewFields.length === 0 ? (
                         <EmptyState message="No interview questions yet. Go to Data + Fields View and mark fields that require input." />
                       ) : (
@@ -620,7 +620,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                                 ref={wrapperRef}
                                 style={wrapperStyle}
                                 {...handleProps}
-                                className={`rounded border p-3 flex flex-col gap-1.5 transition-shadow cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-40 shadow-lg border-[#C49A38] bg-[#FDF8EE]" : "border-[#EFE8D8] bg-[#F8F6F0]"}`}
+                                className={`rounded-xl border p-3 flex flex-col gap-1.5 transition-shadow cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-40 shadow-lg border-[#C49A38] bg-[#FDF8EE]" : "border-gray-200 bg-white shadow-sm"}`}
                               >
                                 <div className="flex items-start gap-2">
                                   <div className="flex-1 min-w-0">
@@ -678,7 +678,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                       <button type="button" onClick={() => goBuilderStep("mapping")} className="w-full text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md px-4 py-2.5 text-center hover:bg-gray-50 hover:shadow-sm active:shadow-none transition-all">Edit Mapping Rules</button>
                     </div>
                   </div>
-                  <div className="rounded-lg bg-gray-50/50 border border-gray-200 p-4 flex flex-col gap-3 overflow-y-auto h-full">
+                  <div className="rounded-lg bg-gray-50/50 border border-gray-200 p-4 flex flex-col gap-3 overflow-y-auto flex-1">
                     <div>
                       <h2 className="text-sm font-semibold">Interview preview</h2>
                       <p className="text-xs text-[#8A9BB8] mt-0.5 opacity-70">How this will appear to staff during an interview. Updates as you reorder.</p>
