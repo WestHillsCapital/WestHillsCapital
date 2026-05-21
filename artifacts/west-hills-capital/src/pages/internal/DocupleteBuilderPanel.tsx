@@ -622,23 +622,29 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                                 {...handleProps}
                                 className={`rounded border p-3 flex flex-col gap-1.5 transition-shadow cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-40 shadow-lg border-[#C49A38] bg-[#FDF8EE]" : "border-[#EFE8D8] bg-[#F8F6F0]"}`}
                               >
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
-                                    <span>{index + 1}. {field.name}</span>
-                                    {!packageMappedFieldIds.has(field.id) && (
-                                      <span className="text-[10px] font-normal bg-orange-50 border border-orange-300 text-orange-700 rounded px-1.5 py-0.5 leading-none">Not on PDF</span>
-                                    )}
+                                <div className="flex items-start gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
+                                      <span>{index + 1}. {field.name}</span>
+                                      {!packageMappedFieldIds.has(field.id) && (
+                                        <span className="text-[10px] font-normal bg-[#EAF0FB] border border-[#C5D0E6] text-[#4A6FA8] rounded px-1.5 py-0.5 leading-none">Logic input</span>
+                                      )}
+                                    </div>
+                                    <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.validationType && field.validationType !== "none" ? ` · ${field.validationType}` : ""}{field.sensitive ? " · masked" : ""}</div>
                                   </div>
-                                  <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.validationType && field.validationType !== "none" ? ` · ${field.validationType}` : ""}{field.sensitive ? " · masked" : ""}</div>
+                                  <svg className="w-3 h-3.5 text-[#C4B99A] shrink-0 mt-0.5" viewBox="0 0 10 16" fill="currentColor">
+                                    <circle cx="2.5" cy="3" r="1.3"/><circle cx="2.5" cy="8" r="1.3"/><circle cx="2.5" cy="13" r="1.3"/>
+                                    <circle cx="7.5" cy="3" r="1.3"/><circle cx="7.5" cy="8" r="1.3"/><circle cx="7.5" cy="13" r="1.3"/>
+                                  </svg>
                                 </div>
                                 {!packageMappedFieldIds.has(field.id) && (
                                   <button
                                     type="button"
                                     onPointerDown={(e) => e.stopPropagation()}
                                     onClick={() => { setSelectedFieldId(field.id); goBuilderStep("mapping"); }}
-                                    className="text-[10px] text-orange-700 bg-orange-50 border border-orange-200 rounded px-2 py-1 text-left hover:bg-orange-100 transition-colors w-full cursor-pointer"
+                                    className="text-[10px] text-[#4A6FA8] bg-[#EAF0FB] border border-[#C5D0E6] rounded px-2 py-1 text-left hover:bg-[#D8E5F8] transition-colors w-full cursor-pointer"
                                   >
-                                    Answer won't appear on any PDF — place it now →
+                                    💡 Logic Input Node — triggers workflow routing but has no PDF coordinate. Map it if needed →
                                   </button>
                                 )}
                               </div>
