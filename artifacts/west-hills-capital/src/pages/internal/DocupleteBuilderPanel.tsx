@@ -452,6 +452,9 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                     </label>
                   </div>
                 </div>
+                <div className="flex gap-8 w-full items-start">
+                {/* Left: drop zone */}
+                <div className="shrink-0 w-56">
                 <div
                   onDragEnter={(e: ReactDragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDocumentDropActive(true); }}
                   onDragOver={(e: ReactDragEvent<HTMLDivElement>) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setIsDocumentDropActive(true); }}
@@ -478,7 +481,10 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                     />
                   </label>
                 </div>
-                {isUploadingDocument && <div className="text-xs text-[#6B7A99]">Uploading PDF documents, please wait…</div>}
+                {isUploadingDocument && <div className="mt-2 text-xs text-[#6B7A99]">Uploading PDF documents, please wait…</div>}
+                </div>
+                {/* Right: document grid */}
+                <div className="flex-1 min-w-0">
                 {selectedPackage.documents.length === 0 ? (
                   <EmptyState message="Upload PDFs here, then arrange them into the order customers should receive them." />
                 ) : (
@@ -496,7 +502,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                     }}
                   >
                     <SortableContext items={selectedPackage.documents.map((d) => d.id)} strategy={rectSortingStrategy}>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                      <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))" }}>
                         {selectedPackage.documents.map((doc, index) => (
                           <SortableItem key={doc.id} id={doc.id}>
                             {({ handleProps, wrapperRef, wrapperStyle, isDragging }) => (
@@ -542,6 +548,8 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                     </SortableContext>
                   </DndContext>
                 )}
+                </div>
+                </div>
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <Button
                     onClick={async () => { await savePackage(selectedPackage); goBuilderStep("mapping"); }}
