@@ -725,8 +725,10 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                       </div>
                     )}
                     </div>
-                    <div className="shrink-0 -mx-4 -mb-4 border-t border-gray-200 bg-gray-100/80 rounded-b-xl px-4 pt-2.5 pb-3 flex items-center gap-2">
-                      <span className="text-xs text-[#6B7A99]">👥 Staff View Preview · {packageInterviewFields.length} Question{packageInterviewFields.length !== 1 ? "s" : ""} Visible</span>
+                    <div className="shrink-0 -mx-4 -mb-4 border-t border-gray-200 bg-gray-100/80 rounded-b-xl px-4 pt-2.5 pb-3">
+                      <div className="w-full border border-transparent rounded-md px-4 py-2.5 flex items-center gap-2">
+                        <span className="text-xs text-[#6B7A99]">👥 Staff View Preview · {packageInterviewFields.length} Question{packageInterviewFields.length !== 1 ? "s" : ""} Visible</span>
+                      </div>
                     </div>
                   </div>
                 </div>
