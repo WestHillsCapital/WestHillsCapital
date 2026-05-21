@@ -184,7 +184,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
 
   return (
     <div>
-      <section className="bg-white border border-[#DDD5C4] rounded-lg p-5">
+      <section className="bg-white rounded-lg p-5 shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.03)]">
         {!selectedPackage ? (
           bootstrapLoaded && packages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
@@ -234,14 +234,14 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
           <div className="space-y-5">
             {builderStep === "documents" && (
               <div className="space-y-4">
-                <div className="rounded-lg border border-[#DDD5C4] bg-white p-4 space-y-4">
+                <div className="rounded-lg bg-white p-4 space-y-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.03)]">
                   <div className="text-sm font-semibold text-[#0F1C3F]">Optional settings</div>
                   <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-6">
                   {/* Groups */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-[#6B7A99]">Groups</span>
+                      <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Groups</span>
                       {groups.length > 0 && !inlineAddGroupOpen && (
                         <button type="button" onClick={() => { setInlineAddGroupOpen(true); setInlineAddGroupName(""); setInlineAddGroupError(null); }} className="text-xs text-[#C49A38] hover:underline">+ Add group</button>
                       )}
@@ -329,7 +329,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                   {/* Type */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-[#6B7A99]">Type <span className="text-[#8A9BB8] font-normal">(optional)</span></span>
+                      <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Type <span className="text-gray-400 normal-case font-normal tracking-normal">(optional)</span></span>
                       {!inlineAddTypeOpen && (
                         <button type="button" onClick={() => { setInlineAddTypeOpen(true); setInlineAddTypeName(""); setInlineAddTypeError(null); }} className="text-xs text-[#C49A38] hover:underline">+ Add type</button>
                       )}
@@ -392,12 +392,12 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                   </div>
                   <div className="grid grid-cols-2 gap-6">
                   <label className="block">
-                    <span className="block text-xs text-[#6B7A99] mb-1">Description / interview notes</span>
+                    <span className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Description / interview notes</span>
                     <Textarea value={selectedPackage.description ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, description: e.target.value }))} />
                   </label>
                   <div>
                     <div className="flex items-center gap-1 mb-1">
-                      <span className="text-xs text-[#6B7A99]">Tags</span>
+                      <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Tags</span>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className="flex items-center justify-center w-4 h-4 rounded-full border border-[#C4B99A] text-[#8A9BB8] text-[10px] leading-none cursor-help select-none">?</span>
@@ -447,8 +447,13 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                   onDragOver={(e: ReactDragEvent<HTMLDivElement>) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setIsDocumentDropActive(true); }}
                   onDragLeave={(e: ReactDragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDocumentDropActive(false); }}
                   onDrop={(e: ReactDragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDocumentDropActive(false); const files = e.dataTransfer.files; if (files.length === 1) uploadDocument(files[0]); else uploadDocuments(files); }}
-                  className={`rounded-xl border-2 border-dashed p-6 text-center transition ${isDocumentDropActive ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#D4C9B5] bg-[#F8F6F0]"}`}
+                  className={`rounded-xl border-2 border-dashed p-6 text-center transition ${isDocumentDropActive ? "border-blue-400 bg-blue-100/60" : "border-blue-300 bg-blue-50/50"}`}
                 >
+                  <div className="flex justify-center mb-3">
+                    <svg className={`w-8 h-8 transition ${isDocumentDropActive ? "text-blue-500" : "text-blue-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5v-9m0 0-3 3m3-3 3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.338-2.32 5.75 5.75 0 0 1 1.026 11.095H6.75Z" />
+                    </svg>
+                  </div>
                   <div className="text-sm font-semibold text-[#0F1C3F]">Drag and drop multiple PDFs here</div>
                   <p className="mt-1 text-xs text-[#6B7A99]">Drop all paperwork documents at once. Docuplete will upload them in order and add each file to this package.</p>
                   <label className={`mt-3 ${buttonVariants({ variant: "outline", size: "sm" })} ${isUploadingDocument ? "opacity-50 pointer-events-none cursor-not-allowed" : "cursor-pointer"}`}>
@@ -543,7 +548,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
               return (
               <div className="space-y-6">
                 <div className="grid lg:grid-cols-2 gap-4">
-                  <div className="rounded-lg border border-[#DDD5C4] bg-white p-4 flex flex-col gap-3 overflow-y-auto max-h-[520px]">
+                  <div className="rounded-lg bg-white p-4 flex flex-col gap-3 overflow-y-auto max-h-[520px] shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.03)]">
                     <div className="flex items-center justify-between">
                       <h2 className="text-sm font-semibold">Interview order</h2>
                       {packageInterviewFields.length > 1 && (
@@ -618,7 +623,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                       <Button onClick={() => goBuilderStep("mapping")} variant="outline" className="text-xs">Edit Mapping Rules</Button>
                     </div>
                   </div>
-                  <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-4 flex flex-col gap-3 overflow-y-auto max-h-[520px]">
+                  <div className="rounded-lg bg-[#F8F6F0] p-4 flex flex-col gap-3 overflow-y-auto max-h-[520px] shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.03)]">
                     <div>
                       <h2 className="text-sm font-semibold">Interview preview</h2>
                       <p className="text-xs text-[#8A9BB8] mt-0.5">How this will appear to staff during an interview. Updates as you reorder.</p>
