@@ -702,7 +702,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
             title="Expand panel"
           >
             {/* Zone 1: chevron row — same height as p-4 of adjacent panels */}
-            <div className="w-full flex items-center justify-center shrink-0" style={{ height: 16 }}>
+            <div className="w-full flex items-center justify-center shrink-0" style={{ height: 19 }}>
               <ChevronRight className="w-3 h-3 text-[#8A9BB8]" />
             </div>
             {/* Zone 2: icons — top aligns with adjacent column headers */}
