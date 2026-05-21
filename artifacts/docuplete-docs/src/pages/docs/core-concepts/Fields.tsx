@@ -31,11 +31,12 @@ export default function Fields() {
       <h2>Interview modes</h2>
       <p>Each field has an interview mode that controls how it appears to the client:</p>
       <ul>
-        <li><strong>Required</strong> — The client must provide an answer before proceeding. If left blank, submission is blocked.</li>
-        <li><strong>Optional</strong> — The client may skip the field. The PDF mapping will be empty if no answer is given.</li>
-        <li><strong>Read-only</strong> — The field is shown with a prefilled value the client cannot change. Useful for reference information or pre-confirmed data.</li>
-        <li><strong>Hidden</strong> — The field is not shown in the interview at all. It can still be prefilled via the session API and mapped to the PDF.</li>
+        <li><strong>Required</strong> — The client must provide an answer before proceeding. If left blank, submission is blocked. Shown as a gold <strong>Required</strong> badge in the package builder's interview order list.</li>
+        <li><strong>Optional</strong> — The client may skip the field. The PDF mapping will be empty if no answer is given. This is the default mode and shows no badge in the builder.</li>
+        <li><strong>Read-only</strong> — The field is shown with a prefilled value the client cannot change. Useful for reference information or pre-confirmed data. Shown as a blue <strong>Read-only</strong> badge in the builder.</li>
+        <li><strong>Hidden</strong> — The field is not shown in the interview at all. It can still be prefilled via the session API and mapped to the PDF. Hidden fields appear in a collapsed section at the bottom of the interview order panel, separate from the draggable list.</li>
       </ul>
+      <p>In the package builder's <strong>Interview Order</strong> list, each field card also shows badges for conditional logic (<strong>↳ If [Field Name]</strong>), sensitive masking (<strong>🔒 Sensitive</strong>), auto-fill, sum group membership, and active validation rules — so you can audit field behavior at a glance without opening every field's editor.</p>
 
       <h2>Conditional logic</h2>
       <p>Fields can be shown or hidden based on the answers to other fields. This keeps the interview short and relevant — clients only see questions that apply to their situation.</p>

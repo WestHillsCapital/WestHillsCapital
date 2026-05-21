@@ -29,7 +29,29 @@ export default function BuildingFields() {
       />
 
       <h2>Reordering fields</h2>
-      <p>Drag fields by the handle (⠿) on the left to reorder them. The order you set here is the order the client sees in the interview.</p>
+      <p>Drag fields by the grip handle (⠿) on the right side of each card to reorder them. The order you set here is the order the client sees in the interview.</p>
+      <p>Each field card in the list shows a <strong>badge row</strong> beneath the field name so you can review every field's configuration without opening the editor:</p>
+      <div className="overflow-x-auto">
+        <table>
+          <thead>
+            <tr><th>Badge</th><th>Color</th><th>Meaning</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Field type (text, radio, etc.)</td><td>Gray</td><td>Always shown — the data type of the field.</td></tr>
+            <tr><td><strong>Required</strong></td><td>Gold</td><td>The field must be answered before the interview can be submitted.</td></tr>
+            <tr><td><strong>Read-only</strong></td><td>Blue</td><td>The field is displayed with a prefilled value the user cannot change.</td></tr>
+            <tr><td><strong>↳ If [Field Name]</strong></td><td>Purple</td><td>The field has a "Show if…" condition. The name of the trigger field is shown inline. A second condition appears as a second badge labeled <em>and [Field]</em> or <em>or [Field]</em>.</td></tr>
+            <tr><td><strong>🔒 Sensitive</strong></td><td>Red</td><td>The field's value is masked in the sessions dashboard and audit log.</td></tr>
+            <tr><td><strong>Auto-fill</strong></td><td>Teal</td><td>The field is configured to auto-populate from another field's value when a trigger condition is met.</td></tr>
+            <tr><td><strong>Σ [Group name]</strong></td><td>Orange</td><td>The field belongs to a sum group (e.g., allocation percentages that must add up to 100).</td></tr>
+            <tr><td>Validation type (ssn, phone, etc.)</td><td>Gray</td><td>Shown only when a non-default validation rule is active on the field.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Fields with <strong>Optional</strong> mode (the default) show no mode badge — only Required and Read-only are called out, since they represent non-default behavior worth noticing at a glance.</p>
+      <div className="callout callout-tip">
+        <strong>Tip:</strong> Use the badge row to do a quick pre-flight scan before making a package Active. Look for any fields that are missing a Required badge when they should be required, any conditional fields (↳ If…) whose trigger field name looks wrong, or any sensitive fields you may have forgotten to mark.
+      </div>
 
       <h2>Field groups</h2>
       <p>Add a <strong>Group Header</strong> (from the Add Field menu) to insert a section label. All fields below the group header until the next header are visually grouped together in the interview. This helps break long interviews into clear sections.</p>

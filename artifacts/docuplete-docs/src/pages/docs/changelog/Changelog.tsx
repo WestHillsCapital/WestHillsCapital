@@ -12,6 +12,35 @@ export default function Changelog() {
         <div>
           <div className="flex items-center gap-3 mb-3">
             <span className="text-xs font-mono text-white/40">May 2026</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#5B8DEF]/15 text-[#5B8DEF]">Improvement</span>
+          </div>
+          <h2 className="mt-0">Interview Order — field metadata badges</h2>
+          <p>The <strong>Interview Order</strong> list in the package builder now shows a badge row beneath each field name, making the key properties of every field visible at a glance without opening the editor. The following badges appear when applicable:</p>
+          <ul>
+            <li><strong>Field type</strong> — always shown (text, radio, checkbox, dropdown, date, initials).</li>
+            <li><strong>Required</strong> (gold) — field must be answered before submission.</li>
+            <li><strong>Read-only</strong> (blue) — field is prefilled and cannot be edited by the user.</li>
+            <li><strong>↳ If [Field Name]</strong> (purple) — field is conditional on another field's answer; the source field name is shown inline. A second condition (and / or) is shown as an additional badge.</li>
+            <li><strong>🔒 Sensitive</strong> (red) — field value is masked in the sessions dashboard.</li>
+            <li><strong>Auto-fill</strong> (teal) — field value is automatically copied from another field when a trigger condition is met.</li>
+            <li><strong>Σ [Group]</strong> (orange) — field participates in a sum group allocation check.</li>
+            <li><strong>Validation type</strong> (gray) — shown when a non-default validation rule (e.g., ssn, phone, email) is active.</li>
+          </ul>
+          <p>Fields set to <strong>Optional</strong> (the default mode) show no mode badge — only non-default modes are called out to keep the list scannable.</p>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-xs font-mono text-white/40">May 2026</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#5B8DEF]/15 text-[#5B8DEF]">Improvement</span>
+          </div>
+          <h2 className="mt-0">Non-disruptive save notifications</h2>
+          <p>Save confirmations throughout the package builder (<em>Saved.</em>, <em>Saved package.</em>, etc.) now appear as <strong>toast notifications</strong> in the bottom-right corner of the screen rather than as an inline status bar in the page layout. The previous inline message caused the page content to shift vertically each time it appeared and disappeared — particularly disruptive when reordering fields by drag-and-drop, as the layout shift would knock fields out of position mid-drag. Toast notifications are fixed-position overlays that sit outside the document flow and have no effect on page layout or scroll position. They auto-dismiss after 2.5 seconds.</p>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-xs font-mono text-white/40">May 2026</span>
             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-500/15 text-green-400">Fix</span>
           </div>
           <h2 className="mt-0">OTP attempt limit corrected to 5</h2>
