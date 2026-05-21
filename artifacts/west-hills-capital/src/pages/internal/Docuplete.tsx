@@ -3589,7 +3589,12 @@ export default function Docuplete() {
     if (!selectedDocument) return;
     const targetPage = pageOverride ?? selectedPage;
     const isChoiceType = field.type === "radio" || field.type === "checkbox";
-    const opts = field.options?.filter(Boolean) ?? [];
+    const ownOpts = field.options?.filter(Boolean) ?? [];
+    const opts = ownOpts.length > 0
+      ? ownOpts
+      : field.optionsMode === "inherit" && field.libraryFieldId
+        ? (fieldLibrary.find((l) => l.id === field.libraryFieldId)?.options ?? []).filter(Boolean)
+        : [];
 
     if (isChoiceType && opts.length > 0) {
       // Only create slots for options that don't already have a checkbox-option mapping
