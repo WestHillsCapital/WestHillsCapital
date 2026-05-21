@@ -1,4 +1,4 @@
-import React, { type ReactNode, type RefObject } from "react";
+import React, { useState, type ReactNode, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import type { FieldItem } from "@/lib/docuplete-types";
@@ -137,6 +137,64 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
     labelForTransactionScope, getAuthHeaders, docupleteApiPath,
     handleCsvBatchFileChange, handleCsvBatchImport,
   } = props;
+
+  // ── Preflight state (local — ephemeral per upload) ──────────────────────
+  type PreflightIssue = { fieldId: string; fieldName: string; kind: "missing_required" | "invalid_format" | "invalid_option"; message: string };
+  type PreflightRowResult = { rowIndex: number; pass: boolean; issues: PreflightIssue[] };
+  type PreflightResult = { rows: PreflightRowResult[]; summary: { total: number; passing: number; failing: number } };
+
+  const [preflightResult, setPreflightResult] = useState<PreflightResult | null>(null);
+  const [preflightRunning, setPreflightRunning] = useState(false);
+  const [preflightError, setPreflightError] = useState<string | null>(null);
+  const [preflightExpanded, setPreflightExpanded] = useState<Set<number>>(new Set());
+
+  async function runPreflight() {
+    if (!csvBatchPackageId || csvBatchRows.length === 0) return;
+    setPreflightRunning(true);
+    setPreflightError(null);
+    setPreflightResult(null);
+    setPreflightExpanded(new Set());
+    try {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/csv-batch/preflight`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ packageId: csvBatchPackageId, rows: csvBatchRows }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Preflight check failed");
+      setPreflightResult(data as PreflightResult);
+      // Auto-expand failing rows if ≤5 failures
+      if ((data as PreflightResult).summary.failing <= 5) {
+        setPreflightExpanded(new Set((data as PreflightResult).rows.filter((r: PreflightRowResult) => !r.pass).map((r: PreflightRowResult) => r.rowIndex)));
+      }
+    } catch (err) {
+      setPreflightError(err instanceof Error ? err.message : "Preflight check failed");
+    } finally {
+      setPreflightRunning(false);
+    }
+  }
+
+  // Build fieldId→name map for the selected package (used in field guide condition descriptions)
+  const selectedPkgFields = csvBatchPackageId ? (packages.find((p) => String(p.id) === csvBatchPackageId)?.fields ?? []) : [];
+  const fieldIdToName = new Map(selectedPkgFields.map((f) => [f.id, f.name]));
+
+  function conditionToText(f: FieldItem): string | null {
+    const describeOne = (c: { fieldId: string; operator: string; value: string }) => {
+      const name = fieldIdToName.get(c.fieldId) ?? c.fieldId;
+      switch (c.operator) {
+        case "equals":          return `"${name}" = "${c.value}"`;
+        case "not_equals":      return `"${name}" ≠ "${c.value}"`;
+        case "is_answered":     return `"${name}" is answered`;
+        case "is_not_answered": return `"${name}" is blank`;
+        default:                return `"${name}"`;
+      }
+    };
+    const c1 = f.condition?.fieldId ? f.condition : null;
+    const c2 = f.condition2?.fieldId ? f.condition2 : null;
+    if (c1 && c2) return `If ${describeOne(c1)} ${f.conditionOperator === "or" ? "OR" : "AND"} ${describeOne(c2)}`;
+    if (c1) return `If ${describeOne(c1)}`;
+    return null;
+  }
 
   return (
     <section className="bg-white border border-[#DDD5C4] rounded-lg max-w-4xl mx-auto overflow-hidden">
@@ -384,26 +442,38 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                                 <tr className="bg-[#EFE8D8] border-t-2 border-[#DDD5C4]">
                                   <td className="px-3 py-2 text-left font-medium text-[#6B7A99] whitespace-nowrap">Field Name (CSV column header)</td>
                                   <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Required?</td>
+                                  <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Condition</td>
                                   <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Type</td>
                                   <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Accepted Values</td>
                                 </tr>
                                 <tr className="border-t border-[#DDD5C4]">
-                                  <td colSpan={4} className="px-3 py-1 text-[10px] text-[#6B7A99] uppercase tracking-wide font-medium bg-[#EFE8D8]">Fields</td>
+                                  <td colSpan={5} className="px-3 py-1 text-[10px] text-[#6B7A99] uppercase tracking-wide font-medium bg-[#EFE8D8]">Fields</td>
                                 </tr>
                               </>
                             )}
-                            {keyFields.map((f) => (
-                              <tr key={f.id} className="border-t border-[#EFE8D8]">
+                            {keyFields.map((f) => {
+                              const condText = conditionToText(f);
+                              return (
+                              <tr key={f.id} className={`border-t border-[#EFE8D8] ${condText ? "bg-purple-50/40" : ""}`}>
                                 <td className="px-3 py-2 font-mono text-[#0F1C3F] whitespace-nowrap">
                                   {f.name}
                                   {f.sensitive && <span className="ml-1.5 text-[10px] text-red-600" title="Sensitive field">🔒</span>}
                                 </td>
                                 <td className="px-3 py-2 whitespace-nowrap">
                                   {f.interviewMode === "required"
-                                    ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-700">Required</span>
+                                    ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-700">Required{condText ? "*" : ""}</span>
                                     : f.interviewMode === "readonly"
-                                      ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700">Read only</span>
+                                      ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700">Auto-filled</span>
                                       : <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-[#EFE8D8] text-[#6B7A99]">Optional</span>
+                                  }
+                                </td>
+                                <td className="px-3 py-2 text-[#6B7A99] text-[10px] whitespace-nowrap max-w-[200px]">
+                                  {condText
+                                    ? <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 bg-purple-100 text-purple-800 font-medium">
+                                        <svg className="w-2.5 h-2.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h4.5"/></svg>
+                                        {condText}
+                                      </span>
+                                    : <span className="text-[#C0CBDA]">Always shown</span>
                                   }
                                 </td>
                                 <td className="px-3 py-2 capitalize text-[#334155]">{f.type}</td>
@@ -420,7 +490,8 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                                   }
                                 </td>
                               </tr>
-                            ))}
+                            );
+                            })}
                           </tbody>
                         </table>
                       </div>
@@ -930,7 +1001,99 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
 
         {csvBatchValidationSummary && csvBatchValidationSummary.invalidRows.length === 0 && csvBatchValidationSummary.emptyRequiredRows.length === 0 && (
           <div className="rounded border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
-            All {csvBatchValidationSummary.total} row{csvBatchValidationSummary.total === 1 ? "" : "s"} passed validation.
+            All {csvBatchValidationSummary.total} row{csvBatchValidationSummary.total === 1 ? "" : "s"} passed client-side validation.
+          </div>
+        )}
+
+        {/* ── Server Preflight Check ─────────────────────────────── */}
+        {csvBatchPackageId && csvBatchRows.length > 0 && (
+          <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0]">
+            <div className="flex items-center justify-between px-4 py-3">
+              <div>
+                <div className="text-sm font-semibold text-[#0F1C3F]">Server Preflight Check</div>
+                <div className="text-[11px] text-[#8A9BB8] mt-0.5">Evaluates conditions per row — required fields are only enforced when their condition is met.</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => void runPreflight()}
+                disabled={preflightRunning}
+                className="shrink-0 ml-4 text-xs font-medium text-white bg-[#0F1C3F] hover:bg-[#1a2f5a] disabled:opacity-50 rounded px-3 py-1.5 transition-colors"
+              >
+                {preflightRunning ? (
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
+                    Checking…
+                  </span>
+                ) : preflightResult ? "Re-run Preflight" : "Run Preflight"}
+              </button>
+            </div>
+            {preflightError && (
+              <div className="border-t border-[#DDD5C4] px-4 py-2 text-xs text-red-700 bg-red-50">{preflightError}</div>
+            )}
+            {preflightResult && (
+              <div className="border-t border-[#DDD5C4]">
+                {/* Summary bar */}
+                <div className={`px-4 py-2.5 flex items-center gap-3 text-sm font-medium ${preflightResult.summary.failing === 0 ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>
+                  {preflightResult.summary.failing === 0 ? (
+                    <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                  ) : (
+                    <svg className="w-4 h-4 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+                  )}
+                  <span>
+                    {preflightResult.summary.passing} of {preflightResult.summary.total} row{preflightResult.summary.total === 1 ? "" : "s"} ready
+                    {preflightResult.summary.failing > 0 && ` · ${preflightResult.summary.failing} need attention`}
+                  </span>
+                  {preflightResult.summary.failing > 0 && (
+                    <button
+                      type="button"
+                      className="ml-auto text-[11px] underline font-normal text-amber-700 hover:text-amber-900"
+                      onClick={() => {
+                        const failingIndices = preflightResult.rows.filter((r) => !r.pass).map((r) => r.rowIndex);
+                        const allExpanded = failingIndices.every((i) => preflightExpanded.has(i));
+                        setPreflightExpanded(allExpanded ? new Set() : new Set(failingIndices));
+                      }}
+                    >
+                      {preflightResult.rows.filter((r) => !r.pass).every((r) => preflightExpanded.has(r.rowIndex)) ? "Collapse all" : "Expand all"}
+                    </button>
+                  )}
+                </div>
+                {/* Failing rows */}
+                {preflightResult.rows.filter((r) => !r.pass).length > 0 && (
+                  <div className="divide-y divide-[#EFE8D8]">
+                    {preflightResult.rows.filter((r) => !r.pass).map((row) => {
+                      const isExpanded = preflightExpanded.has(row.rowIndex);
+                      return (
+                        <div key={row.rowIndex} className="bg-white">
+                          <button
+                            type="button"
+                            className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-amber-50 transition-colors"
+                            onClick={() => setPreflightExpanded((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(row.rowIndex)) next.delete(row.rowIndex); else next.add(row.rowIndex);
+                              return next;
+                            })}
+                          >
+                            <svg className={`w-3 h-3 shrink-0 text-[#8A9BB8] transition-transform ${isExpanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                            <span className="text-xs font-medium text-amber-900">Row {row.rowIndex + 1}</span>
+                            <span className="text-[11px] text-[#8A9BB8]">{row.issues.length} issue{row.issues.length === 1 ? "" : "s"}</span>
+                          </button>
+                          {isExpanded && (
+                            <div className="px-8 pb-2 space-y-1">
+                              {row.issues.map((issue, i) => (
+                                <div key={i} className="flex items-start gap-2 text-[11px]">
+                                  <span className={`mt-0.5 shrink-0 inline-block w-1.5 h-1.5 rounded-full ${issue.kind === "missing_required" ? "bg-red-500" : issue.kind === "invalid_option" ? "bg-orange-500" : "bg-amber-500"}`} />
+                                  <span className={issue.kind === "missing_required" ? "text-red-700" : "text-amber-800"}>{issue.message}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

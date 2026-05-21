@@ -4759,6 +4759,103 @@ router.delete("/packages/:id/documents/:documentId", async (req, res) => {
   }
 });
 
+router.post("/csv-batch/preflight", requireMemberRole, async (req, res) => {
+  try {
+    const _parse = CsvBatchBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body" }); return; }
+    const body = _parse.data;
+    const packageId = parseId(body.packageId);
+    if (!packageId) { res.status(400).json({ error: "packageId is required" }); return; }
+    if (!Array.isArray(body.rows) || body.rows.length === 0) { res.status(400).json({ error: "rows array is required and must not be empty" }); return; }
+
+    const db = getDb();
+    const pkg = await getPackage(packageId, db, true, acctId(req));
+    if (!pkg) { res.status(404).json({ error: "Package not found" }); return; }
+
+    const fields = parseFields(pkg.fields);
+    const interviewFields = fields.filter(fieldInInterview);
+
+    // Build name→fieldId lookup for CSV column matching
+    const fieldLookup = new Map<string, string>();
+    interviewFields.forEach((f) => { if (f.name) fieldLookup.set(f.name.toLowerCase().trim(), f.id); });
+
+    type PreflightIssue = { fieldId: string; fieldName: string; kind: "missing_required" | "invalid_format" | "invalid_option"; message: string };
+    type PreflightRowResult = { rowIndex: number; pass: boolean; issues: PreflightIssue[] };
+    const rowResults: PreflightRowResult[] = [];
+
+    for (let i = 0; i < body.rows.length; i++) {
+      const row = body.rows[i] as Record<string, string>;
+
+      // Build prefill: fieldId → value from CSV row
+      const prefill: Record<string, string> = {};
+      for (const [col, val] of Object.entries(row)) {
+        const normalized = col.toLowerCase().trim();
+        if (normalized === "__package_id__" || normalized === "__package_name__") continue;
+        const fieldId = fieldLookup.get(normalized);
+        if (!fieldId) continue;
+        prefill[fieldId] = String(val ?? "").trim();
+      }
+
+      const issues: PreflightIssue[] = [];
+
+      for (const field of interviewFields) {
+        if (field.interviewMode === "readonly") continue; // auto-filled, not in CSV
+
+        // Evaluate conditions using row values as both answers and prefill
+        const c1 = evaluateFieldCondition(field.condition, prefill, fields, prefill);
+        const c2 = evaluateFieldCondition(field.condition2, prefill, fields, prefill);
+        const condOp = (field as Record<string, unknown>).conditionOperator as string | undefined;
+        const conditionPasses = condOp === "or" ? (c1 || c2) : (c1 && c2);
+        if (!conditionPasses) continue; // field is hidden for this row — skip entirely
+
+        const value = String(prefill[field.id] ?? "").trim();
+        const fieldLabel = field.name ?? (field as Record<string, unknown>).label as string ?? field.id;
+
+        if (fieldIsRequired(field) && !value) {
+          issues.push({ fieldId: field.id, fieldName: fieldLabel, kind: "missing_required", message: `"${fieldLabel}" is required but empty` });
+          continue;
+        }
+        if (!value) continue; // optional and empty — fine
+
+        // Format validation (mirrors validateSessionAnswers)
+        const vt = field.validationType ?? "none";
+        let fmtErr: string | null = null;
+        if (vt === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) fmtErr = field.validationMessage || `"${fieldLabel}" must be a valid email address`;
+        else if (vt === "phone" && value.replace(/\D+/g, "").length < 10) fmtErr = field.validationMessage || `"${fieldLabel}" must be a valid phone number`;
+        else if (vt === "number" && Number.isNaN(Number(value.replace(/,/g, "")))) fmtErr = field.validationMessage || `"${fieldLabel}" must be a number`;
+        else if (vt === "currency" && Number.isNaN(Number(value.replace(/[$,]/g, "")))) fmtErr = field.validationMessage || `"${fieldLabel}" must be a currency amount`;
+        else if (vt === "percent" && (Number.isNaN(Number(value.replace(/%/g, ""))) || Number(value.replace(/%/g, "")) < 0 || Number(value.replace(/%/g, "")) > 100)) fmtErr = field.validationMessage || `"${fieldLabel}" must be a percent between 0 and 100`;
+        else if (vt === "date" && Number.isNaN(new Date(value).getTime())) fmtErr = field.validationMessage || `"${fieldLabel}" must be a valid date`;
+        else if (vt === "time" && !/^([01]?\d|2[0-3]):[0-5]\d(\s?(AM|PM))?$/i.test(value)) fmtErr = field.validationMessage || `"${fieldLabel}" must be a valid time (e.g. 2:30 PM)`;
+        else if (vt === "zip" && !/^\d{5}$/.test(value.replace(/\s/g, ""))) fmtErr = field.validationMessage || `"${fieldLabel}" must be a 5-digit ZIP code`;
+        else if (vt === "zip4" && !/^\d{5}-\d{4}$/.test(value.replace(/\s/g, ""))) fmtErr = field.validationMessage || `"${fieldLabel}" must be ZIP+4 format (12345-6789)`;
+        else if (vt === "ssn" && !/^\d{3}-?\d{2}-?\d{4}$/.test(value)) fmtErr = field.validationMessage || `"${fieldLabel}" must be a valid SSN`;
+        else if (vt === "custom" && field.validationPattern) {
+          try { if (!new RegExp(field.validationPattern).test(value)) fmtErr = field.validationMessage || `"${fieldLabel}" is not in the expected format`; } catch { /* bad pattern */ }
+        }
+        if (fmtErr) { issues.push({ fieldId: field.id, fieldName: fieldLabel, kind: "invalid_format", message: fmtErr }); }
+
+        // Option validation for dropdown/radio
+        const opts = field.options as string[] | undefined;
+        if ((field.type === "dropdown" || field.type === "radio") && opts?.length) {
+          if (!opts.map((o) => o.toLowerCase()).includes(value.toLowerCase())) {
+            issues.push({ fieldId: field.id, fieldName: fieldLabel, kind: "invalid_option", message: `"${fieldLabel}": "${value}" is not one of: ${opts.slice(0, 5).join(", ")}${opts.length > 5 ? "…" : ""}` });
+          }
+        }
+      }
+
+      rowResults.push({ rowIndex: i, pass: issues.length === 0, issues });
+    }
+
+    const passing = rowResults.filter((r) => r.pass).length;
+    const failing = rowResults.length - passing;
+    res.json({ rows: rowResults, summary: { total: rowResults.length, passing, failing } });
+  } catch (err) {
+    logger.error({ err }, "[Docuplete] CSV batch preflight failed");
+    res.status(500).json({ error: "Preflight check failed" });
+  }
+});
+
 router.post("/csv-batch", requireMemberRole, requirePlanFeature("csvBatch"), async (req, res) => {
   try {
     const _parse = CsvBatchBodySchema.safeParse(req.body);
