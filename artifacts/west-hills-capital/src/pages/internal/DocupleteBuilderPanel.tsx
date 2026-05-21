@@ -183,6 +183,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
   } = props;
 
   const [optionalOpen, setOptionalOpen] = React.useState(false);
+  const [showPreviewModal, setShowPreviewModal] = React.useState(false);
 
   return (
     <div>
@@ -727,7 +728,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                     </div>
                     <div className="shrink-0 -mx-4 -mb-4 border-t border-gray-200 bg-gray-100/80 rounded-b-xl px-4 pt-2.5 pb-3 flex flex-col gap-2">
                       <span className="text-xs font-semibold text-[#6B7A99]">{packageInterviewFields.length} Question{packageInterviewFields.length !== 1 ? "s" : ""} Visible</span>
-                      <button type="button" className="w-full text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md px-4 py-2.5 text-center hover:bg-gray-50 hover:shadow-sm active:shadow-none transition-all">Preview Form</button>
+                      <button type="button" onClick={() => setShowPreviewModal(true)} className="w-full text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md px-4 py-2.5 text-center hover:bg-gray-50 hover:shadow-sm active:shadow-none transition-all">Preview Form</button>
                     </div>
                   </div>
                 </div>
@@ -1013,6 +1014,63 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
           </div>
         )}
       </section>
+
+      {showPreviewModal && selectedPackage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowPreviewModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 shrink-0">
+              <div>
+                <h2 className="text-base font-semibold text-[#0F1C3F]">Form Preview</h2>
+                <p className="text-xs text-[#8A9BB8] mt-0.5">{selectedPackage.name} · {packageInterviewFields.length} question{packageInterviewFields.length !== 1 ? "s" : ""}</p>
+              </div>
+              <button type="button" onClick={() => setShowPreviewModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors rounded-lg p-1 hover:bg-gray-100">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 px-6 py-4 space-y-3">
+              {packageInterviewFields.length === 0 ? (
+                <p className="text-sm text-[#8A9BB8] italic text-center py-8">No questions configured yet.</p>
+              ) : packageInterviewFields.map((field, index) => {
+                const mode = field.interviewMode ?? "optional";
+                return (
+                  <div key={field.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <span className="text-sm font-medium text-[#0F1C3F] leading-snug">{index + 1}. {field.name}</span>
+                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide border ${
+                        mode === "required" ? "bg-red-50 text-red-700 border-red-100"
+                        : mode === "readonly" ? "bg-blue-50 text-blue-700 border-blue-100"
+                        : "bg-gray-50 text-gray-500 border-gray-200"
+                      }`}>{mode === "required" ? "Required" : mode === "readonly" ? "Read only" : "Optional"}</span>
+                    </div>
+                    {field.type === "radio" || field.type === "checkbox" ? (
+                      <div className="space-y-2">
+                        {(field.options?.length ? field.options : ["Option A", "Option B"]).slice(0, 4).map((opt) => (
+                          <div key={opt} className="flex items-center gap-2.5 text-sm text-[#6B7A99]">
+                            <div className={`w-4 h-4 flex-shrink-0 border-2 border-gray-300 ${field.type === "checkbox" ? "rounded-sm" : "rounded-full"}`} />
+                            {opt}
+                          </div>
+                        ))}
+                      </div>
+                    ) : field.type === "dropdown" ? (
+                      <div className="flex items-center justify-between border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#8A9BB8] bg-gray-50">
+                        <span>Select an option…</span>
+                        <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                      </div>
+                    ) : (
+                      <div className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#8A9BB8] bg-gray-50">
+                        {field.type === "date" ? "mm / dd / yyyy" : field.sensitive ? "••••••••" : `Enter ${field.name.toLowerCase()}…`}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 shrink-0">
+              <button type="button" onClick={() => setShowPreviewModal(false)} className="w-full text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg px-4 py-2.5 hover:bg-gray-50 transition-all">Close Preview</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 });
