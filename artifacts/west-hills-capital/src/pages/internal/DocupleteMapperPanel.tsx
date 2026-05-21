@@ -20,6 +20,8 @@ import { SortableItem, DragGuideLines, ResizeDimTooltip } from "@/components/Doc
 import { labelForMappingFormat, sampleValueForMapping } from "@/lib/docuplete-mapping-utils";
 import * as pdfjsLib from "pdfjs-dist";
 
+const PDFJS_STANDARD_FONT_DATA_URL = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/standard_fonts/`;
+
 const SYSTEM_ESIGN_FIELDS: Array<{ id: string; name: string; type: FieldItem["type"]; description: string }> = [
   { id: ESIGN_FIELD_ID_SIGNATURE, name: "Signature",   type: "text",     description: "Drawn or typed signature" },
   { id: ESIGN_FIELD_ID_INITIALS,  name: "Initials",    type: "initials", description: "Drawn or typed initials" },
@@ -623,7 +625,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
         }
         if (cancelled) break;
         try {
-          const pdfDoc = await pdfjsLib.getDocument(blobUrl).promise;
+          const pdfDoc = await pdfjsLib.getDocument({ url: blobUrl, standardFontDataUrl: PDFJS_STANDARD_FONT_DATA_URL }).promise;
           if (cancelled) { pdfDoc.destroy(); break; }
           multiScrollPdfDocRefsMap.current = { ...multiScrollPdfDocRefsMap.current, [doc.id]: pdfDoc };
           setMultiScrollPdfDocs((p) => ({ ...p, [doc.id]: pdfDoc }));
@@ -1444,7 +1446,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                             data-field-id={field.id}
                             onDragStart={(e) => { e.dataTransfer.setData("text/field", field.id); }}
                             onDoubleClick={() => openFieldEditorForEdit(field.id)}
-                            style={{ borderColor: isActivePlacing ? "#C49A38" : field.color, outline: selectedField?.id === field.id ? `2.5px solid ${field.color}` : undefined, outlineOffset: "1px" }}
+                            style={{ borderColor: isActivePlacing ? "#C49A38" : field.color, outline: selectedField?.id === field.id ? `4px solid ${field.color}` : undefined, outlineOffset: "2px" }}
                             className={`w-full text-left border-2 rounded px-3 py-2 bg-white transition-shadow cursor-alias ${isActivePlacing ? "ring-2 ring-[#C49A38]/40 shadow-md" : ""}`}
                           >
                             <div className="flex items-start justify-between gap-2">
@@ -1513,7 +1515,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                               <div
                                 ref={wrapperRef}
                                 data-field-id={field.id}
-                                style={{ ...wrapperStyle, borderColor: isActivePlacing ? "#C49A38" : field.color, outline: selectedField?.id === field.id ? `2.5px solid ${field.color}` : undefined, outlineOffset: "1px" }}
+                                style={{ ...wrapperStyle, borderColor: isActivePlacing ? "#C49A38" : field.color, outline: selectedField?.id === field.id ? `4px solid ${field.color}` : undefined, outlineOffset: "2px" }}
                                 draggable
                                 onDragStart={(e) => {
                                   if (fieldDragFromHandle.current) { e.preventDefault(); return; }

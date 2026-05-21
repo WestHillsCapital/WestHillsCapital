@@ -11,6 +11,7 @@ import { SandboxKeyModal } from "@/components/SandboxKeyModal";
 import * as pdfjsLib from "pdfjs-dist";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
+const PDFJS_STANDARD_FONT_DATA_URL = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/standard_fonts/`;
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SESSION_BASE = `${API_BASE}/api/v1/docuplete/public/sessions`;
@@ -459,7 +460,7 @@ export default function DocupleteCustomer() {
           setPdfPagesLoading(true);
           try {
             const arrayBuf = await blob.arrayBuffer();
-            const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
+            const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuf, standardFontDataUrl: PDFJS_STANDARD_FONT_DATA_URL }).promise;
             const bitmaps: ImageBitmap[] = [];
             const scale = window.devicePixelRatio > 1 ? 1.5 : 1.2;
             for (let i = 1; i <= pdfDoc.numPages; i++) {
