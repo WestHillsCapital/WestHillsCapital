@@ -868,7 +868,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
       {/* ── Center: toolbar + canvas ── */}
       <section ref={setMapperContainerEl} className="bg-white border border-[#DDD5C4] rounded-lg p-4 overflow-y-auto flex flex-col h-full">
         <div className="mb-2">
-          <h2 className="text-sm font-semibold">Assign Package Fields and Rules</h2>
+          <h2 className="text-sm font-semibold font-sans">Assign Package Fields and Rules</h2>
           <p className="text-xs text-[#8A9BB8]">Place fields on PDFs, then decide which are required, fixed/defaulted, validated, or omitted from the generated interview.</p>
         </div>
 
@@ -1363,7 +1363,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
         })()}
         <div className="p-4 flex flex-col min-h-0 flex-1">
           <div className="flex items-center justify-between mb-1.5 flex-shrink-0">
-            <h2 className="text-sm font-semibold">Fields</h2>
+            <h2 className="text-sm font-semibold font-sans">Fields</h2>
             <button onClick={openFieldEditorForAdd} className="text-xs text-[#C49A38]">Add</button>
           </div>
           {/* Orphaned mapping warning */}
