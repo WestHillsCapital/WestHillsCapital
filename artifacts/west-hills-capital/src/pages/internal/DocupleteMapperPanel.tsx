@@ -701,9 +701,9 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
             className="relative flex flex-col items-center w-full h-full pt-4 pb-3 gap-2.5 cursor-pointer hover:bg-[#F8F5F0] transition-colors rounded-lg overflow-hidden"
             title="Expand panel"
           >
-            {/* Chevron pinned to bottom-right edge — clear of all icons */}
-            <ChevronRight className="absolute right-0.5 bottom-2 w-3.5 h-3.5 text-[#8A9BB8]" />
-            {/* Recipients icon */}
+            {/* Chevron absolutely above the icon zone (0–16px), clear of all icons */}
+            <ChevronRight className="absolute top-0.5 w-3.5 h-3.5 text-[#8A9BB8]" />
+            {/* Recipients icon — top sits at pt-4 (16px), level with adjacent headers */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="text-[#C4B99A]">
