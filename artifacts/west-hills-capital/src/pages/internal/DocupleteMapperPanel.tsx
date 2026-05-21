@@ -701,7 +701,6 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
             className="relative flex flex-col items-center w-full h-full pt-2 pb-3 gap-2.5 cursor-pointer hover:bg-[#F8F5F0] transition-colors rounded-lg overflow-hidden"
             title="Expand panel"
           >
-            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-[#C49A38] rounded-full" />
             {/* Chevron — click strip to open, chevron in header to close */}
             <ChevronRight className="w-4 h-4 text-[#8A9BB8] shrink-0" />
             <div className="w-px bg-[#EFE8D8]" style={{ height: 10 }} />
@@ -719,7 +718,8 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
             {selectedPackage.documents.map((doc) => (
               <Tooltip key={doc.id}>
                 <TooltipTrigger asChild>
-                  <span className={`text-[#C4B99A] ${selectedDocument?.id === doc.id ? "text-[#C49A38]" : ""}`}>
+                  <span className={`relative flex items-center justify-center ${selectedDocument?.id === doc.id ? "text-[#C49A38]" : "text-[#C4B99A]"}`}>
+                    {selectedDocument?.id === doc.id && <span className="absolute -left-2 top-0 bottom-0 w-0.5 bg-[#C49A38] rounded-full" />}
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
                   </span>
                 </TooltipTrigger>
