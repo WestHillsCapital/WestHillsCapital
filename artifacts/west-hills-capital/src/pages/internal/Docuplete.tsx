@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type ReactNode } from "react";
+import { toast } from "@/hooks/use-toast";
 import { useDocupleteStore } from "@/stores/useDocupleteStore";
 import { useShallow } from "zustand/react/shallow";
 import { Info, ChevronLeft, ChevronRight } from "lucide-react";
@@ -653,7 +654,6 @@ export default function Docuplete() {
   const sortSensors = useSensors(useSensor(SmartPointerSensor, { activationConstraint: { distance: 6 } }));
   const [session, setSession] = useState<Session | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [status, setStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [slackConnected, setSlackConnected] = useState(false);
@@ -1976,8 +1976,7 @@ export default function Docuplete() {
   }
 
   function flashStatus(msg: string) {
-    setStatus(msg);
-    setTimeout(() => setStatus(""), 3000);
+    toast({ title: msg, duration: 2500 });
   }
 
   async function createGroup(): Promise<string | null> {
@@ -4278,7 +4277,7 @@ export default function Docuplete() {
         </div>}
       </div>
       {error && <div className="mb-4 rounded border border-red-200 bg-red-50 text-red-800 px-3 py-2 text-sm">{error}</div>}
-      {status && <div className="mb-4 rounded border border-green-200 bg-green-50 text-green-800 px-3 py-2 text-sm">{status}</div>}
+
 
       <PackagePickerSidebar
         isAdmin={isAdmin}
