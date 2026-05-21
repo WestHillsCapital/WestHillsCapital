@@ -426,48 +426,39 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                   </div>
                   </div>}
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between gap-3">
                   <div>
                     <h2 className="text-sm font-semibold">Package documents</h2>
-                    <p className="text-xs text-[#8A9BB8]">Step 1 of 3 · drop your PDFs on the left, arrange them in order, then continue.</p>
+                    <p className="text-xs text-[#8A9BB8]">Step 1 of 3 · drop PDFs in the banner below, arrange them in order, then continue.</p>
                   </div>
                 </div>
-                <div className="flex gap-8 w-full items-stretch">
-                {/* Left: drop zone — wider column, stretches to match right panel via items-stretch */}
-                <div className="shrink-0 w-72 flex flex-col">
+                {/* Top: horizontal drop zone banner — full width, compact */}
                 <div
                   onDragEnter={(e: ReactDragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDocumentDropActive(true); }}
                   onDragOver={(e: ReactDragEvent<HTMLDivElement>) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setIsDocumentDropActive(true); }}
                   onDragLeave={(e: ReactDragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDocumentDropActive(false); }}
                   onDrop={(e: ReactDragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDocumentDropActive(false); const files = e.dataTransfer.files; if (files.length === 1) uploadDocument(files[0]); else uploadDocuments(files); }}
-                  className={`flex-1 rounded-xl border-2 border-dashed p-6 text-center flex flex-col items-center justify-center transition ${isDocumentDropActive ? "border-blue-400 bg-blue-100/60" : "border-blue-300 bg-blue-50/50"}`}
+                  className={`w-full flex items-center gap-4 px-5 py-3 rounded-xl border-2 border-dashed transition ${isDocumentDropActive ? "border-blue-400 bg-blue-100/60" : "border-blue-300 bg-blue-50/50"}`}
                 >
-                  <div className="flex justify-center mb-3">
-                    <svg className={`w-8 h-8 transition ${isDocumentDropActive ? "text-blue-500" : "text-blue-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5v-9m0 0-3 3m3-3 3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.338-2.32 5.75 5.75 0 0 1 1.026 11.095H6.75Z" />
-                    </svg>
+                  <svg className={`shrink-0 w-6 h-6 transition ${isDocumentDropActive ? "text-blue-500" : "text-blue-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5v-9m0 0-3 3m3-3 3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.338-2.32 5.75 5.75 0 0 1 1.026 11.095H6.75Z" />
+                  </svg>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-semibold text-[#0F1C3F]">Drag and drop PDFs here</span>
+                    <span className="ml-2 text-xs text-[#6B7A99]">All files upload in sequence and appear in the grid below.</span>
                   </div>
-                  <div className="text-sm font-semibold text-[#0F1C3F]">Drag and drop multiple PDFs here</div>
-                  <p className="mt-1 text-xs text-[#6B7A99]">Drop all paperwork documents at once. Docuplete will upload them in order and add each file to this package.</p>
-                  <label className={`mt-3 inline-flex items-center border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-medium px-4 py-2 rounded-md transition text-sm ${isUploadingDocument ? "opacity-50 pointer-events-none cursor-not-allowed" : "cursor-pointer"}`}>
-                    {isUploadingDocument ? "Uploading…" : "Browse PDF files"}
-                    <input
-                      type="file"
-                      accept="application/pdf"
-                      multiple
-                      disabled={isUploadingDocument}
-                      className="sr-only"
+                  {isUploadingDocument && <span className="text-xs text-[#6B7A99] shrink-0">Uploading…</span>}
+                  <label className={`shrink-0 inline-flex items-center border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-medium px-4 py-1.5 rounded-md transition text-sm ${isUploadingDocument ? "opacity-50 pointer-events-none cursor-not-allowed" : "cursor-pointer"}`}>
+                    Browse files
+                    <input type="file" accept="application/pdf" multiple disabled={isUploadingDocument} className="sr-only"
                       onChange={(e) => { const files = e.target.files; if (files?.length) { if (files.length === 1) uploadDocument(files[0]); else uploadDocuments(files); } e.target.value = ""; }}
                     />
                   </label>
                 </div>
-                {isUploadingDocument && <div className="mt-2 text-xs text-[#6B7A99]">Uploading PDF documents, please wait…</div>}
-                </div>
-                {/* Right: document grid — flex-1, wraps into multiple rows, soft canvas wrapper */}
-                <div className="flex-1 min-w-0 rounded-xl bg-gray-50/60 border border-gray-200 p-3">
+                {/* Full-width document grid canvas */}
+                <div className="w-full rounded-xl bg-gray-50/60 border border-gray-200 p-4">
                 {selectedPackage.documents.length === 0 ? (
-                  <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", alignContent: "start" }}>
-                    {/* Add placeholder card */}
+                  <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", alignContent: "start" }}>
                     <button
                       type="button"
                       onClick={addDocument}
@@ -476,10 +467,9 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                       <span className="text-2xl font-light leading-none">+</span>
                       <span className="text-[11px] font-medium">Add Placeholder</span>
                     </button>
-                    {/* Ghost "files appear here" hint */}
-                    <div className="rounded-lg border-2 border-dashed border-gray-200 bg-gray-50/60 flex flex-col items-center justify-center gap-1 min-h-[160px] text-gray-300 select-none col-span-2">
+                    <div className="rounded-lg border-2 border-dashed border-gray-200 bg-gray-50/60 flex flex-col items-center justify-center gap-1 min-h-[160px] text-gray-300 select-none col-span-3">
                       <svg className="w-7 h-7 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
-                      <span className="text-[11px]">Your uploaded files will appear here</span>
+                      <span className="text-[11px]">Drop PDFs in the banner above — they'll appear here</span>
                     </div>
                   </div>
                 ) : (
@@ -496,7 +486,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                       });
                     }}
                   >
-                    <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", alignContent: "start" }}>
+                    <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", alignContent: "start" }}>
                       <SortableContext items={selectedPackage.documents.map((d) => d.id)} strategy={rectSortingStrategy}>
                         {selectedPackage.documents.map((doc, index) => (
                           <SortableItem key={doc.id} id={doc.id}>
@@ -540,11 +530,10 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                           </SortableItem>
                         ))}
                       </SortableContext>
-                      {/* Placeholder card — always last in the grid */}
                       <button
                         type="button"
                         onClick={addDocument}
-                        className="rounded-lg border-2 border-dashed border-[#D4C9B5] bg-white hover:border-[#C49A38] hover:bg-[#FBF7EF] transition flex flex-col items-center justify-center gap-2 min-h-[100px] text-[#8A9BB8] hover:text-[#C49A38] cursor-pointer"
+                        className="rounded-lg border-2 border-dashed border-[#D4C9B5] bg-white hover:border-[#C49A38] hover:bg-[#FBF7EF] transition flex flex-col items-center justify-center gap-2 min-h-[120px] text-[#8A9BB8] hover:text-[#C49A38] cursor-pointer"
                       >
                         <span className="text-2xl font-light leading-none">+</span>
                         <span className="text-[11px] font-medium">Add Placeholder</span>
@@ -552,7 +541,6 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                     </div>
                   </DndContext>
                 )}
-                </div>
                 </div>
                 {/* Footer utility bar */}
                 <div className="flex items-center justify-end gap-3 pt-2 border-t border-[#EFE8D8]">
