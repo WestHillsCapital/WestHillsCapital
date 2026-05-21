@@ -583,7 +583,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
               return (
               <div className="space-y-6">
                 <div className="grid lg:grid-cols-2 gap-4 h-[520px]">
-                  <div className="rounded-lg bg-white p-4 flex flex-col gap-2 h-full overflow-hidden shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.03)]">
+                  <div className="rounded-lg bg-gray-50/50 border border-gray-200 p-4 flex flex-col gap-2 h-full overflow-hidden">
                     <div>
                       <div className="flex items-center justify-between">
                         <h2 className="text-sm font-semibold">Interview order</h2>
@@ -656,7 +656,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                         </DndContext>
                       )}
                     </div>
-                    <div className="shrink-0 -mx-4 -mb-4 border-t border-[#EFE8D8] bg-[#F8F6F0] rounded-b-lg px-4 pt-2.5 pb-3 flex flex-col gap-2">
+                    <div className="shrink-0 -mx-4 -mb-4 border-t border-gray-200 bg-gray-100/80 rounded-b-lg px-4 pt-2.5 pb-3 flex flex-col gap-2">
                       {packageFixedOrHiddenFields.length > 0 && (
                         <details>
                           <summary className="text-xs font-semibold text-[#6B7A99] cursor-pointer select-none">{packageFixedOrHiddenFields.length} field{packageFixedOrHiddenFields.length !== 1 ? "s" : ""} hidden from interview</summary>
@@ -675,10 +675,10 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                           </div>
                         </details>
                       )}
-                      <Button onClick={() => goBuilderStep("mapping")} variant="outline" className="text-xs">Edit Mapping Rules</Button>
+                      <button type="button" onClick={() => goBuilderStep("mapping")} className="w-full text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md px-4 py-2.5 text-center hover:bg-gray-50 hover:shadow-sm active:shadow-none transition-all">Edit Mapping Rules</button>
                     </div>
                   </div>
-                  <div className="rounded-lg bg-[#F8F6F0] p-4 flex flex-col gap-3 overflow-y-auto h-full shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.03)]">
+                  <div className="rounded-lg bg-gray-50/50 border border-gray-200 p-4 flex flex-col gap-3 overflow-y-auto h-full">
                     <div>
                       <h2 className="text-sm font-semibold">Interview preview</h2>
                       <p className="text-xs text-[#8A9BB8] mt-0.5 opacity-70">How this will appear to staff during an interview. Updates as you reorder.</p>
@@ -734,7 +734,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                       <h3 className="text-sm font-semibold">Output channels</h3>
                       <p className="text-xs text-[#8A9BB8] mt-0.5 opacity-70 mb-3">Choose how completed interviews are delivered. PDF generation is always included.</p>
                     </div>
-                    <div className="grid sm:grid-cols-2 gap-3 max-w-[1000px]">
+                    <div className="grid sm:grid-cols-2 gap-3 max-w-[1200px]">
                       <div className="rounded-lg border-2 border-[#C49A38] bg-white p-3">
                         <div className="flex items-center gap-2 mb-1.5">
                           <svg className="w-4 h-4 text-[#C49A38] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
