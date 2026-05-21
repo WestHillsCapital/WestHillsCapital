@@ -714,17 +714,21 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
               <TooltipContent side="right">Recipients ({storeRecipientList.length})</TooltipContent>
             </Tooltip>
             <div className="w-full border-t border-[#EFE8D8] mx-1" />
-            {/* One doc icon per uploaded document */}
-            {selectedPackage.documents.map((doc) => (
-              <Tooltip key={doc.id}>
-                <TooltipTrigger asChild>
-                  <span className={`text-[#C4B99A] ${selectedDocument?.id === doc.id ? "text-[#C49A38]" : ""}`}>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="right">{doc.title || doc.fileName || "Untitled"}</TooltipContent>
-              </Tooltip>
-            ))}
+            {/* One doc icon per uploaded document — active doc highlighted */}
+            {selectedPackage.documents.map((doc) => {
+              const isActive = selectedDocument?.id === doc.id;
+              return (
+                <Tooltip key={doc.id}>
+                  <TooltipTrigger asChild>
+                    <span className={`relative flex items-center justify-center w-6 h-6 rounded transition-colors ${isActive ? "bg-[#C49A38]/15 text-[#C49A38]" : "text-[#C4B99A]"}`}>
+                      <svg className="w-4 h-4" fill={isActive ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isActive ? 0 : 1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+                      {isActive && <span className="absolute -right-0.5 -top-0.5 w-1.5 h-1.5 rounded-full bg-[#C49A38]" />}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{doc.title || doc.fileName || "Untitled"}{isActive ? " (current)" : ""}</TooltipContent>
+                </Tooltip>
+              );
+            })}
             {selectedPackage.documents.length === 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
