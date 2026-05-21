@@ -507,6 +507,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
   });
   const [clickToPlaceFieldId, setClickToPlaceFieldId] = useState<string | null>(null);
   const clickToPlaceFrameRef = useRef<HTMLElement | null>(null);
+  const fieldListScrollRef = useRef<HTMLDivElement | null>(null);
 
   // ── Multi-doc scroll state ────────────────────────────────────────────────
   const [multiScrollPdfDocs, setMultiScrollPdfDocs] = useState<Record<string, pdfjsLib.PDFDocumentProxy | null>>({});
@@ -569,6 +570,13 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
     if (!selectedMappingId) return;
     if (!pageMappingIds.includes(selectedMappingId)) setSelectedMappingId(null);
   }, [pageMappingIds, selectedMappingId, setSelectedMappingId]);
+
+  // Scroll the active field card into view whenever the selected field changes
+  useEffect(() => {
+    if (!selectedField?.id) return;
+    const el = fieldListScrollRef.current?.querySelector(`[data-field-id="${selectedField.id}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [selectedField?.id]);
 
   // ── Load PDFs for all docs when scroll mode is active ────────────────────
   useEffect(() => {
@@ -1403,7 +1411,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
           <div className="flex-1 min-h-0 flex flex-col">
             {(() => {
               const fieldRows = (
-                <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
+                <div ref={fieldListScrollRef} className="space-y-2 overflow-y-auto flex-1 min-h-0">
                   {selectedPackage.fields.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-8 px-3 text-center gap-2">
                       <svg className="w-6 h-6 text-[#C49A38]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
@@ -1423,10 +1431,11 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                           <div
                             key={field.id}
                             draggable
+                            data-field-id={field.id}
                             onDragStart={(e) => { e.dataTransfer.setData("text/field", field.id); }}
                             onDoubleClick={() => openFieldEditorForEdit(field.id)}
-                            style={{ borderColor: isActivePlacing ? "#C49A38" : field.color }}
-                            className={`w-full text-left border-2 rounded px-3 py-2 bg-white transition-shadow cursor-alias ${isActivePlacing ? "ring-2 ring-[#C49A38]/40 shadow-md" : ""} ${selectedField?.id === field.id ? "ring-2 ring-[#C49A38]/30" : ""}`}
+                            style={{ borderColor: isActivePlacing ? "#C49A38" : field.color, outline: selectedField?.id === field.id ? `2.5px solid ${field.color}` : undefined, outlineOffset: "1px" }}
+                            className={`w-full text-left border-2 rounded px-3 py-2 bg-white transition-shadow cursor-alias ${isActivePlacing ? "ring-2 ring-[#C49A38]/40 shadow-md" : ""}`}
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-start gap-2 flex-1 min-w-0">
@@ -1493,14 +1502,15 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                             {({ handleProps, wrapperRef, wrapperStyle, isDragging }) => (
                               <div
                                 ref={wrapperRef}
-                                style={{ ...wrapperStyle, borderColor: isActivePlacing ? "#C49A38" : field.color }}
+                                data-field-id={field.id}
+                                style={{ ...wrapperStyle, borderColor: isActivePlacing ? "#C49A38" : field.color, outline: selectedField?.id === field.id ? `2.5px solid ${field.color}` : undefined, outlineOffset: "1px" }}
                                 draggable
                                 onDragStart={(e) => {
                                   if (fieldDragFromHandle.current) { e.preventDefault(); return; }
                                   e.dataTransfer.setData("text/field", field.id);
                                 }}
                                 onDoubleClick={() => openFieldEditorForEdit(field.id)}
-                                className={`w-full text-left border-2 rounded px-3 py-2 bg-white transition-shadow cursor-alias ${isDragging ? "opacity-40 shadow-lg" : ""} ${isActivePlacing ? "ring-2 ring-[#C49A38]/40 shadow-md" : ""} ${selectedField?.id === field.id ? "ring-2 ring-[#C49A38]/30" : ""}`}
+                                className={`w-full text-left border-2 rounded px-3 py-2 bg-white transition-shadow cursor-alias ${isDragging ? "opacity-40 shadow-lg" : ""} ${isActivePlacing ? "ring-2 ring-[#C49A38]/40 shadow-md" : ""}`}
                               >
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="flex items-start gap-2 flex-1 min-w-0">
