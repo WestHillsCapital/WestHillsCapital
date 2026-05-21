@@ -1336,6 +1336,16 @@ export function FieldLibraryPanel({
                       </div>
                     </div>
                   </div>
+                  <div className="flex items-end gap-2">
+                    <div className="flex-1 relative pt-1">
+                      {showHints && <HL>Prefill source</HL>}
+                      <Input placeholder="Prefill source (e.g. clientName)" value={item.source} onChange={(e) => onChange(item.id, { source: e.target.value })} className="h-8 text-xs bg-white" disabled={itemIsInherited} />
+                    </div>
+                    <div className="w-20 shrink-0 relative pt-1">
+                      {showHints && <HL>Sort</HL>}
+                      <Input type="number" placeholder="Sort" value={item.sortOrder} onChange={(e) => onChange(item.id, { sortOrder: Number(e.target.value || 100) })} className="h-8 text-xs bg-white" disabled={itemIsInherited} />
+                    </div>
+                  </div>
                   <div className="relative pt-1">
                     {showHints && <HL>Active · Required · Sensitive</HL>}
                     <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6B7A99]">
@@ -1351,16 +1361,6 @@ export function FieldLibraryPanel({
                   )}
                   {showAdvanced && !itemIsInherited && (
                     <div className="space-y-2 border-t border-[#EFE8D8] pt-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="relative pt-1">
-                          {showHints && <HL>Prefill source</HL>}
-                          <Input placeholder="Prefill source" value={item.source} onChange={(e) => onChange(item.id, { source: e.target.value })} className="h-8 text-xs bg-white" />
-                        </div>
-                        <div className="relative pt-1">
-                          {showHints && <HL>Sort order</HL>}
-                          <Input type="number" placeholder="Sort order" value={item.sortOrder} onChange={(e) => onChange(item.id, { sortOrder: Number(e.target.value || 100) })} className="h-8 text-xs bg-white" />
-                        </div>
-                      </div>
                       <div className="relative pt-1">
                         {showHints && <HL>Validation rule</HL>}
                         <div className="flex flex-wrap gap-1">
@@ -1427,15 +1427,17 @@ export function FieldLibraryPanel({
                                   const summary = diffSummary(prevSnap, v.snapshot);
                                   const author = v.changedBy ?? "unknown";
                                   return (
-                                    <li key={v.id} className="flex items-start justify-between gap-2">
-                                      <div className="min-w-0">
-                                        <span className="font-medium text-[#0B1220]">{relativeTime(v.changedAt)}</span>
-                                        {" · "}
-                                        <span className="text-[#6B7A99] truncate max-w-[140px] inline-block align-bottom">{author}</span>
-                                        <div className="text-[10px] text-[#8A9BB8] truncate">{summary}</div>
+                                    <li key={v.id} className="flex items-start gap-3 py-0.5">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-baseline gap-1.5">
+                                          <span className="font-medium text-[#0B1220] whitespace-nowrap">{relativeTime(v.changedAt)}</span>
+                                          <span className="text-[#C4B99A]">·</span>
+                                          <span className="text-[#6B7A99] text-[10px] truncate">{author}</span>
+                                        </div>
+                                        <div className="text-[10px] text-[#8A9BB8]">{summary}</div>
                                       </div>
                                       {onRestoreVersion && (
-                                        <button type="button" disabled={restoringVersionId === v.id} onClick={() => void handleRestore(item.id, v.id)} className="shrink-0 text-[10px] text-[#C49A38] hover:text-[#A07820] disabled:opacity-50">
+                                        <button type="button" disabled={restoringVersionId === v.id} onClick={() => void handleRestore(item.id, v.id)} className="shrink-0 text-[10px] text-[#C49A38] hover:text-[#A07820] disabled:opacity-50 pt-0.5">
                                           {restoringVersionId === v.id ? "Restoring…" : "Restore"}
                                         </button>
                                       )}
@@ -1458,9 +1460,9 @@ export function FieldLibraryPanel({
                       )}
                     </div>
                   )}
-                  {/* Footer: key slug + action buttons */}
-                  <div className="flex items-center justify-between pt-2 border-t border-[#EFE8D8]">
-                    <span className="text-[10px] font-mono text-[#B0BCCE]">{item.id}</span>
+                  {/* Footer: isolated shaded action bar */}
+                  <div className="-mx-3 -mb-3 mt-3 px-3 py-2.5 border-t border-[#E0D8CC] bg-[#EDE9E1] rounded-b flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-mono text-[#A8A09A]">{item.id}</span>
                     <div className="flex items-center gap-1.5">
                       {itemIsInherited ? (
                         <span className="text-[10px] text-[#8A9BB8] italic">
@@ -1474,7 +1476,7 @@ export function FieldLibraryPanel({
                             </button>
                           )}
                           <button type="button" onClick={() => void handleSave(item)} disabled={savingId === item.id} className="h-7 px-2.5 text-[11px] font-medium rounded border border-[#C49A38] bg-[#C49A38] text-white hover:bg-[#A07820] hover:border-[#A07820] disabled:opacity-50 transition-colors">
-                            {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save field"}
+                            {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save field changes"}
                           </button>
                         </>
                       )}
