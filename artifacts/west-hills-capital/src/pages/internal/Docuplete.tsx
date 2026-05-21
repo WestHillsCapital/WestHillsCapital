@@ -4931,6 +4931,7 @@ export default function Docuplete() {
             onCopyField={copyField}
             onDuplicateMapping={duplicateMapping}
             onRemoveMapping={() => { removeSelectedMapping(); setPlacementModal(null); }}
+            onOpenFieldEditor={openFieldEditorForEdit}
           />
         );
       })()}

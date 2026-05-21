@@ -21,6 +21,7 @@ export interface PlacementModalProps {
   onCopyField: (fieldId: string) => void;
   onDuplicateMapping: (mappingId: string) => void;
   onRemoveMapping: () => void;
+  onOpenFieldEditor: (fieldId: string) => void;
 }
 
 const INTERVIEW_MODES: { value: FieldInterviewMode; label: string; color: string; textClass: string }[] = [
@@ -43,6 +44,7 @@ export function PlacementModal({
   onCopyField,
   onDuplicateMapping,
   onRemoveMapping,
+  onOpenFieldEditor,
 }: PlacementModalProps) {
   const formatOptions = mappingFormatOptionsForField(field);
   const assignedRecipient = mapping.recipientId ? recipients.find((r) => r.id === mapping.recipientId) : undefined;
@@ -86,9 +88,23 @@ export function PlacementModal({
             <svg className="w-3 h-3 text-[#C4B89A]" viewBox="0 0 16 16" fill="currentColor"><circle cx="5" cy="4" r="1.1"/><circle cx="11" cy="4" r="1.1"/><circle cx="5" cy="8" r="1.1"/><circle cx="11" cy="8" r="1.1"/><circle cx="5" cy="12" r="1.1"/><circle cx="11" cy="12" r="1.1"/></svg>
             <h2 className="text-xs font-semibold text-[#0F1C3F] uppercase tracking-wide">Placement</h2>
           </div>
-          <button type="button" onClick={onClose} className="text-[#8A9BB8] hover:text-[#0F1C3F]">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
+          <div className="flex items-center gap-1.5">
+            {field && !isSystemEsignFieldId(field.id) && (
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => onOpenFieldEditor(field.id)}
+                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-[#C49A38] border border-[#C49A38]/40 hover:bg-[#FEF3C7] transition-colors cursor-pointer"
+                title="Edit field definition"
+              >
+                <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" /></svg>
+                Edit field
+              </button>
+            )}
+            <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={onClose} className="text-[#8A9BB8] hover:text-[#0F1C3F] cursor-pointer">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
         </div>
         <div className="px-4 py-3 space-y-3">
 
