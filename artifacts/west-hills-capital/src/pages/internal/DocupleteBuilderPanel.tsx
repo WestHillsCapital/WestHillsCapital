@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { isSystemEsignFieldId } from "@/lib/docuplete-redaction";
 import { type FieldItem, type MappingItem } from "@/lib/docuplete-types";
 import type { DocItem, FieldLibraryItem, FieldGroup, PackageItem, Entity, TransactionType } from "@/lib/docuplete-local-types";
-import { EmptyState, LabeledInput } from "@/components/DocupletePanels";
+import { EmptyState } from "@/components/DocupletePanels";
 import { DocumentPreviewTile } from "@/components/DocumentPreviewTile";
 import { type BuilderStep, BUILDER_STEPS } from "@/components/PackagePickerSidebar";
 import { SortableItem } from "@/components/DocupleteDndHelpers";
@@ -232,37 +232,12 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
           />
         ) : (
           <div className="space-y-5">
-            <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-4">
-              <h2 className="text-lg font-semibold">{BUILDER_STEPS.find((step) => step.value === builderStep)?.label}</h2>
-              <p className="text-sm text-[#6B7A99] mt-1">
-                {builderStep === "documents" && "Upload the PDF forms that belong in this package and drag them into the order they should be filled out."}
-                {builderStep === "mapping" && "Use the document list on the left and the field list on the right to drag each question onto the correct spot on the PDF."}
-                {(builderStep === "interview" || builderStep === "finalize") && "Review the interview questions, choose your output options, then activate the package so it's ready to use."}
-              </p>
-            </div>
             {builderStep === "documents" && (
               <div className="space-y-4">
-                <div className="rounded-lg border border-[#DDD5C4] bg-white p-4">
-                  <LabeledInput
-                    label="Package name"
-                    value={selectedPackage.name}
-                    onChange={(value) => updateSelectedPackage((pkg) => ({ ...pkg, name: value }))}
-                  />
-                  <p className="mt-2 text-xs text-[#8A9BB8]">This is the reusable package name staff will choose later when launching a customer interview.</p>
-                </div>
-                <details className="rounded-lg border border-[#DDD5C4] bg-white p-4">
-                  <summary className="cursor-pointer text-sm font-semibold">Optional settings and notes</summary>
-                  <p className="mt-1 text-xs text-[#8A9BB8]">Set status, assign optional groupings, and add any notes that staff should see before starting an interview.</p>
-                  <div className="mt-4">
-                    <label className="block text-sm">
-                      <span className="block text-xs text-[#6B7A99] mb-1">Status</span>
-                      <select value={selectedPackage.status} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, status: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
-                        <option value="draft">Draft</option>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                      </select>
-                    </label>
-                  </div>
+                <div className="rounded-lg border border-[#DDD5C4] bg-white p-4 space-y-4">
+                  <div className="text-sm font-semibold text-[#0F1C3F]">Optional settings</div>
+                  <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-4">
                   {(() => {
                     const activeGroups = groups.filter((g) => g.active !== false);
                     const categories = [...new Set(activeGroups.map((g) => g.kind ?? "general"))].sort();
@@ -459,11 +434,13 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                       </div>
                     )}
                   </div>
-                  <label className="mt-4 block">
+                  </div>
+                  <div className="space-y-4">
+                  <label className="block">
                     <span className="block text-xs text-[#6B7A99] mb-1">Description / interview notes</span>
                     <Textarea value={selectedPackage.description ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, description: e.target.value }))} />
                   </label>
-                  <div className="mt-4">
+                  <div>
                     <div className="flex items-center gap-1 mb-1">
                       <span className="text-xs text-[#6B7A99]">Tags</span>
                       <Tooltip>
@@ -481,10 +458,8 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                       onChange={(tags) => updateSelectedPackage((pkg) => ({ ...pkg, tags }))}
                     />
                   </div>
-                </details>
-                <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] px-4 py-3 flex items-center justify-between gap-3">
-                  <p className="text-xs text-[#6B7A99]">Groups, types, field groups, and the shared field library are managed in the Library tab.</p>
-                  <button type="button" onClick={() => setTab("library")} className="shrink-0 text-xs text-[#C49A38] hover:underline font-medium">Open Library →</button>
+                  </div>
+                  </div>
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
