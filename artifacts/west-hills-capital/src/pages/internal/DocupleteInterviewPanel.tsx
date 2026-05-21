@@ -306,13 +306,15 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                 );
               }
               return (
-                <div className="space-y-5">
+                <div className="max-w-[640px] space-y-5">
                   {hasStaff && (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <div className="flex items-center gap-2">
                         <svg className="w-4 h-4 text-[#0F1C3F] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
-                        <h3 className="text-sm font-semibold">Staff Interview</h3>
-                        <span className="text-xs text-[#8A9BB8]">— walk a client through their paperwork</span>
+                        <div>
+                          <h3 className="text-sm font-semibold text-[#0F1C3F]">Staff Interview</h3>
+                          <p className="text-xs text-[#8A9BB8] uppercase tracking-wide">Walk a client through their paperwork</p>
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <PackagePickerWithTags
@@ -329,11 +331,13 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                   {hasStaff && hasCustomerLink && <div className="border-t border-[#EFE8D8]" />}
 
                   {hasCustomerLink && (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <div className="flex items-center gap-2">
                         <svg className="w-4 h-4 text-[#0F1C3F] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>
-                        <h3 className="text-sm font-semibold">Customer Link</h3>
-                        <span className="text-xs text-[#8A9BB8]">— customer fills the form themselves</span>
+                        <div>
+                          <h3 className="text-sm font-semibold text-[#0F1C3F]">Customer Link</h3>
+                          <p className="text-xs text-[#8A9BB8] uppercase tracking-wide">Customer fills the form themselves</p>
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <PackagePickerWithTags
@@ -351,9 +355,9 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                           </div>
                         )}
                         <div className="grid sm:grid-cols-3 gap-2">
-                          <Input placeholder="First name (optional)" value={customerLinkFirstName} onChange={(e) => setCustomerLinkFirstName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && customerLinkPackageId && !isGeneratingLink) generateCustomerLink(); }} className="text-sm" />
-                          <Input placeholder="Last name (optional)" value={customerLinkLastName} onChange={(e) => setCustomerLinkLastName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && customerLinkPackageId && !isGeneratingLink) generateCustomerLink(); }} className="text-sm" />
-                          <Input placeholder="Email (optional)" value={customerLinkEmail} onChange={(e) => setCustomerLinkEmail(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && customerLinkPackageId && !isGeneratingLink) generateCustomerLink(); }} className="text-sm" />
+                          <Input placeholder="First name (optional)" value={customerLinkFirstName} onChange={(e) => setCustomerLinkFirstName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && customerLinkPackageId && !isGeneratingLink) generateCustomerLink(); }} className="text-sm bg-white border-gray-200" />
+                          <Input placeholder="Last name (optional)" value={customerLinkLastName} onChange={(e) => setCustomerLinkLastName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && customerLinkPackageId && !isGeneratingLink) generateCustomerLink(); }} className="text-sm bg-white border-gray-200" />
+                          <Input placeholder="Email (optional)" value={customerLinkEmail} onChange={(e) => setCustomerLinkEmail(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && customerLinkPackageId && !isGeneratingLink) generateCustomerLink(); }} className="text-sm bg-white border-gray-200" />
                         </div>
                         <Button onClick={generateCustomerLink} disabled={!customerLinkPackageId || isGeneratingLink}>
                           {isGeneratingLink ? "Generating…" : "Generate Link"}
@@ -455,9 +459,9 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                       { label: "Submitted", value: submitted, cls: "text-violet-700" },
                       { label: "Completed", value: signed,    cls: "text-emerald-700" },
                     ].map(({ label, value, cls }) => (
-                      <div key={label} className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] px-4 py-3 text-center">
-                        <div className={`text-2xl font-bold ${cls}`}>{value}</div>
-                        <div className="text-xs text-[#8A9BB8] mt-0.5">{label}</div>
+                      <div key={label} className="rounded-lg border border-[#DDD5C4] bg-white shadow-sm px-4 py-3 flex flex-col items-center justify-center gap-0.5">
+                        <div className={`text-2xl font-bold leading-none ${cls}`}>{value}</div>
+                        <div className="text-[11px] font-medium text-[#8A9BB8] uppercase tracking-wide">{label}</div>
                       </div>
                     ))}
                   </div>
@@ -509,7 +513,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-[#F0EDE6] bg-white">
-                            {sessions.map((s) => {
+                            {sessions.map((s, idx) => {
                               const recipient = s.signer_name || s.link_email_recipient || s.signer_email || "—";
                               const statusInfo = STATUS_MAP[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-500" };
                               const pdfUrl = `${API_BASE}${docupleteApiPath}/sessions/${s.token}/packet.pdf`;
@@ -518,7 +522,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                               const signingScrollRequired = s.signing_scroll_required === true;
                               const signingScrollConfirmed = signingScrollRequired && Boolean(s.signing_scroll_confirmed_at);
                               return (
-                                <tr key={s.token} className={`hover:bg-[#FAFAF8] ${!isTerminal ? "cursor-pointer" : ""}`} onClick={!isTerminal ? () => openSession(s.token) : undefined}>
+                                <tr key={s.token} className={`divide-x divide-[#F0EDE6] hover:bg-[#F4F1EA] transition-colors ${idx % 2 === 1 ? "bg-[#FAFAF8]" : "bg-white"} ${!isTerminal ? "cursor-pointer" : ""}`} onClick={!isTerminal ? () => openSession(s.token) : undefined}>
                                   <td className="px-4 py-2 text-sm text-[#0F1C3F] max-w-[180px] truncate" title={recipient}>{recipient}</td>
                                   <td className="px-4 py-2">
                                     <div className="flex flex-col gap-1 items-start">
