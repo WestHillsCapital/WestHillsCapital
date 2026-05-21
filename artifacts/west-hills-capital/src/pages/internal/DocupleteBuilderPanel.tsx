@@ -582,8 +582,8 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
               const unmappedInterviewFields = packageInterviewFields.filter((f) => !packageMappedFieldIds.has(f.id));
               return (
               <div className="space-y-6">
-                <div className="flex flex-col lg:flex-row items-stretch gap-6 w-full">
-                  <div className="rounded-lg bg-gray-50/50 border border-gray-200 p-4 flex flex-col gap-2 flex-1 overflow-hidden">
+                <div className="flex flex-row items-stretch gap-6 w-full">
+                  <div className="rounded-xl bg-gray-50/50 border border-gray-200 p-4 flex flex-col justify-between flex-1 overflow-hidden">
                     <div>
                       <div className="flex items-center justify-between">
                         <h2 className="text-sm font-semibold">Interview order</h2>
@@ -656,7 +656,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                         </DndContext>
                       )}
                     </div>
-                    <div className="shrink-0 -mx-4 -mb-4 border-t border-gray-200 bg-gray-100/80 rounded-b-lg px-4 pt-2.5 pb-3 flex flex-col gap-2">
+                    <div className="shrink-0 -mx-4 -mb-4 border-t border-gray-200 bg-gray-100/80 rounded-b-xl px-4 pt-2.5 pb-3 flex flex-col gap-2">
                       {packageFixedOrHiddenFields.length > 0 && (
                         <details>
                           <summary className="text-xs font-semibold text-[#6B7A99] cursor-pointer select-none">{packageFixedOrHiddenFields.length} field{packageFixedOrHiddenFields.length !== 1 ? "s" : ""} hidden from interview</summary>
@@ -678,11 +678,12 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                       <button type="button" onClick={() => goBuilderStep("mapping")} className="w-full text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md px-4 py-2.5 text-center hover:bg-gray-50 hover:shadow-sm active:shadow-none transition-all">Edit Mapping Rules</button>
                     </div>
                   </div>
-                  <div className="rounded-lg bg-gray-50/50 border border-gray-200 p-4 flex flex-col gap-3 overflow-y-auto flex-1">
+                  <div className="rounded-xl bg-gray-50/50 border border-gray-200 p-4 flex flex-col gap-3 flex-1">
                     <div>
                       <h2 className="text-sm font-semibold">Interview preview</h2>
                       <p className="text-xs text-[#8A9BB8] mt-0.5 opacity-70">How this will appear to staff during an interview. Updates as you reorder.</p>
                     </div>
+                    <div className="h-[500px] overflow-y-auto">
                     {packageInterviewFields.length === 0 ? (
                       <p className="text-xs text-[#8A9BB8] italic">No questions to preview yet.</p>
                     ) : (
@@ -723,6 +724,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                         })}
                       </div>
                     )}
+                    </div>
                   </div>
                 </div>
 
