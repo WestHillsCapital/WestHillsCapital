@@ -584,13 +584,34 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
               <div className="space-y-6">
                 <div className="grid lg:grid-cols-2 gap-4">
                   <div className="rounded-lg bg-white p-4 flex flex-col gap-3 overflow-y-auto max-h-[520px] shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.03)]">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-sm font-semibold">Interview order</h2>
-                      {packageInterviewFields.length > 1 && (
-                        <button type="button" onClick={() => goBuilderStep("interview", { autoSort: true })} className="text-xs text-[#6B7A99] border border-[#DDD5C4] rounded px-2 py-1 hover:border-[#C49A38] hover:text-[#C49A38] transition-colors">Sort by PDF order</button>
-                      )}
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-sm font-semibold">Interview order</h2>
+                        {packageInterviewFields.length > 1 && (
+                          <button type="button" onClick={() => goBuilderStep("interview", { autoSort: true })} className="text-xs text-[#6B7A99] border border-[#DDD5C4] rounded px-2 py-1 hover:border-[#C49A38] hover:text-[#C49A38] transition-colors">Sort by PDF order</button>
+                        )}
+                      </div>
+                      <p className="text-xs text-[#8A9BB8] mt-0.5 opacity-70">Questions staff will be asked, top to bottom. Drag to reorder — the preview updates live.</p>
                     </div>
-                    <p className="text-xs text-[#8A9BB8] -mt-1">Questions staff will be asked, top to bottom. Drag to reorder — the preview updates live.</p>
+                    {unmappedInterviewFields.length > 0 && (
+                      <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
+                        <div className="flex items-start gap-2">
+                          <svg className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                          <div>
+                            <div className="text-xs font-semibold text-orange-800 mb-1.5">
+                              {unmappedInterviewFields.length} {unmappedInterviewFields.length === 1 ? "field" : "fields"} not placed on PDF
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {unmappedInterviewFields.map((f) => (
+                                <button key={f.id} type="button" onClick={() => { setSelectedFieldId(f.id); goBuilderStep("mapping"); }} className="text-xs bg-white border border-orange-300 text-orange-800 rounded px-2 py-0.5 hover:bg-orange-100 transition-colors">
+                                  {f.name} →
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     {packageInterviewFields.length === 0 ? (
                       <EmptyState message="No interview questions yet. Go to Data + Fields View and mark fields that require input." />
                     ) : (
@@ -661,7 +682,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                   <div className="rounded-lg bg-[#F8F6F0] p-4 flex flex-col gap-3 overflow-y-auto max-h-[520px] shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.03)]">
                     <div>
                       <h2 className="text-sm font-semibold">Interview preview</h2>
-                      <p className="text-xs text-[#8A9BB8] mt-0.5">How this will appear to staff during an interview. Updates as you reorder.</p>
+                      <p className="text-xs text-[#8A9BB8] mt-0.5 opacity-70">How this will appear to staff during an interview. Updates as you reorder.</p>
                     </div>
                     {packageInterviewFields.length === 0 ? (
                       <p className="text-xs text-[#8A9BB8] italic">No questions to preview yet.</p>
@@ -709,33 +730,12 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                 <div className="border-t border-[#DDD5C4]" />
 
                 <div className="space-y-4">
-                  {unmappedInterviewFields.length > 0 && (
-                    <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
-                      <div className="flex items-start gap-2">
-                        <svg className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-                        <div>
-                          <div className="text-sm font-semibold text-orange-800 mb-1">
-                            {unmappedInterviewFields.length} interview {unmappedInterviewFields.length === 1 ? "field" : "fields"} {unmappedInterviewFields.length === 1 ? "has" : "have"} no PDF placement
-                          </div>
-                          <p className="text-xs text-orange-700 mb-2">
-                            Staff will be asked these questions during the interview, but the answers <strong>will not be printed on any PDF</strong> in the packet. Go to Data + Fields View and place each field in the correct row on the form before activating.
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {unmappedInterviewFields.map((f) => (
-                              <button key={f.id} type="button" onClick={() => { setSelectedFieldId(f.id); goBuilderStep("mapping"); }} className="text-xs bg-white border border-orange-300 text-orange-800 rounded px-2 py-0.5 hover:bg-orange-100 transition-colors">
-                                {f.name} →
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
                   <div>
-                    <h3 className="text-sm font-semibold mb-1">Output channels</h3>
-                    <p className="text-xs text-[#8A9BB8] mb-3">Choose how completed interviews are delivered. PDF generation is always included.</p>
-                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold">Output channels</h3>
+                      <p className="text-xs text-[#8A9BB8] mt-0.5 opacity-70 mb-3">Choose how completed interviews are delivered. PDF generation is always included.</p>
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-3 max-w-[1000px]">
                       <div className="rounded-lg border-2 border-[#C49A38] bg-white p-3">
                         <div className="flex items-center gap-2 mb-1.5">
                           <svg className="w-4 h-4 text-[#C49A38] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
