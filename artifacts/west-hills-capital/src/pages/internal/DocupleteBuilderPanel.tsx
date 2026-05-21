@@ -466,7 +466,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                   </div>
                   <div className="text-sm font-semibold text-[#0F1C3F]">Drag and drop multiple PDFs here</div>
                   <p className="mt-1 text-xs text-[#6B7A99]">Drop all paperwork documents at once. Docuplete will upload them in order and add each file to this package.</p>
-                  <label className={`mt-3 ${buttonVariants({ variant: "ghost", size: "sm" })} ${isUploadingDocument ? "opacity-50 pointer-events-none cursor-not-allowed" : "cursor-pointer"}`}>
+                  <label className={`mt-3 inline-flex items-center border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-medium px-4 py-2 rounded-md transition text-sm ${isUploadingDocument ? "opacity-50 pointer-events-none cursor-not-allowed" : "cursor-pointer"}`}>
                     {isUploadingDocument ? "Uploading…" : "Browse PDF files"}
                     <input
                       type="file"
