@@ -741,7 +741,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
           </button>
         )}
         {/* Expanded content */}
-        {leftPanelOpen && <div className="p-3 flex flex-col gap-3 h-full overflow-hidden">
+        {leftPanelOpen && <div className="p-4 flex flex-col gap-3 h-full overflow-hidden">
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <button type="button" onClick={() => setRecipientsExpanded((v) => !v)} className="flex items-center gap-1 text-sm font-semibold text-[#0F1C3F] hover:text-[#C49A38] transition-colors">
@@ -1361,7 +1361,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
             />
           );
         })()}
-        <div className="p-3 flex flex-col min-h-0 flex-1">
+        <div className="p-4 flex flex-col min-h-0 flex-1">
           <div className="flex items-center justify-between mb-1.5 flex-shrink-0">
             <h2 className="text-sm font-semibold">Fields</h2>
             <button onClick={openFieldEditorForAdd} className="text-xs text-[#C49A38]">Add</button>
