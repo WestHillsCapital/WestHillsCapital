@@ -441,8 +441,9 @@ export function EntityPanel({
     <div className="border border-[#DDD5C4] rounded p-3">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold">{title}</h3>
-        <button type="button" onClick={handleAdd} disabled={adding} className="text-xs text-[#C49A38] disabled:opacity-50">
-          {adding ? "Adding…" : "Add"}
+        <button type="button" onClick={handleAdd} disabled={adding} className="h-7 px-2.5 text-xs rounded border border-[#D4C9B5] bg-white text-[#4A5568] hover:text-[#0F1C3F] hover:border-[#0F1C3F] disabled:opacity-50 transition-colors flex items-center gap-1">
+          <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+          {adding ? "Adding…" : `Add ${title.replace(/s$/, "")}`}
         </button>
       </div>
       {panelError && <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
@@ -450,54 +451,57 @@ export function EntityPanel({
         <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#B0BCCE] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>
         <input type="text" placeholder="Search…" value={entitySearch} onChange={(e) => setEntitySearch(e.target.value)} className="w-full h-7 text-[11px] rounded border border-[#D4C9B5] pl-6 pr-2 bg-white focus:outline-none focus:border-[#1B4FD8]" />
       </div>
-      <div className="grid md:grid-cols-2 gap-2 text-sm">
+      <div className="grid md:grid-cols-2 gap-2 items-stretch text-sm">
         {filteredEntities.map((item) => (
-          <div key={item.id} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
-            <Input value={item.name} onChange={(e) => onChange(item.id, { name: e.target.value })} className="h-8 text-xs bg-white" />
-            {showKind && (
-              <div className="flex flex-col gap-0.5">
-                <label className="text-[10px] text-[#8A9BB8]">Category</label>
-                <input
-                  type="text"
-                  list={`kind-suggestions-${item.id}`}
-                  value={item.kind ?? "general"}
-                  onChange={(e) => onChange(item.id, { kind: e.target.value })}
-                  placeholder="e.g. Vendor, Partner…"
-                  className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white"
-                />
-                {kindSuggestions && kindSuggestions.length > 0 && (
-                  <datalist id={`kind-suggestions-${item.id}`}>
-                    {kindSuggestions.map((s) => <option key={s} value={s} />)}
-                  </datalist>
-                )}
+          <div key={item.id} className="flex flex-col rounded bg-[#F8F6F0] border border-[#EFE8D8] overflow-hidden">
+            <div className="p-2 space-y-2 flex-1">
+              <Input value={item.name} onChange={(e) => onChange(item.id, { name: e.target.value })} className="h-8 text-xs bg-white" placeholder="Group name" />
+              {showKind && (
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] font-bold tracking-wider text-[#9CA3AF] uppercase">Category</span>
+                  <input
+                    type="text"
+                    list={`kind-suggestions-${item.id}`}
+                    value={item.kind ?? "general"}
+                    onChange={(e) => onChange(item.id, { kind: e.target.value })}
+                    placeholder="e.g. Vendor, Partner…"
+                    className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white focus:outline-none focus:border-[#1B4FD8]"
+                  />
+                  {kindSuggestions && kindSuggestions.length > 0 && (
+                    <datalist id={`kind-suggestions-${item.id}`}>
+                      {kindSuggestions.map((s) => <option key={s} value={s} />)}
+                    </datalist>
+                  )}
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-end">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] font-bold tracking-wider text-[#9CA3AF] uppercase">Phone number</span>
+                  <Input placeholder="—" value={item.phone ?? ""} onChange={(e) => onChange(item.id, { phone: e.target.value })} className="h-8 text-xs bg-white" />
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] font-bold tracking-wider text-[#9CA3AF] uppercase">Email address</span>
+                  <Input placeholder="—" value={item.email ?? ""} onChange={(e) => onChange(item.id, { email: e.target.value })} className="h-8 text-xs bg-white" />
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] font-bold tracking-wider text-[#9CA3AF] uppercase">Status</span>
+                  <label className="flex items-center gap-1.5 h-8 text-[11px] text-[#6B7A99] cursor-pointer">
+                    <input type="checkbox" checked={item.active} onChange={(e) => onChange(item.id, { active: e.target.checked })} className="accent-[#0F1C3F]" />
+                    Active
+                  </label>
+                </div>
               </div>
-            )}
-            <div className="grid grid-cols-2 gap-2">
-              <Input placeholder="Phone" value={item.phone ?? ""} onChange={(e) => onChange(item.id, { phone: e.target.value })} className="h-8 text-xs bg-white" />
-              <Input placeholder="Email" value={item.email ?? ""} onChange={(e) => onChange(item.id, { email: e.target.value })} className="h-8 text-xs bg-white" />
             </div>
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-1 text-[11px] text-[#6B7A99]">
-                <input type="checkbox" checked={item.active} onChange={(e) => onChange(item.id, { active: e.target.checked })} />
-                Active
-              </label>
-              <div className="flex items-center gap-2">
+            {/* Footer action bar */}
+            <div className="flex items-center justify-between gap-2 px-2 py-2 border-t border-[#E0D8CC] bg-[#EDE9E1]">
+              <span className="text-[10px] font-mono text-[#B0BCCE]">id:{item.id}</span>
+              <div className="flex items-center gap-1.5">
                 {onDelete && (
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(item)}
-                    disabled={deletingId === item.id}
-                    className="text-[11px] text-red-500 disabled:opacity-50"
-                  >
+                  <button type="button" onClick={() => handleDelete(item)} disabled={deletingId === item.id} className="h-7 px-2.5 text-[11px] rounded border border-red-200 bg-white text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors">
                     {deletingId === item.id ? "Deleting…" : "Delete"}
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={() => handleSave(item)}
-                  disabled={savingId === item.id}
-                  className="text-[11px] text-[#C49A38] disabled:opacity-50"
-                >
+                <button type="button" onClick={() => handleSave(item)} disabled={savingId === item.id} className="h-7 px-2.5 text-[11px] font-medium rounded border border-[#C49A38] bg-[#C49A38] text-white hover:bg-[#A07820] hover:border-[#A07820] disabled:opacity-50 transition-colors">
                   {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save"}
                 </button>
               </div>
