@@ -695,38 +695,47 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
       <section className="bg-white border border-[#DDD5C4] rounded-lg flex flex-col h-full overflow-hidden" style={{ transition: 'width 150ms ease' }}>
         {/* Collapsed strip */}
         {!leftPanelOpen && (
-          <div className="flex flex-col items-center h-full py-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setLeftPanelOpen(true)}
+            className="flex flex-col items-center w-full h-full pt-2 pb-3 gap-2.5 cursor-pointer hover:bg-[#F8F5F0] transition-colors rounded-lg"
+            title="Expand panel"
+          >
+            {/* Chevron — click strip to open, chevron in header to close */}
+            <ChevronRight className="w-4 h-4 text-[#8A9BB8] shrink-0" />
+            <div className="w-px bg-[#EFE8D8]" style={{ height: 10 }} />
+            {/* Recipients icon */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={() => setLeftPanelOpen(true)}
-                  className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#F8F5F0] text-[#8A9BB8] hover:text-[#C49A38] transition-colors"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Expand panel</TooltipContent>
-            </Tooltip>
-            <div className="w-px flex-1 bg-[#EFE8D8] mx-auto" />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="text-[#C4B99A] cursor-default">
+                <span className="text-[#C4B99A]">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" /></svg>
-                </div>
+                </span>
               </TooltipTrigger>
-              <TooltipContent side="right">Recipients</TooltipContent>
+              <TooltipContent side="right">Recipients ({storeRecipientList.length})</TooltipContent>
             </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="text-[#C4B99A] cursor-default">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="right">Documents</TooltipContent>
-            </Tooltip>
-            <div className="w-px flex-1 bg-[#EFE8D8] mx-auto" />
-          </div>
+            <div className="w-px bg-[#EFE8D8]" style={{ height: 6 }} />
+            {/* One doc icon per uploaded document */}
+            {selectedPackage.documents.map((doc) => (
+              <Tooltip key={doc.id}>
+                <TooltipTrigger asChild>
+                  <span className={`text-[#C4B99A] ${selectedDocument?.id === doc.id ? "text-[#C49A38]" : ""}`}>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="right">{doc.title || doc.fileName || "Untitled"}</TooltipContent>
+              </Tooltip>
+            ))}
+            {selectedPackage.documents.length === 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-[#DDD5C4]">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="right">No documents yet</TooltipContent>
+              </Tooltip>
+            )}
+          </button>
         )}
         {/* Expanded content */}
         {leftPanelOpen && <div className="p-3 flex flex-col gap-3 h-full overflow-hidden">
