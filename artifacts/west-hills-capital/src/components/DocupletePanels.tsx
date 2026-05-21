@@ -672,30 +672,37 @@ function diffSummary(
   newer: Partial<FieldLibraryItem> & { restoredFromVersion?: number },
 ): string {
   if (!older) return "Initial save";
-  const changed: string[] = [];
-  const checks: Array<[keyof FieldLibraryItem, string]> = [
-    ["label",          "label"],
-    ["category",       "category"],
-    ["type",           "type"],
-    ["source",         "prefill"],
-    ["sensitive",      "sensitive"],
-    ["required",       "required"],
-    ["active",         "active"],
-    ["validationType", "validation"],
-    ["sortOrder",      "order"],
-  ];
-  for (const [key, name] of checks) {
-    if (JSON.stringify(older[key]) !== JSON.stringify(newer[key])) changed.push(name);
-  }
-  if (JSON.stringify(older.options) !== JSON.stringify(newer.options)) changed.push("options");
-  if (
-    older.validationPattern !== newer.validationPattern ||
-    older.validationMessage !== newer.validationMessage
-  ) {
-    if (!changed.includes("validation")) changed.push("validation");
-  }
   if (newer.restoredFromVersion != null) return `Restored from v${newer.restoredFromVersion}`;
-  return changed.length > 0 ? changed.join(", ") : "minor changes";
+  const lines: string[] = [];
+  const q = (v: unknown) => (typeof v === "string" ? `"${v}"` : String(v ?? ""));
+  if (older.label !== newer.label)
+    lines.push(`Label: ${q(older.label)} → ${q(newer.label)}`);
+  if (older.category !== newer.category)
+    lines.push(`Category: ${q(older.category)} → ${q(newer.category)}`);
+  if (older.type !== newer.type)
+    lines.push(`Type: ${older.type} → ${newer.type}`);
+  if (older.source !== newer.source)
+    lines.push(`Prefill source: ${q(older.source)} → ${q(newer.source)}`);
+  if (older.active !== newer.active)
+    lines.push(`Active: ${older.active ? "on" : "off"} → ${newer.active ? "on" : "off"}`);
+  if (older.required !== newer.required)
+    lines.push(`Required: ${older.required ? "on" : "off"} → ${newer.required ? "on" : "off"}`);
+  if (older.sensitive !== newer.sensitive)
+    lines.push(`Sensitive: ${older.sensitive ? "on" : "off"} → ${newer.sensitive ? "on" : "off"}`);
+  if (older.validationType !== newer.validationType)
+    lines.push(`Validation: ${older.validationType ?? "none"} → ${newer.validationType ?? "none"}`);
+  if (older.validationPattern !== newer.validationPattern)
+    lines.push(`Pattern: ${q(older.validationPattern)} → ${q(newer.validationPattern)}`);
+  if (older.validationMessage !== newer.validationMessage)
+    lines.push(`Message: ${q(older.validationMessage)} → ${q(newer.validationMessage)}`);
+  if (older.sortOrder !== newer.sortOrder)
+    lines.push(`Sort order: ${older.sortOrder} → ${newer.sortOrder}`);
+  if (JSON.stringify(older.options) !== JSON.stringify(newer.options)) {
+    const oldN = (older.options ?? []).length;
+    const newN = (newer.options ?? []).length;
+    lines.push(oldN !== newN ? `Options: ${oldN} → ${newN} items` : `Options updated (${newN} items)`);
+  }
+  return lines.length > 0 ? lines.join(" · ") : "No changes detected";
 }
 
 // ─── Compliance tag chip (inline display) ────────────────────────────────────
@@ -1245,7 +1252,7 @@ export function FieldLibraryPanel({
           </button>
         )}
       </div>
-      <div className="rounded border border-[#DDD5C4] overflow-hidden divide-y divide-[#EFE8D8]">
+      <div className="rounded border border-[#DDD5C4] divide-y divide-[#EFE8D8]" style={{ overflow: "clip" }}>
         {visibleItems.map((item) => {
           const isEditing = expandedIds.has(item.id) || showHints;
           const showAdvanced = advancedIds.has(item.id) || showHints;
