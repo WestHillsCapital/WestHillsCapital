@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 import type { PackageItem } from "@/lib/docuplete-local-types";
 
@@ -8,29 +8,30 @@ export function TagChipInput({ tags, onChange, placeholder }: {
   placeholder?: string;
 }) {
   const [input, setInput] = useState("");
-  function commit(raw: string) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const commit = useCallback((raw: string) => {
     const tag = raw.replace(/,/g, "").trim();
     if (tag && !tags.includes(tag)) onChange([...tags, tag]);
     setInput("");
-  }
+  }, [tags, onChange]);
   return (
-    <div>
-      {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {tags.map((tag) => (
-            <span key={tag} className="inline-flex items-center gap-1 text-xs rounded-full px-2.5 py-0.5 bg-[#EFE8D8] text-[#5C4A1E] border border-[#DDD5C4]">
-              {tag}
-              <button
-                type="button"
-                onClick={() => onChange(tags.filter((t) => t !== tag))}
-                className="ml-0.5 text-[#8A7A5A] hover:text-red-500 transition-colors leading-none"
-                aria-label={`Remove tag ${tag}`}
-              >×</button>
-            </span>
-          ))}
-        </div>
-      )}
+    <div
+      className="flex flex-wrap gap-1.5 content-start w-full cursor-text"
+      onClick={() => inputRef.current?.focus()}
+    >
+      {tags.map((tag) => (
+        <span key={tag} className="inline-flex items-center gap-1 text-xs rounded-full px-2.5 py-0.5 bg-[#EFE8D8] text-[#5C4A1E] border border-[#DDD5C4] shrink-0">
+          {tag}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onChange(tags.filter((t) => t !== tag)); }}
+            className="ml-0.5 text-[#8A7A5A] hover:text-red-500 transition-colors leading-none"
+            aria-label={`Remove tag ${tag}`}
+          >×</button>
+        </span>
+      ))}
       <input
+        ref={inputRef}
         type="text"
         value={input}
         onChange={(e) => setInput(e.target.value)}
@@ -40,7 +41,7 @@ export function TagChipInput({ tags, onChange, placeholder }: {
         }}
         onBlur={() => commit(input)}
         placeholder={tags.length ? "Add another tag…" : (placeholder ?? "e.g. billing, onboarding, support")}
-        className="w-full border border-[#D4C9B5] rounded px-3 py-1.5 text-xs focus:outline-none focus:border-[#C49A38] placeholder:text-[#B0A898]"
+        className="flex-1 min-w-[8rem] border-0 bg-transparent text-xs outline-none placeholder:text-[#B0A898] py-0.5"
       />
     </div>
   );

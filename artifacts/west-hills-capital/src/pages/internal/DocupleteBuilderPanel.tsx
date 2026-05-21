@@ -407,7 +407,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    <div className="h-28 flex flex-col justify-start items-start p-3 border border-[#D4C9B5] rounded overflow-y-auto">
+                    <div className="h-28 flex flex-wrap gap-1.5 content-start p-3 border border-[#D4C9B5] rounded overflow-y-auto cursor-text focus-within:border-[#C49A38] transition-colors">
                       <TagChipInput
                         tags={selectedPackage.tags ?? []}
                         onChange={(tags) => updateSelectedPackage((pkg) => ({ ...pkg, tags }))}
