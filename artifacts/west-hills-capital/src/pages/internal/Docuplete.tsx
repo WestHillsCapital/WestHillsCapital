@@ -66,6 +66,7 @@ import AppHelp from "@/pages/app/AppHelp";
 import { AcroFieldReviewOverlay, type PendingAnnotation, type RowChoice } from "@/components/AcroFieldReviewOverlay";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
+const PDFJS_STANDARD_FONT_DATA_URL = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/standard_fonts/`;
 
 // In dev mode, always use the Vite proxy (relative "") so requests go to the
 // local API server. In production, use the Railway URL from VITE_API_URL.
@@ -1625,7 +1626,7 @@ export default function Docuplete() {
         let doc = pdfDocRef.current;
         if (!doc || pdfUrlRef.current !== documentPreviewUrl) {
           if (doc) { doc.destroy().catch(() => {}); pdfDocRef.current = null; }
-          const loadingTask = pdfjsLib.getDocument(documentPreviewUrl);
+          const loadingTask = pdfjsLib.getDocument({ url: documentPreviewUrl, standardFontDataUrl: PDFJS_STANDARD_FONT_DATA_URL });
           doc = await loadingTask.promise;
           if (cancelled) { doc.destroy(); return; }
           pdfDocRef.current = doc;
@@ -2741,7 +2742,7 @@ export default function Docuplete() {
   async function extractAcroFromFile(file: File): Promise<PendingAnnotation[]> {
     const url = URL.createObjectURL(file);
     try {
-      const doc = await pdfjsLib.getDocument(url).promise;
+      const doc = await pdfjsLib.getDocument({ url, standardFontDataUrl: PDFJS_STANDARD_FONT_DATA_URL }).promise;
       const results: PendingAnnotation[] = [];
       for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
         const page = await doc.getPage(pageNum);

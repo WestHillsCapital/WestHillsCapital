@@ -2,6 +2,8 @@ import { memo, useEffect, useRef, useState } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 import type { DocItem } from "@/lib/docuplete-local-types";
 
+const PDFJS_STANDARD_FONT_DATA_URL = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/standard_fonts/`;
+
 const API_BASE = import.meta.env.DEV
   ? ""
   : ((import.meta.env.VITE_API_URL as string | undefined) ?? "");
@@ -83,7 +85,7 @@ export const DocumentPreviewTile = memo(function DocumentPreviewTile({
     if (!previewUrl) return;
     let cancelled = false;
     let pdfDoc: pdfjsLib.PDFDocumentProxy | null = null;
-    const loadingTask = pdfjsLib.getDocument(previewUrl);
+    const loadingTask = pdfjsLib.getDocument({ url: previewUrl, standardFontDataUrl: PDFJS_STANDARD_FONT_DATA_URL });
     (async () => {
       try {
         pdfDoc = await loadingTask.promise;
