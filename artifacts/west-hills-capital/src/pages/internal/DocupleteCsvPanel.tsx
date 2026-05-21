@@ -448,8 +448,23 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                 )}
               </div>
 
-              {/* 3 — Import action (always visible, disabled until file ready) */}
+              {/* 3 — Action zone: [ Run Preflight ] → [ Import & Generate ] */}
               <div className="flex items-center gap-3 flex-wrap">
+                {csvBatchRows.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => void runPreflight()}
+                    disabled={preflightRunning}
+                    className="shrink-0 text-xs font-medium text-[#0F1C3F] border border-[#DDD5C4] bg-white hover:bg-[#F8F6F0] disabled:opacity-50 rounded px-3 py-1.5 transition-colors"
+                  >
+                    {preflightRunning ? (
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-3 h-3 border-2 border-[#0F1C3F] border-t-transparent rounded-full animate-spin inline-block" />
+                        Checking…
+                      </span>
+                    ) : preflightResult ? "Re-run Preflight" : "Run Preflight"}
+                  </button>
+                )}
                 <Button
                   onClick={() => handleCsvBatchImport()}
                   disabled={!csvBatchPackageId || csvBatchRows.length === 0 || csvBatchIsImporting || csvBatchRows.length > CSV_BATCH_MAX}
@@ -882,7 +897,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                     </table>
                   </div>
                   {csvBatchPackageId && (
-                    <div className="mt-2 flex items-center gap-4 text-[10px] text-[#6B7A99]">
+                    <div className="mt-4 flex items-center gap-4 text-[10px] text-[#6B7A99]">
                       <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-red-100 border border-red-200" /> Invalid value <span className="text-[#9AAAC0]">(click to fix)</span></span>
                       <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-amber-100 border border-amber-200" /> Required but empty <span className="text-[#9AAAC0]">(click to fix)</span></span>
                       <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-[#F8F6F0] border border-[#DDD5C4] line-through" /><span className="line-through">Column</span> will be skipped</span>
@@ -899,28 +914,28 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
             <p className="font-semibold text-amber-900">
               Validation issues found across all {csvBatchValidationSummary.total} data row{csvBatchValidationSummary.total === 1 ? "" : "s"}
             </p>
-            <ul className="space-y-1 text-amber-800 text-xs list-none">
+            <div className="text-amber-800 text-xs space-y-1">
               {csvBatchValidationSummary.invalidRows.length > 0 && (
-                <li>
-                  <span className="font-medium">{csvBatchValidationSummary.invalidRows.length} data row{csvBatchValidationSummary.invalidRows.length === 1 ? "" : "s"} with invalid values:</span>{" "}
+                <div className="grid grid-cols-[auto_1fr] gap-x-3 items-baseline">
+                  <span className="font-medium whitespace-nowrap">{csvBatchValidationSummary.invalidRows.length} data row{csvBatchValidationSummary.invalidRows.length === 1 ? "" : "s"} with invalid values:</span>
                   <span className="font-mono">
                     {csvBatchValidationSummary.invalidRows.length <= 20
                       ? csvBatchValidationSummary.invalidRows.join(", ")
                       : csvBatchValidationSummary.invalidRows.slice(0, 20).join(", ") + ` … +${csvBatchValidationSummary.invalidRows.length - 20} more`}
                   </span>
-                </li>
+                </div>
               )}
               {csvBatchValidationSummary.emptyRequiredRows.length > 0 && (
-                <li>
-                  <span className="font-medium">{csvBatchValidationSummary.emptyRequiredRows.length} data row{csvBatchValidationSummary.emptyRequiredRows.length === 1 ? "" : "s"} with empty required fields:</span>{" "}
+                <div className="grid grid-cols-[auto_1fr] gap-x-3 items-baseline">
+                  <span className="font-medium whitespace-nowrap">{csvBatchValidationSummary.emptyRequiredRows.length} data row{csvBatchValidationSummary.emptyRequiredRows.length === 1 ? "" : "s"} with empty required fields:</span>
                   <span className="font-mono">
                     {csvBatchValidationSummary.emptyRequiredRows.length <= 20
                       ? csvBatchValidationSummary.emptyRequiredRows.join(", ")
                       : csvBatchValidationSummary.emptyRequiredRows.slice(0, 20).join(", ") + ` … +${csvBatchValidationSummary.emptyRequiredRows.length - 20} more`}
                   </span>
-                </li>
+                </div>
               )}
-            </ul>
+            </div>
             {csvBatchValidationSummary.fieldIssues.length > 0 && (
               <div>
                 <button
@@ -987,33 +1002,12 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
           </div>
         )}
 
-        {/* ── Server Preflight Check ─────────────────────────────── */}
-        {csvBatchPackageId && csvBatchRows.length > 0 && (
-          <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0]">
-            <div className="flex items-center justify-between px-4 py-3">
-              <div>
-                <div className="text-sm font-semibold text-[#0F1C3F]">Server Preflight Check</div>
-                <div className="text-[11px] text-[#8A9BB8] mt-0.5">Evaluates conditions per row — required fields are only enforced when their condition is met.</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => void runPreflight()}
-                disabled={preflightRunning}
-                className="shrink-0 ml-4 text-xs font-medium text-white bg-[#0F1C3F] hover:bg-[#1a2f5a] disabled:opacity-50 rounded px-3 py-1.5 transition-colors"
-              >
-                {preflightRunning ? (
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
-                    Checking…
-                  </span>
-                ) : preflightResult ? "Re-run Preflight" : "Run Preflight"}
-              </button>
-            </div>
-            {preflightError && (
-              <div className="border-t border-[#DDD5C4] px-4 py-2 text-xs text-red-700 bg-red-50">{preflightError}</div>
-            )}
-            {preflightResult && (
-              <div className="border-t border-[#DDD5C4]">
+        {/* ── Preflight results (button lives in action footer above) ── */}
+        {preflightError && (
+          <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{preflightError}</div>
+        )}
+        {preflightResult && (
+          <div className="rounded border border-[#DDD5C4] overflow-hidden">
                 {/* Summary bar */}
                 <div className={`px-4 py-2.5 flex items-center gap-3 text-sm font-medium ${preflightResult.summary.failing === 0 ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>
                   {preflightResult.summary.failing === 0 ? (
@@ -1074,8 +1068,6 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                     })}
                   </div>
                 )}
-              </div>
-            )}
           </div>
         )}
 
