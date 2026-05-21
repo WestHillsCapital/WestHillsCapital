@@ -433,8 +433,8 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                   </div>
                 </div>
                 <div className="flex gap-8 w-full items-stretch">
-                {/* Left: drop zone — fixed width, stretches to match right panel via items-stretch */}
-                <div className="shrink-0 w-56 flex flex-col">
+                {/* Left: drop zone — wider column, stretches to match right panel via items-stretch */}
+                <div className="shrink-0 w-72 flex flex-col">
                 <div
                   onDragEnter={(e: ReactDragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDocumentDropActive(true); }}
                   onDragOver={(e: ReactDragEvent<HTMLDivElement>) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setIsDocumentDropActive(true); }}
@@ -463,10 +463,10 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                 </div>
                 {isUploadingDocument && <div className="mt-2 text-xs text-[#6B7A99]">Uploading PDF documents, please wait…</div>}
                 </div>
-                {/* Right: document grid — flex-1, scrollable, soft canvas wrapper */}
-                <div className="flex-1 min-w-0 h-60 overflow-y-auto rounded-xl bg-gray-50/60 border border-gray-200 p-3">
+                {/* Right: document grid — flex-1, wraps into multiple rows, soft canvas wrapper */}
+                <div className="flex-1 min-w-0 rounded-xl bg-gray-50/60 border border-gray-200 p-3">
                 {selectedPackage.documents.length === 0 ? (
-                  <div className="grid gap-4 h-full" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", alignContent: "start" }}>
+                  <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", alignContent: "start" }}>
                     {/* Add placeholder card */}
                     <button
                       type="button"
@@ -496,7 +496,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                       });
                     }}
                   >
-                    <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", alignContent: "start" }}>
+                    <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", alignContent: "start" }}>
                       <SortableContext items={selectedPackage.documents.map((d) => d.id)} strategy={rectSortingStrategy}>
                         {selectedPackage.documents.map((doc, index) => (
                           <SortableItem key={doc.id} id={doc.id}>
