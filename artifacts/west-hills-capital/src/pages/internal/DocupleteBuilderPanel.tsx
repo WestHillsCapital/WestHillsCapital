@@ -236,8 +236,8 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
               <div className="space-y-4">
                 <div className="rounded-lg border border-[#DDD5C4] bg-white p-4 space-y-4">
                   <div className="text-sm font-semibold text-[#0F1C3F]">Optional settings</div>
-                  <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-6">
                   {/* Groups */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -390,7 +390,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                     {inlineAddTypeError && <p className="text-xs text-red-600">{inlineAddTypeError}</p>}
                   </div>
                   </div>
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-6">
                   <label className="block">
                     <span className="block text-xs text-[#6B7A99] mb-1">Description / interview notes</span>
                     <Textarea value={selectedPackage.description ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, description: e.target.value }))} />
