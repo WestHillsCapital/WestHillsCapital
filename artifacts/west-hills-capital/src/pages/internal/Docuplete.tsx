@@ -4792,8 +4792,9 @@ export default function Docuplete() {
                     type="button"
                     onClick={() => void loadComplianceAudit()}
                     disabled={complianceAuditLoading}
-                    className="px-3 py-1.5 text-xs rounded border border-[#DDD5C4] bg-white text-[#0F1C3F] hover:border-[#1B4FD8] disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-gray-200 bg-white text-[#0F1C3F] hover:border-[#0F1C3F] hover:shadow-sm disabled:opacity-50 transition-all"
                   >
+                    <svg className={`w-3 h-3 shrink-0 ${complianceAuditLoading ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                     {complianceAuditLoading ? "Loading…" : "Refresh"}
                   </button>
                   {complianceAudit && complianceAudit.report.length > 0 && (
@@ -4815,8 +4816,9 @@ export default function Docuplete() {
                         const a = document.createElement("a"); a.href = url; a.download = "compliance-audit.csv"; a.click();
                         URL.revokeObjectURL(url);
                       }}
-                      className="px-3 py-1.5 text-xs rounded border border-[#DDD5C4] bg-white text-[#0F1C3F] hover:border-[#C49A38] transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-gray-200 bg-white text-[#0F1C3F] hover:border-[#C49A38] hover:shadow-sm transition-all"
                     >
+                      <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                       Export CSV
                     </button>
                   )}
@@ -4836,20 +4838,19 @@ export default function Docuplete() {
                     <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] px-4 py-6 text-center text-sm text-[#8A9BB8]">No packages found.</div>
                   )}
                   {complianceAudit.report.map((row) => (
-                    <div key={row.packageId} className={`rounded border ${row.hasGap ? "border-[#FCA5A5] bg-[#FFF5F5]" : "border-[#D1FAE5] bg-[#F0FDF4]"} p-4`}>
-                      <div className="flex items-center gap-2 mb-2">
+                    <div key={row.packageId} className={`rounded border ${row.hasGap ? "border-amber-200 bg-amber-50/25" : "border-green-200 bg-green-50/20"} p-4`}>
+                      <div className="flex items-center gap-2 mb-3">
                         <span className="font-semibold text-sm text-[#0F1C3F]">{row.packageName}</span>
                         <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#EBF0FB] text-[#1B4FD8] font-medium">{row.status}</span>
-                        {row.hasGap && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#FEE2E2] text-[#DC2626] font-semibold">
-                            {row.requiredMissingCount} required missing
+                        {row.hasGap ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300 font-semibold">
+                            ⚠️ Non-Compliant · {row.requiredMissingCount} missing
                           </span>
-                        )}
-                        {!row.hasGap && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#D1FAE5] text-[#059669] font-semibold">✓ Compliant</span>
+                        ) : (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-300 font-semibold">✓ Compliant</span>
                         )}
                       </div>
-                      <div className="grid md:grid-cols-2 gap-3 text-[11px]">
+                      <div className="grid md:grid-cols-2 gap-3 text-[11px] max-w-[600px]">
                         <div>
                           <div className="font-semibold text-[#059669] mb-1">Present ({row.present.length})</div>
                           {row.present.length === 0 ? (
