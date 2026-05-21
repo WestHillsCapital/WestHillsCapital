@@ -713,7 +713,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
               </TooltipTrigger>
               <TooltipContent side="right">Recipients ({storeRecipientList.length})</TooltipContent>
             </Tooltip>
-            <div className="w-px bg-[#EFE8D8]" style={{ height: 6 }} />
+            <div className="w-full border-t border-[#EFE8D8] mx-1" />
             {/* One doc icon per uploaded document */}
             {selectedPackage.documents.map((doc) => (
               <Tooltip key={doc.id}>
