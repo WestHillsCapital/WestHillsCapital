@@ -582,8 +582,8 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
               const unmappedInterviewFields = packageInterviewFields.filter((f) => !packageMappedFieldIds.has(f.id));
               return (
               <div className="space-y-6">
-                <div className="grid lg:grid-cols-2 gap-4 items-stretch">
-                  <div className="rounded-lg bg-white p-4 flex flex-col gap-2 min-h-[500px] overflow-hidden shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.03)]">
+                <div className="grid lg:grid-cols-2 gap-4 h-[520px]">
+                  <div className="rounded-lg bg-white p-4 flex flex-col gap-2 h-full overflow-hidden shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.03)]">
                     <div>
                       <div className="flex items-center justify-between">
                         <h2 className="text-sm font-semibold">Interview order</h2>
@@ -678,7 +678,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                       <Button onClick={() => goBuilderStep("mapping")} variant="outline" className="text-xs">Edit Mapping Rules</Button>
                     </div>
                   </div>
-                  <div className="rounded-lg bg-[#F8F6F0] p-4 flex flex-col gap-3 overflow-y-auto min-h-[500px] max-h-[600px] shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.03)]">
+                  <div className="rounded-lg bg-[#F8F6F0] p-4 flex flex-col gap-3 overflow-y-auto h-full shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.03)]">
                     <div>
                       <h2 className="text-sm font-semibold">Interview preview</h2>
                       <p className="text-xs text-[#8A9BB8] mt-0.5 opacity-70">How this will appear to staff during an interview. Updates as you reorder.</p>
