@@ -280,6 +280,10 @@ const FIELD_COLOR_PALETTE = [
   "#3B82F6", "#6366F1", "#8B5CF6", "#D946EF", "#F43F5E",
 ];
 
+function isSensitiveValidationType(validationType: string | undefined | null): boolean {
+  return validationType === "ssn" || validationType === "dob";
+}
+
 function pickFieldColor(usedColors: string[], sensitive: boolean): string {
   if (sensitive) return "#DC2626";
   const available = FIELD_COLOR_PALETTE.filter((c) => !usedColors.includes(c));
@@ -317,7 +321,7 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
       return {
         ...field,
         libraryFieldId: field.libraryFieldId ? String(field.libraryFieldId) : "",
-        sensitive: field.sensitive === true,
+        sensitive: field.sensitive === true || isSensitiveValidationType(field.validationType),
         interviewMode: isSystemEsignFieldId(field.id) ? "omitted" : (validModes.includes(raw.interviewMode) ? raw.interviewMode : legacyMode),
         options: Array.isArray(field.options) ? field.options : undefined,
         optionsMode: field.optionsMode === "inherit" || field.optionsMode === "override" ? field.optionsMode : field.libraryFieldId && (!Array.isArray(field.options) || field.options.length === 0) ? "inherit" : "override",
@@ -2441,7 +2445,8 @@ export default function Docuplete() {
       }
       const usedColors = pkg.fields.map((f) => f.color);
       const newFields = toAdd.map((lf): FieldItem => {
-        const color = pickFieldColor(usedColors, lf.sensitive);
+        const sensitive = lf.sensitive || isSensitiveValidationType(lf.validationType);
+        const color = pickFieldColor(usedColors, sensitive);
         usedColors.push(color);
         return {
           id: newId("field"),
@@ -2453,7 +2458,7 @@ export default function Docuplete() {
           interviewMode: lf.required ? "required" : "optional",
           defaultValue: "",
           source: lf.source,
-          sensitive: lf.sensitive,
+          sensitive,
           validationType: lf.validationType,
           validationPattern: lf.validationPattern ?? "",
           validationMessage: lf.validationMessage ?? "",
@@ -2495,17 +2500,18 @@ export default function Docuplete() {
         flashStatus("That shared field is already in this package.");
         return pkg;
       }
+      const libSensitive = libraryField.sensitive || isSensitiveValidationType(libraryField.validationType);
       const field: FieldItem = {
         id: newId("field"),
         libraryFieldId: libraryField.id,
         name: libraryField.label,
-        color: pickFieldColor(pkg.fields.map((f) => f.color), libraryField.sensitive),
+        color: pickFieldColor(pkg.fields.map((f) => f.color), libSensitive),
         type: libraryField.type,
         optionsMode: "inherit",
         interviewMode: libraryField.required ? "required" : "optional",
         defaultValue: "",
         source: libraryField.source,
-        sensitive: libraryField.sensitive,
+        sensitive: libSensitive,
         validationType: libraryField.validationType,
         validationPattern: libraryField.validationPattern ?? "",
         validationMessage: libraryField.validationMessage ?? "",
@@ -3369,7 +3375,7 @@ export default function Docuplete() {
         name: name.trim() || `Field ${(selectedPackage?.fields.length ?? 0) + 1}`,
         color, type, options: cleanOpts, optionsMode: "override",
         interviewMode, defaultValue: hasDefault ? defaultValue : "",
-        source: "interview", sensitive: false,
+        source: "interview", sensitive: isSensitiveValidationType(validationType),
         validationType: validationType ?? "none", validationPattern, validationMessage,
         condition: condition ?? undefined,
         condition2: condition2 ?? undefined,
@@ -3401,6 +3407,7 @@ export default function Docuplete() {
           ...f, name: name.trim() || f.name, color, type,
           options: cleanOpts, optionsMode: "override" as const,
           interviewMode, defaultValue: hasDefault ? defaultValue : "",
+          sensitive: f.sensitive || isSensitiveValidationType(validationType),
           validationType: validationType ?? "none", validationPattern, validationMessage,
           condition: condition ?? undefined,
           condition2: condition2 ?? undefined,
