@@ -429,12 +429,12 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                 <div className="flex items-center gap-3">
                   <div>
                     <h2 className="text-sm font-semibold">Package documents</h2>
-                    <p className="text-xs text-[#8A9BB8]">The order below becomes the order of the generated paperwork packet.</p>
+                    <p className="text-xs text-[#8A9BB8]">Step 1 of 3 · drop your PDFs on the left, arrange them in order, then continue.</p>
                   </div>
                 </div>
                 <div className="flex gap-8 w-full items-stretch">
-                {/* Left: drop zone — fixed width, matches right panel height */}
-                <div className="shrink-0 w-56 h-60 flex flex-col">
+                {/* Left: drop zone — fixed width, stretches to match right panel via items-stretch */}
+                <div className="shrink-0 w-56 flex flex-col">
                 <div
                   onDragEnter={(e: ReactDragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDocumentDropActive(true); }}
                   onDragOver={(e: ReactDragEvent<HTMLDivElement>) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setIsDocumentDropActive(true); }}
@@ -463,8 +463,8 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                 </div>
                 {isUploadingDocument && <div className="mt-2 text-xs text-[#6B7A99]">Uploading PDF documents, please wait…</div>}
                 </div>
-                {/* Right: document grid — flex-1, scrollable, same height */}
-                <div className="flex-1 min-w-0 h-60 overflow-y-auto">
+                {/* Right: document grid — flex-1, scrollable, soft canvas wrapper */}
+                <div className="flex-1 min-w-0 h-60 overflow-y-auto rounded-xl bg-gray-50/60 border border-gray-200 p-3">
                 {selectedPackage.documents.length === 0 ? (
                   <div className="grid gap-4 h-full" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", alignContent: "start" }}>
                     {/* Add placeholder card */}
@@ -555,8 +555,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                 </div>
                 </div>
                 {/* Footer utility bar */}
-                <div className="flex items-center justify-between gap-3 pt-2 border-t border-[#EFE8D8]">
-                  <span className="text-xs text-[#8A9BB8]">Step 1 of 3 · drop your PDFs on the left, then continue</span>
+                <div className="flex items-center justify-end gap-3 pt-2 border-t border-[#EFE8D8]">
                   <div className="flex items-center gap-3">
                     <label className={`inline-flex items-center border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-medium px-4 py-2 rounded-md transition text-sm ${isUploadingDocument ? "opacity-50 pointer-events-none cursor-not-allowed" : "cursor-pointer"}`}>
                       {isUploadingDocument ? "Uploading…" : "Upload PDFs"}
