@@ -585,17 +585,14 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
               <div className="space-y-6">
                 <div className="flex flex-row items-stretch gap-6 w-full">
                   <div className="rounded-xl bg-gray-50/50 border border-gray-200 p-4 flex flex-col justify-between flex-1 overflow-hidden">
-                    <div className="flex flex-col gap-2">
-                      <div>
+                    <div>
+                      <div className="flex items-center justify-between">
                         <h2 className="text-sm font-semibold">Interview order</h2>
-                        <p className="text-xs text-[#8A9BB8] mt-0.5 opacity-70">Questions staff will be asked, top to bottom. The preview updates live.</p>
+                        {packageInterviewFields.length > 1 && (
+                          <button type="button" onClick={() => goBuilderStep("interview", { autoSort: true })} className="text-xs text-[#6B7A99] border border-[#DDD5C4] rounded px-2 py-1 hover:border-[#C49A38] hover:text-[#C49A38] transition-colors">Sort by PDF order</button>
+                        )}
                       </div>
-                      {packageInterviewFields.length > 1 && (
-                        <div className="-mx-4 px-4 py-1.5 bg-gray-100/60 border-y border-gray-200 flex items-center justify-between">
-                          <span className="text-xs text-[#8A9BB8]">↕ Drag to reorder</span>
-                          <button type="button" onClick={() => goBuilderStep("interview", { autoSort: true })} className="text-xs text-[#6B7A99] border border-gray-200 rounded px-2.5 py-1 hover:border-[#C49A38] hover:text-[#C49A38] transition-colors flex items-center gap-1 bg-white">⚡ Sort by PDF order</button>
-                        </div>
-                      )}
+                      <p className="text-xs text-[#8A9BB8] mt-0.5 opacity-70">Questions staff will be asked, top to bottom. Drag to reorder — the preview updates live.</p>
                     </div>
                     <div className="h-[500px] overflow-y-auto">
                       {packageInterviewFields.length === 0 ? (
