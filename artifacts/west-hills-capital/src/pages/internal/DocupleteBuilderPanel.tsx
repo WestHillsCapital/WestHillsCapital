@@ -416,7 +416,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    <div className="h-28 flex flex-wrap gap-1.5 content-start p-3 border border-[#D4C9B5] rounded overflow-y-auto cursor-text focus-within:border-[#C49A38] transition-colors">
+                    <div className="min-h-[36px] max-h-28 flex flex-wrap gap-1.5 content-start p-2 border border-[#D4C9B5] rounded overflow-y-auto cursor-text focus-within:border-[#C49A38] transition-colors">
                       <TagChipInput
                         tags={selectedPackage.tags ?? []}
                         onChange={(tags) => updateSelectedPackage((pkg) => ({ ...pkg, tags }))}
@@ -467,10 +467,14 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                       <span className="text-2xl font-light leading-none">+</span>
                       <span className="text-[11px] font-medium">Add Placeholder</span>
                     </button>
-                    <div className="rounded-lg border-2 border-dashed border-gray-200 bg-gray-50/60 flex flex-col items-center justify-center gap-1 min-h-[160px] text-gray-300 select-none col-span-3">
-                      <svg className="w-7 h-7 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
-                      <span className="text-[11px]">Drop PDFs in the banner above — they'll appear here</span>
-                    </div>
+                    {/* Ghost ingress card */}
+                    <label className={`rounded-lg border-2 border-dashed border-gray-200 bg-transparent hover:bg-gray-100/40 transition flex flex-col items-center justify-center gap-2 min-h-[160px] text-gray-300 hover:text-gray-400 opacity-60 hover:opacity-90 ${isUploadingDocument ? "pointer-events-none" : "cursor-pointer"}`}>
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5v-9m0 0-3 3m3-3 3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.338-2.32 5.75 5.75 0 0 1 1.026 11.095H6.75Z" /></svg>
+                      <span className="text-[11px] font-medium">Drop or browse next file</span>
+                      <input type="file" accept="application/pdf" multiple disabled={isUploadingDocument} className="sr-only"
+                        onChange={(e) => { const files = e.target.files; if (files?.length) { if (files.length === 1) uploadDocument(files[0]); else uploadDocuments(files); } e.target.value = ""; }}
+                      />
+                    </label>
                   </div>
                 ) : (
                   <DndContext
@@ -495,8 +499,16 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                                 ref={wrapperRef}
                                 style={wrapperStyle}
                                 {...handleProps}
-                                className={`rounded-lg border bg-white flex flex-col transition-shadow cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-40 shadow-2xl scale-95" : "hover:shadow-md"} ${selectedDocument?.id === doc.id ? "border-[#C49A38] ring-2 ring-[#C49A38]/20" : "border-[#DDD5C4]"}`}
+                                className={`relative rounded-lg border bg-white flex flex-col transition-shadow cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-40 shadow-2xl scale-95" : "hover:shadow-md"} ${selectedDocument?.id === doc.id ? "border-[#C49A38] ring-2 ring-[#C49A38]/20" : "border-[#DDD5C4]"}`}
                               >
+                                {/* Drag handle grip indicator */}
+                                <div className="absolute top-1.5 right-1.5 text-gray-300 pointer-events-none select-none z-10">
+                                  <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+                                    <circle cx="2.5" cy="2.5" r="1.5"/><circle cx="7.5" cy="2.5" r="1.5"/>
+                                    <circle cx="2.5" cy="8" r="1.5"/><circle cx="7.5" cy="8" r="1.5"/>
+                                    <circle cx="2.5" cy="13.5" r="1.5"/><circle cx="7.5" cy="13.5" r="1.5"/>
+                                  </svg>
+                                </div>
                                 <DocumentPreviewTile
                                   packageId={selectedPackage.id}
                                   doc={doc}
