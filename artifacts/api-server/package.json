@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
+    "dev:watch": "NODE_ENV=development tsx watch src/index.ts",
     "worker-dev": "export NODE_ENV=development && pnpm run build && pnpm run worker-start",
     "worker-start": "node --enable-source-maps ./dist/worker.mjs",
     "build": "node ./build.mjs",
