@@ -237,7 +237,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                 <div className="rounded-lg bg-white p-4 space-y-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.03)]">
                   <div className="text-sm font-semibold text-[#0F1C3F]">Optional settings</div>
                   <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4 max-w-2xl">
+                  <div className="grid grid-cols-2 gap-x-8">
                   {/* Groups */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -390,13 +390,13 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                     {inlineAddTypeError && <p className="text-xs text-red-600">{inlineAddTypeError}</p>}
                   </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-2 gap-x-8">
                   <label className="block">
                     <span className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Description / interview notes</span>
-                    <Textarea value={selectedPackage.description ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, description: e.target.value }))} />
+                    <Textarea className="h-28 resize-none" value={selectedPackage.description ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, description: e.target.value }))} />
                   </label>
                   <div>
-                    <div className="flex items-center gap-1 mb-2">
+                    <div className="flex items-center gap-1 mb-1">
                       <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Tags</span>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -407,10 +407,12 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    <TagChipInput
-                      tags={selectedPackage.tags ?? []}
-                      onChange={(tags) => updateSelectedPackage((pkg) => ({ ...pkg, tags }))}
-                    />
+                    <div className="h-28 flex flex-col justify-start items-start p-3 border border-[#D4C9B5] rounded overflow-y-auto">
+                      <TagChipInput
+                        tags={selectedPackage.tags ?? []}
+                        onChange={(tags) => updateSelectedPackage((pkg) => ({ ...pkg, tags }))}
+                      />
+                    </div>
                   </div>
                   </div>
                   </div>
