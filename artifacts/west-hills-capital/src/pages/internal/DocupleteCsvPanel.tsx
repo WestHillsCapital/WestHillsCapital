@@ -427,7 +427,13 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                     </button>
                     {showCsvFieldKey && (
                       <div className="border-t border-[#DDD5C4] overflow-x-auto">
-                        <table className="text-xs min-w-full">
+                        <table className="text-xs min-w-full table-fixed">
+                          <colgroup>
+                            <col style={{ width: "35%" }} />
+                            <col style={{ width: "15%" }} />
+                            <col style={{ width: "35%" }} />
+                            <col style={{ width: "15%" }} />
+                          </colgroup>
                           <tbody>
                             {selectedPkg && (
                               <>
@@ -440,34 +446,52 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                                   <td className="px-3 py-2 font-mono text-[#0F1C3F]" colSpan={3}>{selectedPkg.id}</td>
                                 </tr>
                                 <tr className="bg-[#EFE8D8] border-t-2 border-[#DDD5C4]">
-                                  <td className="px-3 py-2 text-left font-medium text-[#6B7A99] whitespace-nowrap">Field Name (CSV column header)</td>
-                                  <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Required?</td>
+                                  <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Field Name (CSV column header)</td>
+                                  <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Status</td>
                                   <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Condition</td>
                                   <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Type</td>
-                                  <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Accepted Values</td>
                                 </tr>
                                 <tr className="border-t border-[#DDD5C4]">
-                                  <td colSpan={5} className="px-3 py-1 text-[10px] text-[#6B7A99] uppercase tracking-wide font-medium bg-[#EFE8D8]">Fields</td>
+                                  <td colSpan={4} className="px-3 py-1 text-[10px] text-[#6B7A99] uppercase tracking-wide font-medium bg-[#EFE8D8]">Fields</td>
                                 </tr>
                               </>
                             )}
                             {keyFields.map((f) => {
                               const condText = conditionToText(f);
+                              const hasOptions = (f.type === "dropdown" || f.type === "radio" || f.type === "checkbox") && (f.options ?? []).length > 0;
+                              const typeHint = f.type === "date" ? "MM/DD/YYYY" : validationTypeHint(f.validationType, f.validationMessage);
                               return (
-                              <tr key={f.id} className={`border-t border-[#EFE8D8] ${condText ? "bg-purple-50/40" : ""}`}>
-                                <td className="px-3 py-2 font-mono text-[#0F1C3F] whitespace-nowrap">
-                                  {f.name}
-                                  {f.sensitive && <span className="ml-1.5 text-[10px] text-red-600" title="Sensitive field">🔒</span>}
+                              <tr key={f.id} className={`border-t border-[#EFE8D8] align-top ${condText ? "bg-purple-50/40" : ""}`}>
+                                {/* Col 1: field name + option chips */}
+                                <td className="px-3 py-2">
+                                  <div className="font-mono text-[#0F1C3F]">
+                                    {f.name}
+                                    {f.sensitive && <span className="ml-1.5 text-[10px] text-red-600" title="Sensitive field">🔒</span>}
+                                  </div>
+                                  {hasOptions && (
+                                    <div className="mt-1.5 flex flex-wrap gap-1">
+                                      {(f.options ?? []).map((opt) => (
+                                        <span key={opt} className="inline-block rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[10px] text-[#334155]">{opt}</span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {!hasOptions && typeHint && (
+                                    <div className="mt-1 text-[10px] text-[#8A9BB8] font-mono">{typeHint}</div>
+                                  )}
                                 </td>
+                                {/* Col 2: status badge */}
                                 <td className="px-3 py-2 whitespace-nowrap">
-                                  {f.interviewMode === "required"
-                                    ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-700">Required{condText ? "*" : ""}</span>
-                                    : f.interviewMode === "readonly"
-                                      ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700">Auto-filled</span>
-                                      : <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-[#EFE8D8] text-[#6B7A99]">Optional</span>
+                                  {f.interviewMode === "required" && condText
+                                    ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200">Cond. Required</span>
+                                    : f.interviewMode === "required"
+                                      ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-700">Required</span>
+                                      : f.interviewMode === "readonly"
+                                        ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700">Auto-filled</span>
+                                        : <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-[#EFE8D8] text-[#6B7A99]">Optional</span>
                                   }
                                 </td>
-                                <td className="px-3 py-2 text-[#6B7A99] text-[10px] whitespace-nowrap max-w-[200px]">
+                                {/* Col 3: condition */}
+                                <td className="px-3 py-2 text-[10px]">
                                   {condText
                                     ? <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 bg-purple-100 text-purple-800 font-medium">
                                         <svg className="w-2.5 h-2.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h4.5"/></svg>
@@ -476,19 +500,8 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                                     : <span className="text-[#C0CBDA]">Always shown</span>
                                   }
                                 </td>
+                                {/* Col 4: type */}
                                 <td className="px-3 py-2 capitalize text-[#334155]">{f.type}</td>
-                                <td className="px-3 py-2 text-[#334155]">
-                                  {(f.type === "dropdown" || f.type === "radio" || f.type === "checkbox") && (f.options ?? []).length > 0
-                                    ? <span className="flex flex-wrap gap-1">
-                                        {(f.options ?? []).map((opt) => (
-                                          <span key={opt} className="inline-block rounded bg-white border border-[#D4C9B5] px-1.5 py-0.5 font-mono text-[10px] text-[#0F1C3F]">{opt}</span>
-                                        ))}
-                                      </span>
-                                    : f.type === "date"
-                                      ? <span className="font-mono text-[#6B7A99]">MM/DD/YYYY</span>
-                                      : <span className="text-[#6B7A99]">{validationTypeHint(f.validationType, f.validationMessage)}</span>
-                                  }
-                                </td>
                               </tr>
                             );
                             })}
