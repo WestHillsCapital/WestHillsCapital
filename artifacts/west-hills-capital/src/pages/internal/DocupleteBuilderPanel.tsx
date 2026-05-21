@@ -238,78 +238,73 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                   <div className="text-sm font-semibold text-[#0F1C3F]">Optional settings</div>
                   <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-4">
-                  {(() => {
-                    const activeGroups = groups.filter((g) => g.active !== false);
-                    const categories = [...new Set(activeGroups.map((g) => g.kind ?? "general"))].sort();
-                    const groupsSection = (
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs text-[#6B7A99]">Groups</span>
-                          {groups.length > 0 && !inlineAddGroupOpen && (
-                            <button type="button" onClick={() => { setInlineAddGroupOpen(true); setInlineAddGroupName(""); setInlineAddGroupError(null); }} className="text-xs text-[#C49A38] hover:underline">+ Add group</button>
-                          )}
-                        </div>
-                        {inlineAddGroupOpen && (
-                          <div className="mb-2 flex items-center gap-2">
-                            <input
-                              autoFocus
-                              type="text"
-                              placeholder="Group name…"
-                              value={inlineAddGroupName}
-                              onChange={(e) => setInlineAddGroupName(e.target.value)}
-                              onKeyDown={async (e) => {
-                                if (e.key === "Enter" && inlineAddGroupName.trim()) {
-                                  e.preventDefault();
-                                  setInlineAddGroupLoading(true);
-                                  setInlineAddGroupError(null);
-                                  const result = await createGroupNamed(inlineAddGroupName.trim());
-                                  setInlineAddGroupLoading(false);
-                                  if (typeof result === "string") {
-                                    setInlineAddGroupError(result);
-                                  } else {
-                                    if (result.id) updateSelectedPackage((pkg) => ({ ...pkg, group_ids: [...(pkg.group_ids ?? []), result.id], group_id: pkg.group_id ?? result.id }));
-                                    setInlineAddGroupOpen(false);
-                                    setInlineAddGroupName("");
-                                  }
-                                } else if (e.key === "Escape") {
-                                  setInlineAddGroupOpen(false);
-                                }
-                              }}
-                              className="flex-1 border border-[#D4C9B5] rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#C49A38]"
-                            />
-                            <button
-                              type="button"
-                              disabled={!inlineAddGroupName.trim() || inlineAddGroupLoading}
-                              onClick={async () => {
-                                setInlineAddGroupLoading(true);
-                                setInlineAddGroupError(null);
-                                const result = await createGroupNamed(inlineAddGroupName.trim());
-                                setInlineAddGroupLoading(false);
-                                if (typeof result === "string") {
-                                  setInlineAddGroupError(result);
-                                } else {
-                                  if (result.id) updateSelectedPackage((pkg) => ({ ...pkg, group_ids: [...(pkg.group_ids ?? []), result.id], group_id: pkg.group_id ?? result.id }));
-                                  setInlineAddGroupOpen(false);
-                                  setInlineAddGroupName("");
-                                }
-                              }}
-                              className="text-xs bg-[#C49A38] text-white rounded px-2 py-1.5 disabled:opacity-40"
-                            >{inlineAddGroupLoading ? "Adding…" : "Add"}</button>
-                            <button type="button" onClick={() => setInlineAddGroupOpen(false)} className="text-xs text-[#8A9BB8] hover:text-[#4A5568]">Cancel</button>
-                          </div>
-                        )}
-                        {inlineAddGroupError && <p className="mb-1 text-xs text-red-600">{inlineAddGroupError}</p>}
+                  {/* Groups */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-[#6B7A99]">Groups</span>
+                      {groups.length > 0 && !inlineAddGroupOpen && (
+                        <button type="button" onClick={() => { setInlineAddGroupOpen(true); setInlineAddGroupName(""); setInlineAddGroupError(null); }} className="text-xs text-[#C49A38] hover:underline">+ Add group</button>
+                      )}
+                    </div>
+                    {inlineAddGroupOpen && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          autoFocus
+                          type="text"
+                          placeholder="Group name…"
+                          value={inlineAddGroupName}
+                          onChange={(e) => setInlineAddGroupName(e.target.value)}
+                          onKeyDown={async (e) => {
+                            if (e.key === "Enter" && inlineAddGroupName.trim()) {
+                              e.preventDefault();
+                              setInlineAddGroupLoading(true);
+                              setInlineAddGroupError(null);
+                              const result = await createGroupNamed(inlineAddGroupName.trim());
+                              setInlineAddGroupLoading(false);
+                              if (typeof result === "string") {
+                                setInlineAddGroupError(result);
+                              } else {
+                                if (result.id) updateSelectedPackage((pkg) => ({ ...pkg, group_ids: [...(pkg.group_ids ?? []), result.id], group_id: pkg.group_id ?? result.id }));
+                                setInlineAddGroupOpen(false);
+                                setInlineAddGroupName("");
+                              }
+                            } else if (e.key === "Escape") {
+                              setInlineAddGroupOpen(false);
+                            }
+                          }}
+                          className="flex-1 border border-[#D4C9B5] rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#C49A38]"
+                        />
+                        <button
+                          type="button"
+                          disabled={!inlineAddGroupName.trim() || inlineAddGroupLoading}
+                          onClick={async () => {
+                            setInlineAddGroupLoading(true);
+                            setInlineAddGroupError(null);
+                            const result = await createGroupNamed(inlineAddGroupName.trim());
+                            setInlineAddGroupLoading(false);
+                            if (typeof result === "string") {
+                              setInlineAddGroupError(result);
+                            } else {
+                              if (result.id) updateSelectedPackage((pkg) => ({ ...pkg, group_ids: [...(pkg.group_ids ?? []), result.id], group_id: pkg.group_id ?? result.id }));
+                              setInlineAddGroupOpen(false);
+                              setInlineAddGroupName("");
+                            }
+                          }}
+                          className="text-xs bg-[#C49A38] text-white rounded px-2 py-1.5 disabled:opacity-40"
+                        >{inlineAddGroupLoading ? "Adding…" : "Add"}</button>
+                        <button type="button" onClick={() => setInlineAddGroupOpen(false)} className="text-xs text-[#8A9BB8] hover:text-[#4A5568]">Cancel</button>
                       </div>
-                    );
-                    if (categories.length === 0) return groupsSection;
-                    return (<>
-                      {groupsSection}
-                      {categories.map((cat) => {
+                    )}
+                    {inlineAddGroupError && <p className="text-xs text-red-600">{inlineAddGroupError}</p>}
+                    {(() => {
+                      const activeGroups = groups.filter((g) => g.active !== false);
+                      const categories = [...new Set(activeGroups.map((g) => g.kind ?? "general"))].sort();
+                      return categories.map((cat) => {
                         const catGroups = activeGroups.filter((g) => (g.kind ?? "general") === cat && g.name?.trim());
                         if (catGroups.length === 0) return null;
                         const selectedInCat = (selectedPackage.group_ids ?? []).find((gid) => catGroups.some((g) => g.id === gid));
                         return (
-                          <label key={cat} className="block text-sm">
+                          <div key={cat}>
                             {cat !== "general" && <span className="block text-xs text-[#6B7A99] mb-1 capitalize">{cat}</span>}
                             <select
                               value={selectedInCat ?? ""}
@@ -321,22 +316,78 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                                   return { ...pkg, group_ids: nextIds, group_id: nextIds[0] ?? null };
                                 });
                               }}
-                              className="w-full border border-[#D4C9B5] rounded px-3 py-2"
+                              className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-sm"
                             >
                               <option value="">None</option>
                               {catGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                             </select>
-                          </label>
+                          </div>
                         );
-                      })}
-                    </>);
-                  })()}
-                  <div>
-                    <span className="block text-xs text-[#6B7A99] mb-1">Type <span className="text-[#8A9BB8] font-normal">(optional)</span></span>
+                      });
+                    })()}
+                  </div>
+                  {/* Type */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-[#6B7A99]">Type <span className="text-[#8A9BB8] font-normal">(optional)</span></span>
+                      {!inlineAddTypeOpen && (
+                        <button type="button" onClick={() => { setInlineAddTypeOpen(true); setInlineAddTypeName(""); setInlineAddTypeError(null); }} className="text-xs text-[#C49A38] hover:underline">+ Add type</button>
+                      )}
+                    </div>
                     <select value={selectedPackage.transaction_scope ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-sm">
                       <option value="">Not specified</option>
                       {transactionTypes.filter((item) => item.active || item.scope === selectedPackage.transaction_scope).map((item) => <option key={item.scope} value={item.scope}>{item.label}</option>)}
                     </select>
+                    {inlineAddTypeOpen && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          autoFocus
+                          type="text"
+                          placeholder="Type name…"
+                          value={inlineAddTypeName}
+                          onChange={(e) => setInlineAddTypeName(e.target.value)}
+                          onKeyDown={async (e) => {
+                            if (e.key === "Enter" && inlineAddTypeName.trim()) {
+                              e.preventDefault();
+                              setInlineAddTypeLoading(true);
+                              setInlineAddTypeError(null);
+                              const result = await createTransactionTypeNamed(inlineAddTypeName.trim());
+                              setInlineAddTypeLoading(false);
+                              if (typeof result === "string") {
+                                setInlineAddTypeError(result);
+                              } else {
+                                updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: result.scope }));
+                                setInlineAddTypeOpen(false);
+                                setInlineAddTypeName("");
+                              }
+                            } else if (e.key === "Escape") {
+                              setInlineAddTypeOpen(false);
+                            }
+                          }}
+                          className="flex-1 border border-[#D4C9B5] rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#C49A38]"
+                        />
+                        <button
+                          type="button"
+                          disabled={!inlineAddTypeName.trim() || inlineAddTypeLoading}
+                          onClick={async () => {
+                            setInlineAddTypeLoading(true);
+                            setInlineAddTypeError(null);
+                            const result = await createTransactionTypeNamed(inlineAddTypeName.trim());
+                            setInlineAddTypeLoading(false);
+                            if (typeof result === "string") {
+                              setInlineAddTypeError(result);
+                            } else {
+                              updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: result.scope }));
+                              setInlineAddTypeOpen(false);
+                              setInlineAddTypeName("");
+                            }
+                          }}
+                          className="text-xs bg-[#C49A38] text-white rounded px-2 py-1.5 disabled:opacity-40"
+                        >{inlineAddTypeLoading ? "Adding…" : "Add"}</button>
+                        <button type="button" onClick={() => setInlineAddTypeOpen(false)} className="text-xs text-[#8A9BB8] hover:text-[#4A5568]">Cancel</button>
+                      </div>
+                    )}
+                    {inlineAddTypeError && <p className="text-xs text-red-600">{inlineAddTypeError}</p>}
                   </div>
                   </div>
                   <div className="space-y-4">
