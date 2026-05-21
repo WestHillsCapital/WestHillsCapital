@@ -4252,7 +4252,7 @@ export default function Docuplete() {
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                onClick={() => setTab("library")}
+                onClick={() => { setTab("library"); window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior }); }}
                 className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "library" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
               >
                 Library
