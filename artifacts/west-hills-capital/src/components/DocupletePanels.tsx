@@ -877,6 +877,7 @@ export function FieldLibraryPanel({
   }
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+  const [advancedIds, setAdvancedIds] = useState<Set<string>>(() => new Set());
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -1192,14 +1193,14 @@ export function FieldLibraryPanel({
           </div>
           <p className="text-[11px] text-[#8A9BB8]">Define common fields once and reuse them across your document packages.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {onImport && (
             <>
               <input ref={importFileRef} type="file" accept="application/json,.json,.csv,text/csv" className="sr-only" onChange={handleImportFileChange} />
               <button
                 type="button"
                 onClick={() => { setImportParseError(null); setImportResult(null); importFileRef.current?.click(); }}
-                className="text-xs text-[#6B7A99] hover:text-[#0F1C3F] transition-colors"
+                className="h-7 px-2.5 text-xs rounded border border-[#D4C9B5] bg-white text-[#6B7A99] hover:text-[#0F1C3F] hover:border-[#0F1C3F] transition-colors"
               >
                 Import
               </button>
@@ -1211,7 +1212,7 @@ export function FieldLibraryPanel({
                 type="button"
                 onClick={() => setExportMenuOpen((v) => !v)}
                 disabled={!!exportLoading}
-                className="text-xs text-[#6B7A99] hover:text-[#0F1C3F] disabled:opacity-50 transition-colors flex items-center gap-0.5"
+                className="h-7 px-2.5 text-xs rounded border border-[#D4C9B5] bg-white text-[#6B7A99] hover:text-[#0F1C3F] hover:border-[#0F1C3F] disabled:opacity-50 transition-colors flex items-center gap-0.5"
               >
                 {exportLoading ? "Exporting…" : "Export"}
                 <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor"><path d="M4 6l4 4 4-4"/></svg>
@@ -1224,7 +1225,7 @@ export function FieldLibraryPanel({
               )}
             </div>
           )}
-          <button type="button" onClick={handleAdd} disabled={adding} className="text-xs text-[#C49A38] disabled:opacity-50">
+          <button type="button" onClick={handleAdd} disabled={adding} className="h-7 px-2.5 text-xs rounded border border-[#C49A38] bg-[#C49A38] text-white hover:bg-[#A07820] hover:border-[#A07820] disabled:opacity-50 transition-colors">
             {adding ? "Adding…" : "+ Add"}
           </button>
         </div>
@@ -1244,9 +1245,10 @@ export function FieldLibraryPanel({
           </button>
         )}
       </div>
-      <div className="grid md:grid-cols-2 gap-2">
+      <div className="rounded border border-[#DDD5C4] overflow-hidden divide-y divide-[#EFE8D8]">
         {visibleItems.map((item) => {
-          const isExpanded = expandedIds.has(item.id) || showHints;
+          const isEditing = expandedIds.has(item.id) || showHints;
+          const showAdvanced = advancedIds.has(item.id) || showHints;
           const itemIsInherited = !!(item.inherited || (item as FieldLibraryItem & { inheritedFrom?: string }).inheritedFrom);
           const displayTags = optimisticTagsMap.get(item.id) ?? item.complianceTags ?? [];
           const applyTagChange = (next: string[]) => {
@@ -1262,179 +1264,222 @@ export function FieldLibraryPanel({
               }
             });
           };
+          const TYPE_CLS: Record<string, string> = {
+            text: "bg-[#EBF0FB] text-[#1B4FD8]",
+            date: "bg-[#F0FDF4] text-[#15803D]",
+            radio: "bg-[#FFF7ED] text-[#C2410C]",
+            checkbox: "bg-[#F5F3FF] text-[#7C3AED]",
+            dropdown: "bg-[#ECFDF5] text-[#065F46]",
+          };
+          const toggleEdit = () => setExpandedIds((prev) => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n; });
+          const toggleAdvanced = () => setAdvancedIds((prev) => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n; });
           return (
-            <div key={item.id} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
-              {item.packageCount !== undefined && (
-                <div className="flex flex-wrap items-center gap-1 text-[10px]">
-                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full font-medium ${item.packageCount > 0 ? "bg-[#EBF0FB] text-[#1B4FD8]" : "bg-[#F0F0F0] text-[#9CA3AF]"}`}>{item.packageCount}p</span>
-                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full font-medium ${(item.answerCount ?? 0) > 0 ? "bg-[#ECFDF5] text-[#059669]" : "bg-[#F0F0F0] text-[#9CA3AF]"}`}>{(item.answerCount ?? 0).toLocaleString()} ans</span>
-                  {item.lastAnswered && <span className="text-[#8A9BB8]">last {relativeTime(item.lastAnswered)}</span>}
+            <div key={item.id}>
+              {/* ── Collapsed summary row ── */}
+              <div className={`flex items-center gap-2 px-3 min-h-[44px] py-1.5 transition-colors ${isEditing ? "bg-[#F5F3EE]" : "bg-white hover:bg-[#FDFCFA]"}`}>
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <div className="text-xs font-medium text-[#0F1C3F] truncate">{item.label || <em className="text-[#B0BCCE] not-italic">Untitled</em>}</div>
+                  <div className="text-[10px] font-mono text-[#B0BCCE] truncate">{String(item.id)}</div>
                 </div>
-              )}
-              <div className="relative pt-1">
-                {showHints && <HL>Label</HL>}
-                <Input value={item.label} onChange={(e) => onChange(item.id, { label: e.target.value })} className="h-8 text-xs bg-white" placeholder="Label" />
+                {item.packageCount !== undefined && (
+                  <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${item.packageCount > 0 ? "bg-[#EBF0FB] text-[#1B4FD8]" : "bg-[#F0F0F0] text-[#9CA3AF]"}`}>{item.packageCount}p</span>
+                )}
+                <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium capitalize ${TYPE_CLS[item.type] ?? "bg-[#F0F0F0] text-[#6B7A99]"}`}>{item.type}</span>
+                {item.active
+                  ? <span className="shrink-0 hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-[#ECFDF5] text-[#059669] font-medium">Active</span>
+                  : <span className="shrink-0 hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-[#F3F4F6] text-[#9CA3AF] font-medium">Inactive</span>}
+                {item.sensitive && <span className="shrink-0 hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-medium">Sensitive</span>}
+                {itemIsInherited && <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 font-medium">Inherited</span>}
+                <button
+                  type="button"
+                  title={isEditing ? "Collapse" : "Edit field"}
+                  onClick={toggleEdit}
+                  className={`shrink-0 flex items-center justify-center w-7 h-7 rounded border transition-colors ${isEditing ? "bg-[#0F1C3F] border-[#0F1C3F] text-white" : "border-[#D4C9B5] bg-white text-[#6B7A99] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"}`}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d={isEditing ? "M5 15l7-7 7 7" : "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"} />
+                  </svg>
+                </button>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="relative pt-1">
-                  {showHints && <HL>Category</HL>}
-                  <Input placeholder="Category" value={item.category} onChange={(e) => onChange(item.id, { category: e.target.value })} className="h-8 text-xs bg-white" />
-                </div>
-                <div className="relative pt-1">
-                  {showHints && <HL>Field type</HL>}
-                  <div className="flex flex-wrap gap-1">
-                    {(["text", "radio", "checkbox", "dropdown"] as const).map((t) => (
-                      <button key={t} type="button" onClick={() => onChange(item.id, { type: t })} className={`px-2 py-0.5 text-[10px] rounded border capitalize transition-colors ${item.type === t ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F]"}`}>{t}</button>
-                    ))}
+              {/* ── Edit drawer ── */}
+              {isEditing && (
+                <div className="border-t border-[#EFE8D8] bg-[#F8F6F0] px-3 pt-3 pb-3 space-y-2">
+                  {item.packageCount !== undefined && (
+                    <div className="flex flex-wrap items-center gap-1 text-[10px]">
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full font-medium ${item.packageCount > 0 ? "bg-[#EBF0FB] text-[#1B4FD8]" : "bg-[#F0F0F0] text-[#9CA3AF]"}`}>{item.packageCount}p</span>
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full font-medium ${(item.answerCount ?? 0) > 0 ? "bg-[#ECFDF5] text-[#059669]" : "bg-[#F0F0F0] text-[#9CA3AF]"}`}>{(item.answerCount ?? 0).toLocaleString()} ans</span>
+                      {item.lastAnswered && <span className="text-[#8A9BB8]">last {relativeTime(item.lastAnswered)}</span>}
+                    </div>
+                  )}
+                  <div className="relative pt-1">
+                    {showHints && <HL>Label</HL>}
+                    <Input value={item.label} onChange={(e) => onChange(item.id, { label: e.target.value })} className="h-8 text-xs bg-white" placeholder="Label" disabled={itemIsInherited} />
                   </div>
-                </div>
-              </div>
-              <div className="relative pt-1">
-                {showHints && <HL>Active · Required · Sensitive</HL>}
-                <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6B7A99]">
-                  <label className="flex items-center gap-1"><input type="checkbox" checked={item.active} onChange={(e) => onChange(item.id, { active: e.target.checked })} /> Active</label>
-                  <label className="flex items-center gap-1"><input type="checkbox" checked={item.required} onChange={(e) => onChange(item.id, { required: e.target.checked })} /> Required</label>
-                  <label className="flex items-center gap-1"><input type="checkbox" checked={item.sensitive} onChange={(e) => onChange(item.id, { sensitive: e.target.checked })} /> Sensitive</label>
-                </div>
-              </div>
-              <button type="button" onClick={() => setExpandedIds((prev) => { const n = new Set(prev); isExpanded ? n.delete(item.id) : n.add(item.id); return n; })} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors">
-                {isExpanded ? "▲ Less" : "▾ More options"}
-              </button>
-              {isExpanded && (
-                <div className="space-y-2 border-t border-[#EFE8D8] pt-2">
                   <div className="grid grid-cols-2 gap-2">
                     <div className="relative pt-1">
-                      {showHints && <HL>Prefill source</HL>}
-                      <Input placeholder="Prefill source" value={item.source} onChange={(e) => onChange(item.id, { source: e.target.value })} className="h-8 text-xs bg-white" />
+                      {showHints && <HL>Category</HL>}
+                      <Input placeholder="Category" value={item.category} onChange={(e) => onChange(item.id, { category: e.target.value })} className="h-8 text-xs bg-white" disabled={itemIsInherited} />
                     </div>
                     <div className="relative pt-1">
-                      {showHints && <HL>Sort order</HL>}
-                      <Input type="number" placeholder="Sort order" value={item.sortOrder} onChange={(e) => onChange(item.id, { sortOrder: Number(e.target.value || 100) })} className="h-8 text-xs bg-white" />
+                      {showHints && <HL>Field type</HL>}
+                      <div className="flex flex-wrap gap-1">
+                        {(["text", "radio", "checkbox", "dropdown"] as const).map((t) => (
+                          <button key={t} type="button" onClick={() => onChange(item.id, { type: t })} disabled={itemIsInherited} className={`px-2 py-0.5 text-[10px] rounded border capitalize transition-colors ${item.type === t ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F]"}`}>{t}</button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   <div className="relative pt-1">
-                    {showHints && <HL>Validation rule</HL>}
-                    <div className="flex flex-wrap gap-1">
-                      {(["none", "name", "email", "phone", "ssn", "number", "currency", "date", "custom"] as const).map((v) => (
-                        <button key={v} type="button" onClick={() => onChange(item.id, { validationType: v as FieldLibraryItem["validationType"] })} className={`px-2 py-0.5 text-[10px] rounded border capitalize transition-colors ${(item.validationType ?? "none") === v ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F]"}`}>{v}</button>
-                      ))}
+                    {showHints && <HL>Active · Required · Sensitive</HL>}
+                    <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6B7A99]">
+                      <label className="flex items-center gap-1"><input type="checkbox" checked={item.active} onChange={(e) => onChange(item.id, { active: e.target.checked })} disabled={itemIsInherited} /> Active</label>
+                      <label className="flex items-center gap-1"><input type="checkbox" checked={item.required} onChange={(e) => onChange(item.id, { required: e.target.checked })} disabled={itemIsInherited} /> Required</label>
+                      <label className="flex items-center gap-1"><input type="checkbox" checked={item.sensitive} onChange={(e) => onChange(item.id, { sensitive: e.target.checked })} disabled={itemIsInherited} /> Sensitive</label>
                     </div>
                   </div>
-                  {item.validationType === "custom" && <Input placeholder="Regex pattern" value={item.validationPattern ?? ""} onChange={(e) => onChange(item.id, { validationPattern: e.target.value })} className="h-8 text-xs bg-white" />}
-                  <div className="relative pt-1">
-                    {showHints && <HL>Validation message</HL>}
-                    <Input placeholder="Validation message" value={item.validationMessage ?? ""} onChange={(e) => onChange(item.id, { validationMessage: e.target.value })} className="h-8 text-xs bg-white" />
-                  </div>
-                  <div className="relative pt-1">
-                    {showHints && <HL>Options</HL>}
-                    <Textarea
-                      placeholder={item.type === "checkbox" ? "One checkbox per line" : item.type === "radio" ? "One choice per line" : item.type === "dropdown" ? "One option per line" : "Options (one per line)"}
-                      value={item.options.join("\n")}
-                      onChange={(e) => onChange(item.id, { options: e.target.value.split("\n").filter(Boolean) })}
-                      className="min-h-16 text-xs bg-white"
-                    />
-                  </div>
-                  {allComplianceTags !== undefined && (
-                    <div className="relative">
-                      <div className="flex flex-wrap items-center gap-1 min-h-[20px]">
-                        {displayTags.map((tagName) => {
-                          const tagMeta = allComplianceTags.find((t) => t.name === tagName);
-                          return <ComplianceTagChip key={tagName} name={tagName} color={tagMeta?.color ?? "#6B7A99"} onRemove={(!itemIsInherited && onSetComplianceTags) ? () => applyTagChange(displayTags.filter((n) => n !== tagName)) : undefined} />;
-                        })}
-                        {!itemIsInherited && onSetComplianceTags && (
-                          <button type="button" onClick={() => setTagPickerOpenId((prev) => prev === item.id ? null : item.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] px-1">
-                            {tagSavingId === item.id ? "Saving…" : "+ Tags"}
+                  {!itemIsInherited && (
+                    <button type="button" onClick={toggleAdvanced} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors">
+                      {showAdvanced ? "▲ Less" : "▾ More options"}
+                    </button>
+                  )}
+                  {showAdvanced && !itemIsInherited && (
+                    <div className="space-y-2 border-t border-[#EFE8D8] pt-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="relative pt-1">
+                          {showHints && <HL>Prefill source</HL>}
+                          <Input placeholder="Prefill source" value={item.source} onChange={(e) => onChange(item.id, { source: e.target.value })} className="h-8 text-xs bg-white" />
+                        </div>
+                        <div className="relative pt-1">
+                          {showHints && <HL>Sort order</HL>}
+                          <Input type="number" placeholder="Sort order" value={item.sortOrder} onChange={(e) => onChange(item.id, { sortOrder: Number(e.target.value || 100) })} className="h-8 text-xs bg-white" />
+                        </div>
+                      </div>
+                      <div className="relative pt-1">
+                        {showHints && <HL>Validation rule</HL>}
+                        <div className="flex flex-wrap gap-1">
+                          {(["none", "name", "email", "phone", "ssn", "number", "currency", "date", "custom"] as const).map((v) => (
+                            <button key={v} type="button" onClick={() => onChange(item.id, { validationType: v as FieldLibraryItem["validationType"] })} className={`px-2 py-0.5 text-[10px] rounded border capitalize transition-colors ${(item.validationType ?? "none") === v ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F]"}`}>{v}</button>
+                          ))}
+                        </div>
+                      </div>
+                      {item.validationType === "custom" && <Input placeholder="Regex pattern" value={item.validationPattern ?? ""} onChange={(e) => onChange(item.id, { validationPattern: e.target.value })} className="h-8 text-xs bg-white" />}
+                      <div className="relative pt-1">
+                        {showHints && <HL>Validation message</HL>}
+                        <Input placeholder="Validation message" value={item.validationMessage ?? ""} onChange={(e) => onChange(item.id, { validationMessage: e.target.value })} className="h-8 text-xs bg-white" />
+                      </div>
+                      <div className="relative pt-1">
+                        {showHints && <HL>Options</HL>}
+                        <Textarea
+                          placeholder={item.type === "checkbox" ? "One checkbox per line" : item.type === "radio" ? "One choice per line" : item.type === "dropdown" ? "One option per line" : "Options (one per line)"}
+                          value={item.options.join("\n")}
+                          onChange={(e) => onChange(item.id, { options: e.target.value.split("\n").filter(Boolean) })}
+                          className="min-h-16 text-xs bg-white"
+                        />
+                      </div>
+                      {allComplianceTags !== undefined && (
+                        <div className="relative">
+                          <div className="flex flex-wrap items-center gap-1 min-h-[20px]">
+                            {displayTags.map((tagName) => {
+                              const tagMeta = allComplianceTags.find((t) => t.name === tagName);
+                              return <ComplianceTagChip key={tagName} name={tagName} color={tagMeta?.color ?? "#6B7A99"} onRemove={(!itemIsInherited && onSetComplianceTags) ? () => applyTagChange(displayTags.filter((n) => n !== tagName)) : undefined} />;
+                            })}
+                            {!itemIsInherited && onSetComplianceTags && (
+                              <button type="button" onClick={() => setTagPickerOpenId((prev) => prev === item.id ? null : item.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] px-1">
+                                {tagSavingId === item.id ? "Saving…" : "+ Tags"}
+                              </button>
+                            )}
+                          </div>
+                          {tagPickerOpenId === item.id && !itemIsInherited && onSetComplianceTags && (
+                            <ComplianceTagPicker allTags={allComplianceTags} selectedTagNames={displayTags} onToggle={(tagName) => applyTagChange(displayTags.includes(tagName) ? displayTags.filter((n) => n !== tagName) : [...displayTags, tagName])} onClose={() => setTagPickerOpenId(null)} />
+                          )}
+                        </div>
+                      )}
+                      <div className="flex flex-wrap gap-3">
+                        {onLoadVersions && (
+                          <button type="button" onClick={() => void toggleHistory(item.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors">
+                            {historyOpenId === item.id ? "▲ Hide history" : "▾ History"}
+                          </button>
+                        )}
+                        {onLoadAnalytics && (
+                          <button type="button" onClick={() => void toggleAnalytics(item.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors">
+                            {analyticsOpenId === item.id ? "▲ Hide analytics" : "▾ Analytics"}
                           </button>
                         )}
                       </div>
-                      {tagPickerOpenId === item.id && !itemIsInherited && onSetComplianceTags && (
-                        <ComplianceTagPicker allTags={allComplianceTags} selectedTagNames={displayTags} onToggle={(tagName) => applyTagChange(displayTags.includes(tagName) ? displayTags.filter((n) => n !== tagName) : [...displayTags, tagName])} onClose={() => setTagPickerOpenId(null)} />
+                      {onLoadVersions && historyOpenId === item.id && (
+                        <div className="rounded border border-[#E8E0D4] bg-[#F8F5EF] p-2 text-[11px]">
+                          {historyLoadingId === item.id && <p className="text-[#8A9BB8]">Loading history…</p>}
+                          {historyError && <p className="text-red-500">{historyError}</p>}
+                          {!historyLoadingId && !historyError && (() => {
+                            const versions = historyMap.get(item.id) ?? [];
+                            if (versions.length === 0) return <p className="text-[#8A9BB8]">No saved versions yet.</p>;
+                            return (
+                              <ul className="space-y-1">
+                                {versions.map((v, idx) => {
+                                  const prevSnap = versions[idx + 1]?.snapshot;
+                                  const summary = diffSummary(prevSnap, v.snapshot);
+                                  const author = v.changedBy ?? "unknown";
+                                  return (
+                                    <li key={v.id} className="flex items-start justify-between gap-2">
+                                      <div className="min-w-0">
+                                        <span className="font-medium text-[#0B1220]">{relativeTime(v.changedAt)}</span>
+                                        {" · "}
+                                        <span className="text-[#6B7A99] truncate max-w-[140px] inline-block align-bottom">{author}</span>
+                                        <div className="text-[10px] text-[#8A9BB8] truncate">{summary}</div>
+                                      </div>
+                                      {onRestoreVersion && (
+                                        <button type="button" disabled={restoringVersionId === v.id} onClick={() => void handleRestore(item.id, v.id)} className="shrink-0 text-[10px] text-[#C49A38] hover:text-[#A07820] disabled:opacity-50">
+                                          {restoringVersionId === v.id ? "Restoring…" : "Restore"}
+                                        </button>
+                                      )}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            );
+                          })()}
+                        </div>
+                      )}
+                      {onLoadAnalytics && analyticsOpenId === item.id && (
+                        <div>
+                          {analyticsLoadingId === item.id && <p className="text-[11px] text-[#8A9BB8]">Loading analytics…</p>}
+                          {analyticsError && <p className="text-[11px] text-red-500">{analyticsError}</p>}
+                          {!analyticsLoadingId && !analyticsError && analyticsMap.has(item.id) && (
+                            <FieldAnalyticsPanel analytics={analyticsMap.get(item.id)!} isSensitive={item.sensitive} />
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
-                  <div className="flex flex-wrap gap-3">
-                    {onLoadVersions && (
-                      <button type="button" onClick={() => void toggleHistory(item.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors">
-                        {historyOpenId === item.id ? "▲ Hide history" : "▾ History"}
-                      </button>
-                    )}
-                    {onLoadAnalytics && (
-                      <button type="button" onClick={() => void toggleAnalytics(item.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors">
-                        {analyticsOpenId === item.id ? "▲ Hide analytics" : "▾ Analytics"}
-                      </button>
-                    )}
+                  {/* Footer: key slug + action buttons */}
+                  <div className="flex items-center justify-between pt-2 border-t border-[#EFE8D8]">
+                    <span className="text-[10px] font-mono text-[#B0BCCE]">{item.id}</span>
+                    <div className="flex items-center gap-1.5">
+                      {itemIsInherited ? (
+                        <span className="text-[10px] text-[#8A9BB8] italic">
+                          {item.inheritedFrom === "platform" ? "Platform field · read-only" : "Inherited · read-only"}
+                        </span>
+                      ) : (
+                        <>
+                          {onDelete && (
+                            <button type="button" onClick={() => void handleDelete(item)} disabled={deletingId === item.id} className="h-7 px-2.5 text-[11px] rounded border border-red-200 bg-white text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors">
+                              {deletingId === item.id ? "Deleting…" : "Delete"}
+                            </button>
+                          )}
+                          <button type="button" onClick={() => void handleSave(item)} disabled={savingId === item.id} className="h-7 px-2.5 text-[11px] font-medium rounded border border-[#C49A38] bg-[#C49A38] text-white hover:bg-[#A07820] hover:border-[#A07820] disabled:opacity-50 transition-colors">
+                            {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save field"}
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  {onLoadVersions && historyOpenId === item.id && (
-                    <div className="rounded border border-[#E8E0D4] bg-[#F8F5EF] p-2 text-[11px]">
-                      {historyLoadingId === item.id && <p className="text-[#8A9BB8]">Loading history…</p>}
-                      {historyError && <p className="text-red-500">{historyError}</p>}
-                      {!historyLoadingId && !historyError && (() => {
-                        const versions = historyMap.get(item.id) ?? [];
-                        if (versions.length === 0) return <p className="text-[#8A9BB8]">No saved versions yet.</p>;
-                        return (
-                          <ul className="space-y-1">
-                            {versions.map((v, idx) => {
-                              const prevSnap = versions[idx + 1]?.snapshot;
-                              const summary = diffSummary(prevSnap, v.snapshot);
-                              const author = v.changedBy ?? "unknown";
-                              return (
-                                <li key={v.id} className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0">
-                                    <span className="font-medium text-[#0B1220]">{relativeTime(v.changedAt)}</span>
-                                    {" · "}
-                                    <span className="text-[#6B7A99] truncate max-w-[140px] inline-block align-bottom">{author}</span>
-                                    <div className="text-[10px] text-[#8A9BB8] truncate">{summary}</div>
-                                  </div>
-                                  {onRestoreVersion && (
-                                    <button type="button" disabled={restoringVersionId === v.id} onClick={() => void handleRestore(item.id, v.id)} className="shrink-0 text-[10px] text-[#C49A38] hover:text-[#A07820] disabled:opacity-50">
-                                      {restoringVersionId === v.id ? "Restoring…" : "Restore"}
-                                    </button>
-                                  )}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        );
-                      })()}
-                    </div>
-                  )}
-                  {onLoadAnalytics && analyticsOpenId === item.id && (
-                    <div>
-                      {analyticsLoadingId === item.id && <p className="text-[11px] text-[#8A9BB8]">Loading analytics…</p>}
-                      {analyticsError && <p className="text-[11px] text-red-500">{analyticsError}</p>}
-                      {!analyticsLoadingId && !analyticsError && analyticsMap.has(item.id) && (
-                        <FieldAnalyticsPanel analytics={analyticsMap.get(item.id)!} isSensitive={item.sensitive} />
-                      )}
-                    </div>
-                  )}
                 </div>
               )}
-              <div className="flex items-center justify-between pt-2 border-t border-[#EFE8D8]">
-                <span className="text-[10px] text-[#B0BCCE]">{item.id}</span>
-                <div className="flex gap-2">
-                  {itemIsInherited ? (
-                    <span className="text-[10px] text-[#8A9BB8] italic">
-                      {item.inheritedFrom === "platform" ? "Platform field · read-only" : "Inherited · read-only"}
-                    </span>
-                  ) : (
-                    <>
-                      {onDelete && (
-                        <button type="button" onClick={() => void handleDelete(item)} disabled={deletingId === item.id} className="text-[11px] text-red-500 disabled:opacity-50">
-                          {deletingId === item.id ? "Deleting…" : "Delete"}
-                        </button>
-                      )}
-                      <button type="button" onClick={() => void handleSave(item)} disabled={savingId === item.id} className="text-[11px] font-medium text-[#C49A38] disabled:opacity-50">
-                        {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save"}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
             </div>
           );
         })}
-        {items.length === 0 && <div className="text-xs text-[#8A9BB8] col-span-2">No fields yet. Click + Add to create one.</div>}
-        {items.length > 0 && visibleItems.length === 0 && <div className="text-xs text-[#8A9BB8] col-span-2">No results for "{searchQuery}".</div>}
+        {items.length === 0 && <div className="px-4 py-6 text-xs text-[#8A9BB8] text-center">No fields yet. Click + Add to create one.</div>}
+        {items.length > 0 && visibleItems.length === 0 && <div className="px-4 py-6 text-xs text-[#8A9BB8] text-center">No results for "{searchQuery}".</div>}
       </div>
     </div>
   );
