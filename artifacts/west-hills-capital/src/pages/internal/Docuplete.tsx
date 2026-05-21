@@ -2225,6 +2225,7 @@ export default function Docuplete() {
           label: item.label,
           active: item.active,
           sortOrder: item.sort_order,
+          groupIds: item.group_ids ?? [],
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -4760,6 +4761,7 @@ export default function Docuplete() {
           {librarySubTab === "types" && (
             <TransactionTypesPanel
               items={transactionTypes}
+              groups={groups}
               onAdd={createTransactionType as () => Promise<string | null>}
               onChange={updateTransactionTypeLocal}
               onSave={saveTransactionType as (item: TransactionType) => Promise<string | null>}

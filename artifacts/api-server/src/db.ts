@@ -2166,6 +2166,17 @@ export async function initDb(): Promise<void> {
     ).catch(() => {});
     logger.info("Renamed all docufill_* tables → docuplete_*");
   }
+
+  // ── Transaction type → group many-to-many ────────────────────────────────
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS docuplete_transaction_type_groups (
+      type_scope TEXT    NOT NULL REFERENCES docuplete_transaction_types(scope) ON DELETE CASCADE,
+      group_id   INTEGER NOT NULL REFERENCES docuplete_groups(id)               ON DELETE CASCADE,
+      PRIMARY KEY (type_scope, group_id)
+    )
+  `);
+  await db.query(`CREATE INDEX IF NOT EXISTS docuplete_ttg_type_idx  ON docuplete_transaction_type_groups (type_scope)`);
+  await db.query(`CREATE INDEX IF NOT EXISTS docuplete_ttg_group_idx ON docuplete_transaction_type_groups (group_id)`);
 }
 
 // ── Scheduler functions (exported for BullMQ worker) ─────────────────────────

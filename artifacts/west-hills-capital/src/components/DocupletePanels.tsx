@@ -501,12 +501,14 @@ export function EntityPanel({
 
 export function TransactionTypesPanel({
   items,
+  groups,
   onAdd,
   onChange,
   onSave,
   onDelete,
 }: {
   items: TransactionType[];
+  groups: Entity[];
   onAdd: () => Promise<string | null>;
   onChange: (scope: string, patch: Partial<TransactionType>) => void;
   onSave: (item: TransactionType) => Promise<string | null>;
@@ -519,6 +521,7 @@ export function TransactionTypesPanel({
   const [panelError, setPanelError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const availableGroups = groups.filter((g) => g.active !== false);
   const q = searchQuery.trim().toLowerCase();
   const visibleItems = q ? items.filter((i) => i.label.toLowerCase().includes(q)) : items;
 
@@ -554,12 +557,20 @@ export function TransactionTypesPanel({
     if (err) setPanelError(err);
   }
 
+  function toggleGroup(item: TransactionType, groupId: number) {
+    const current = item.group_ids ?? [];
+    const next = current.includes(groupId)
+      ? current.filter((id) => id !== groupId)
+      : [...current, groupId];
+    onChange(item.scope, { group_ids: next });
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
         <div>
           <h3 className="text-sm font-semibold">Transaction Types</h3>
-          <p className="text-[11px] text-[#8A9BB8]">Manage the types available to packages and interview launchers.</p>
+          <p className="text-[11px] text-[#8A9BB8]">Manage the types available to packages and interview launchers. Types with no groups are universal.</p>
         </div>
         <button type="button" onClick={handleAdd} disabled={adding} className="text-xs text-[#C49A38] disabled:opacity-50">
           {adding ? "Adding…" : "+ Add"}
@@ -584,29 +595,59 @@ export function TransactionTypesPanel({
       </div>
 
       <div className="grid md:grid-cols-2 gap-2">
-        {visibleItems.map((item) => (
-          <div key={item.scope} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
-            <Input value={item.label} onChange={(e) => onChange(item.scope, { label: e.target.value })} className="h-8 text-xs bg-white" placeholder="Label" />
-            <Input type="number" value={item.sort_order} onChange={(e) => onChange(item.scope, { sort_order: Number(e.target.value || 0) })} className="h-8 text-xs bg-white" placeholder="Sort order" />
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-1 text-[11px] text-[#6B7A99]">
-                <input type="checkbox" checked={item.active} onChange={(e) => onChange(item.scope, { active: e.target.checked })} />
-                Active
-              </label>
-              <div className="flex items-center gap-2">
-                {onDelete && (
-                  <button type="button" onClick={() => void handleDelete(item)} disabled={deletingScope === item.scope} className="text-[11px] text-red-500 disabled:opacity-50">
-                    {deletingScope === item.scope ? "Deleting…" : "Delete"}
+        {visibleItems.map((item) => {
+          const assignedGroupIds = item.group_ids ?? [];
+          return (
+            <div key={item.scope} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
+              <Input value={item.label} onChange={(e) => onChange(item.scope, { label: e.target.value })} className="h-8 text-xs bg-white" placeholder="Label" />
+              <Input type="number" value={item.sort_order} onChange={(e) => onChange(item.scope, { sort_order: Number(e.target.value || 0) })} className="h-8 text-xs bg-white" placeholder="Sort order" />
+              {availableGroups.length > 0 && (
+                <div>
+                  <div className="text-[10px] text-[#8A9BB8] mb-1 font-medium uppercase tracking-wide">Groups</div>
+                  <div className="flex flex-wrap gap-1">
+                    {availableGroups.map((g) => {
+                      const checked = assignedGroupIds.includes(g.id as number);
+                      return (
+                        <button
+                          key={g.id}
+                          type="button"
+                          onClick={() => toggleGroup(item, g.id as number)}
+                          className={`text-[10px] rounded px-1.5 py-0.5 border transition-colors leading-none ${
+                            checked
+                              ? "bg-[#0F1C3F] border-[#0F1C3F] text-white"
+                              : "bg-white border-[#D4C9B5] text-[#6B7A99] hover:border-[#C49A38] hover:text-[#C49A38]"
+                          }`}
+                        >
+                          {checked ? "✓ " : ""}{g.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {assignedGroupIds.length === 0 && (
+                    <div className="text-[10px] text-[#B0BCCE] mt-1">No groups — universal (visible everywhere)</div>
+                  )}
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-1 text-[11px] text-[#6B7A99]">
+                  <input type="checkbox" checked={item.active} onChange={(e) => onChange(item.scope, { active: e.target.checked })} />
+                  Active
+                </label>
+                <div className="flex items-center gap-2">
+                  {onDelete && (
+                    <button type="button" onClick={() => void handleDelete(item)} disabled={deletingScope === item.scope} className="text-[11px] text-red-500 disabled:opacity-50">
+                      {deletingScope === item.scope ? "Deleting…" : "Delete"}
+                    </button>
+                  )}
+                  <button type="button" onClick={() => void handleSave(item)} disabled={savingScope === item.scope} className="text-[11px] text-[#C49A38] disabled:opacity-50">
+                    {savingScope === item.scope ? "Saving…" : savedScope === item.scope ? "✓ Saved" : "Save"}
                   </button>
-                )}
-                <button type="button" onClick={() => void handleSave(item)} disabled={savingScope === item.scope} className="text-[11px] text-[#C49A38] disabled:opacity-50">
-                  {savingScope === item.scope ? "Saving…" : savedScope === item.scope ? "✓ Saved" : "Save"}
-                </button>
+                </div>
               </div>
+              <div className="text-[10px] text-[#B0BCCE]">{item.scope}</div>
             </div>
-            <div className="text-[10px] text-[#B0BCCE]">{item.scope}</div>
-          </div>
-        ))}
+          );
+        })}
         {items.length === 0 && <div className="text-xs text-[#8A9BB8] col-span-2">No types yet. Click + Add to create one.</div>}
         {items.length > 0 && visibleItems.length === 0 && <div className="text-xs text-[#8A9BB8] col-span-2">No results for "{searchQuery}".</div>}
       </div>

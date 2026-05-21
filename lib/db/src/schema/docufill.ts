@@ -164,6 +164,15 @@ export const docufillPackageGroups = pgTable("docufill_package_groups", {
   index("docufill_package_groups_package_idx").on(t.packageId),
 ]);
 
+export const docufillTransactionTypeGroups = pgTable("docufill_transaction_type_groups", {
+  typeScope: text("type_scope").notNull().references(() => docufillTransactionTypes.scope, { onDelete: "cascade" }),
+  groupId: integer("group_id").notNull().references(() => docufillGroups.id, { onDelete: "cascade" }),
+}, (t) => [
+  primaryKey({ columns: [t.typeScope, t.groupId] }),
+  index("docufill_ttg_type_idx").on(t.typeScope),
+  index("docufill_ttg_group_idx").on(t.groupId),
+]);
+
 export const docufillInterviewSessions = pgTable("docufill_interview_sessions", {
   id: serial("id").primaryKey(),
   token: text("token").notNull().unique(),

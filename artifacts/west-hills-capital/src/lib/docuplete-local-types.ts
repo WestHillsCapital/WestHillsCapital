@@ -16,6 +16,7 @@ export type TransactionType = {
   label: string;
   active: boolean;
   sort_order: number;
+  group_ids?: number[];
 };
 
 export type DocItem = {

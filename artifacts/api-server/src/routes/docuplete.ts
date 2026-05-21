@@ -2160,7 +2160,7 @@ router.get("/bootstrap", async (req, res) => {
   try {
     const accountId = acctId(req);
     const db = getDb();
-    const [groups, transactionTypes, fieldLibrary, packages, packageGroupRows, accountRow, fieldGroupRows, groupUsageRows] = await Promise.all([
+    const [groups, transactionTypes, fieldLibrary, packages, packageGroupRows, accountRow, fieldGroupRows, groupUsageRows, typeGroupRows] = await Promise.all([
       db.query("SELECT * FROM docuplete_groups WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, name ASC", [accountId]),
       db.query("SELECT * FROM docuplete_transaction_types WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, label ASC", [accountId]),
       getFieldLibrary(db, accountId),
@@ -2182,6 +2182,13 @@ router.get("/bootstrap", async (req, res) => {
           JOIN docuplete_packages p ON p.id = fgu.package_id
          WHERE fgu.account_id = $1
       `, [accountId]),
+      db.query(`
+        SELECT ttg.type_scope, array_agg(ttg.group_id ORDER BY ttg.group_id) AS group_ids
+          FROM docuplete_transaction_type_groups ttg
+          JOIN docuplete_transaction_types tt ON tt.scope = ttg.type_scope
+         WHERE tt.account_id = $1
+         GROUP BY ttg.type_scope
+      `, [accountId]).catch(() => ({ rows: [] })),
     ]);
     const slackConnected = !!(accountRow.rows[0]?.slack_webhook_url);
     const groupIdsMap = new Map<number, number[]>();
@@ -2202,6 +2209,15 @@ router.get("/bootstrap", async (req, res) => {
       );
       transactionTypeRows = seeded.rows;
     }
+    // Enrich transaction types with their group_ids
+    const typeGroupMap = new Map<string, number[]>();
+    for (const row of (typeGroupRows as { rows: Array<{ type_scope: string; group_ids: number[] }> }).rows) {
+      typeGroupMap.set(row.type_scope, row.group_ids);
+    }
+    const transactionTypesWithGroups = transactionTypeRows.map((tt: Record<string, unknown>) => ({
+      ...tt,
+      group_ids: typeGroupMap.get(tt.scope as string) ?? [],
+    }));
     const hydratedPackages = await hydratePackages(packagesWithGroupIds as PackageRow[], db, fieldLibrary);
     // Build usage map: groupId → [{id, name}]
     const usageByGroupId = new Map<number, Array<{ id: number; name: string }>>();
@@ -2226,7 +2242,7 @@ router.get("/bootstrap", async (req, res) => {
         updatedAt: row.updated_at,
       };
     });
-    res.json({ groups: groups.rows, transactionTypes: transactionTypeRows, fieldLibrary, fieldGroups, packages: hydratedPackages.map(sanitizePackageForClient), slackConnected });
+    res.json({ groups: groups.rows, transactionTypes: transactionTypesWithGroups, fieldLibrary, fieldGroups, packages: hydratedPackages.map(sanitizePackageForClient), slackConnected });
   } catch (err) {
     logger.error({ err }, "[Docuplete] Failed to load bootstrap data");
     res.status(500).json({ error: "Failed to load Docuplete data" });
@@ -3743,7 +3759,29 @@ router.patch("/transaction-types/:scope", requireAdminRole, async (req, res) => 
       res.status(404).json({ error: "Transaction type not found" });
       return;
     }
-    res.json({ transactionType: rows[0] });
+    // Save group associations (replace-all pattern)
+    const groupIds = Array.isArray((body as Record<string, unknown>).groupIds)
+      ? ((body as Record<string, unknown>).groupIds as unknown[]).map(Number).filter((n) => Number.isFinite(n) && n > 0)
+      : null;
+    if (groupIds !== null) {
+      await db.query(
+        `DELETE FROM docuplete_transaction_type_groups WHERE type_scope = $1`,
+        [scope],
+      );
+      if (groupIds.length > 0) {
+        const valuePlaceholders = groupIds.map((_, i) => `($1, $${i + 2})`).join(", ");
+        await db.query(
+          `INSERT INTO docuplete_transaction_type_groups (type_scope, group_id) VALUES ${valuePlaceholders} ON CONFLICT DO NOTHING`,
+          [scope, ...groupIds],
+        );
+      }
+    }
+    const { rows: groupRows } = await db.query(
+      `SELECT array_agg(group_id ORDER BY group_id) AS group_ids FROM docuplete_transaction_type_groups WHERE type_scope = $1`,
+      [scope],
+    );
+    const savedGroupIds: number[] = groupRows[0]?.group_ids ?? [];
+    res.json({ transactionType: { ...rows[0], group_ids: savedGroupIds } });
   } catch (err) {
     logger.error({ err }, "[Docuplete] Failed to update transaction type");
     res.status(500).json({ error: "Failed to update transaction type" });
