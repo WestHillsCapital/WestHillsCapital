@@ -182,7 +182,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
     sendTestWebhook, fetchWebhookDeliveries, fetchWebhookSecret, retryDelivery,
   } = props;
 
-  const [optionalOpen, setOptionalOpen] = React.useState(true);
+  const [optionalOpen, setOptionalOpen] = React.useState(false);
 
   return (
     <div>
