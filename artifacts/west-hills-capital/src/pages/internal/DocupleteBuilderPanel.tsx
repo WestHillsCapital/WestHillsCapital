@@ -589,7 +589,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                       <div className="flex items-center justify-between">
                         <h2 className="text-sm font-semibold">Interview order</h2>
                         {packageInterviewFields.length > 1 && (
-                          <button type="button" onClick={() => goBuilderStep("interview", { autoSort: true })} className="text-xs text-[#6B7A99] border border-[#DDD5C4] rounded px-2 py-1 hover:border-[#C49A38] hover:text-[#C49A38] transition-colors">Sort by PDF order</button>
+                          <button type="button" onClick={() => goBuilderStep("interview", { autoSort: true })} className="text-xs text-[#6B7A99] border border-[#DDD5C4] rounded px-2 py-1 hover:border-[#C49A38] hover:text-[#C49A38] transition-colors bg-[#ffffff]">Sort by PDF order</button>
                         )}
                       </div>
                       <p className="text-xs text-[#8A9BB8] mt-0.5 opacity-70">Questions staff will be asked, top to bottom. Drag to reorder — the preview updates live.</p>
