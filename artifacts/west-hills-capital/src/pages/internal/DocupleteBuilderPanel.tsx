@@ -182,6 +182,8 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
     sendTestWebhook, fetchWebhookDeliveries, fetchWebhookSecret, retryDelivery,
   } = props;
 
+  const [optionalOpen, setOptionalOpen] = React.useState(true);
+
   return (
     <div>
       <section className="bg-white rounded-lg p-5 shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.03)]">
@@ -235,8 +237,15 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
             {builderStep === "documents" && (
               <div className="space-y-4 max-w-[1200px]">
                 <div className="rounded-lg bg-white p-4 space-y-4 shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_0_rgba(0,0,0,0.03)]">
-                  <div className="text-sm font-semibold text-[#0F1C3F]">Optional settings</div>
-                  <div className="space-y-4">
+                  <button
+                    type="button"
+                    onClick={() => setOptionalOpen((o) => !o)}
+                    className="flex items-center gap-2 w-full text-left group"
+                  >
+                    <svg className={`w-3.5 h-3.5 text-[#8A9BB8] transition-transform duration-150 ${optionalOpen ? "rotate-90" : "rotate-0"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                    <span className="text-sm font-semibold text-[#0F1C3F]">Optional settings</span>
+                  </button>
+                  {optionalOpen && <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-x-8">
                   {/* Groups */}
                   <div className="space-y-2">
@@ -415,7 +424,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                     </div>
                   </div>
                   </div>
-                  </div>
+                  </div>}
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
@@ -457,7 +466,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                   </div>
                   <div className="text-sm font-semibold text-[#0F1C3F]">Drag and drop multiple PDFs here</div>
                   <p className="mt-1 text-xs text-[#6B7A99]">Drop all paperwork documents at once. Docuplete will upload them in order and add each file to this package.</p>
-                  <label className={`mt-3 ${buttonVariants({ variant: "outline", size: "sm" })} ${isUploadingDocument ? "opacity-50 pointer-events-none cursor-not-allowed" : "cursor-pointer"}`}>
+                  <label className={`mt-3 ${buttonVariants({ variant: "ghost", size: "sm" })} ${isUploadingDocument ? "opacity-50 pointer-events-none cursor-not-allowed" : "cursor-pointer"}`}>
                     {isUploadingDocument ? "Uploading…" : "Browse PDF files"}
                     <input
                       type="file"
