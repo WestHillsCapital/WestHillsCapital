@@ -242,7 +242,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                     const activeGroups = groups.filter((g) => g.active !== false);
                     const categories = [...new Set(activeGroups.map((g) => g.kind ?? "general"))].sort();
                     const groupsSection = (
-                      <div className="mt-4">
+                      <div>
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs text-[#6B7A99]">Groups</span>
                           {groups.length > 0 && !inlineAddGroupOpen && (
@@ -309,7 +309,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                         if (catGroups.length === 0) return null;
                         const selectedInCat = (selectedPackage.group_ids ?? []).find((gid) => catGroups.some((g) => g.id === gid));
                         return (
-                          <label key={cat} className="block text-sm mt-2">
+                          <label key={cat} className="block text-sm">
                             {cat !== "general" && <span className="block text-xs text-[#6B7A99] mb-1 capitalize">{cat}</span>}
                             <select
                               value={selectedInCat ?? ""}
@@ -331,108 +331,12 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                       })}
                     </>);
                   })()}
-                  <div className="mt-4 text-sm">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-[#6B7A99]">Type <span className="text-[#8A9BB8] font-normal">(optional)</span></span>
-                      {!inlineAddTypeOpen && (
-                        <button type="button" onClick={() => { setInlineAddTypeOpen(true); setInlineAddTypeName(""); setInlineAddTypeError(null); }} className="text-xs text-[#C49A38] hover:underline">+ Add type</button>
-                      )}
-                    </div>
-                    <select value={selectedPackage.transaction_scope ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
+                  <div>
+                    <span className="block text-xs text-[#6B7A99] mb-1">Type <span className="text-[#8A9BB8] font-normal">(optional)</span></span>
+                    <select value={selectedPackage.transaction_scope ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-sm">
                       <option value="">Not specified</option>
                       {transactionTypes.filter((item) => item.active || item.scope === selectedPackage.transaction_scope).map((item) => <option key={item.scope} value={item.scope}>{item.label}</option>)}
                     </select>
-                    {inlineAddTypeOpen && (
-                      <div className="mt-2 flex items-center gap-2">
-                        <input
-                          autoFocus
-                          type="text"
-                          placeholder="Type name…"
-                          value={inlineAddTypeName}
-                          onChange={(e) => setInlineAddTypeName(e.target.value)}
-                          onKeyDown={async (e) => {
-                            if (e.key === "Enter" && inlineAddTypeName.trim()) {
-                              e.preventDefault();
-                              setInlineAddTypeLoading(true);
-                              setInlineAddTypeError(null);
-                              const result = await createTransactionTypeNamed(inlineAddTypeName.trim());
-                              setInlineAddTypeLoading(false);
-                              if (typeof result === "string") {
-                                setInlineAddTypeError(result);
-                              } else {
-                                updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: result.scope }));
-                                setInlineAddTypeOpen(false);
-                                setInlineAddTypeName("");
-                              }
-                            } else if (e.key === "Escape") {
-                              setInlineAddTypeOpen(false);
-                            }
-                          }}
-                          className="flex-1 border border-[#D4C9B5] rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#C49A38]"
-                        />
-                        <button
-                          type="button"
-                          disabled={!inlineAddTypeName.trim() || inlineAddTypeLoading}
-                          onClick={async () => {
-                            setInlineAddTypeLoading(true);
-                            setInlineAddTypeError(null);
-                            const result = await createTransactionTypeNamed(inlineAddTypeName.trim());
-                            setInlineAddTypeLoading(false);
-                            if (typeof result === "string") {
-                              setInlineAddTypeError(result);
-                            } else {
-                              updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: result.scope }));
-                              setInlineAddTypeOpen(false);
-                              setInlineAddTypeName("");
-                            }
-                          }}
-                          className="text-xs bg-[#C49A38] text-white rounded px-2 py-1.5 disabled:opacity-40"
-                        >{inlineAddTypeLoading ? "Adding…" : "Add"}</button>
-                        <button type="button" onClick={() => setInlineAddTypeOpen(false)} className="text-xs text-[#8A9BB8] hover:text-[#4A5568]">Cancel</button>
-                      </div>
-                    )}
-                    {inlineAddTypeError && <p className="mt-1 text-xs text-red-600">{inlineAddTypeError}</p>}
-                    {transactionTypes.length > 0 && (
-                      <div className="mt-2">
-                        <button type="button" onClick={() => setTypeManageOpen((o) => !o)} className="text-xs text-[#8A9BB8] hover:text-[#6B7A99]">
-                          {typeManageOpen ? "▾ Hide type list" : "▸ Manage types"}
-                        </button>
-                        {typeManageOpen && (
-                          <div className="mt-2 border border-[#DDD5C4] rounded divide-y divide-[#EFE8D8]">
-                            {transactionTypes.map((item) => (
-                              <div key={item.scope} className="flex items-center gap-2 px-2 py-1.5">
-                                <input
-                                  type="text"
-                                  value={item.label}
-                                  onChange={(e) => updateTransactionTypeLocal(item.scope, { label: e.target.value })}
-                                  onBlur={() => saveTransactionType(item)}
-                                  onKeyDown={(e) => { if (e.key === "Enter") { e.currentTarget.blur(); } }}
-                                  className="flex-1 text-xs border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-[#C49A38] rounded px-1 py-0.5"
-                                />
-                                <button
-                                  type="button"
-                                  disabled={typeDeletingScope === item.scope}
-                                  onClick={async () => {
-                                    if (!confirm(`Delete type "${item.label}"? This cannot be undone.`)) return;
-                                    setTypeDeletingScope(item.scope);
-                                    await deleteTransactionType(item.scope);
-                                    setTypeDeletingScope(null);
-                                  }}
-                                  className="shrink-0 text-[#8A9BB8] hover:text-red-500 disabled:opacity-40 transition-colors"
-                                  title="Delete type"
-                                >
-                                  {typeDeletingScope === item.scope ? (
-                                    <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                                  ) : (
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-                                  )}
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                   </div>
                   <div className="space-y-4">
