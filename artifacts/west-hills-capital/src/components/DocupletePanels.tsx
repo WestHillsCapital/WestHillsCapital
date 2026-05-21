@@ -577,28 +577,44 @@ export function TransactionTypesPanel({
     onChange(item.scope, { group_ids: next });
   }
 
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuOpenScope, setMenuOpenScope] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!menuOpenScope) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpenScope(null);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpenScope]);
+
+  async function handleBlurSave(item: TransactionType) {
+    setSavingScope(item.scope);
+    setPanelError(null);
+    setSavedScope(null);
+    const err = await onSave(item);
+    setSavingScope(null);
+    if (err) setPanelError(err);
+    else { setSavedScope(item.scope); setTimeout(() => setSavedScope(null), 1500); }
+  }
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-3">
         <div>
           <h3 className="text-sm font-semibold">Transaction Types</h3>
-          <p className="text-[11px] text-[#8A9BB8]">Manage the types available to packages and interview launchers. Types with no groups are universal.</p>
+          <p className="text-[11px] text-[#8A9BB8]">Types with no groups assigned are universal — visible to all packages.</p>
         </div>
-        <button type="button" onClick={handleAdd} disabled={adding} className="text-xs text-[#C49A38] disabled:opacity-50">
-          {adding ? "Adding…" : "+ Add"}
+        <button type="button" onClick={handleAdd} disabled={adding} className="h-7 px-2.5 text-xs rounded border border-[#D4C9B5] bg-white text-[#4A5568] hover:text-[#0F1C3F] hover:border-[#0F1C3F] disabled:opacity-50 transition-colors flex items-center gap-1">
+          <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+          {adding ? "Adding…" : "Add Type"}
         </button>
       </div>
       {panelError && <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
-
       <div className="relative mb-2">
         <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#B0BCCE] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>
-        <input
-          type="text"
-          placeholder="Search types…"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full h-8 text-[11px] rounded border border-[#D4C9B5] pl-6 pr-6 bg-white focus:outline-none focus:border-[#1B4FD8]"
-        />
+        <input type="text" placeholder="Search types…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full h-8 text-[11px] rounded border border-[#D4C9B5] pl-6 pr-6 bg-white focus:outline-none focus:border-[#1B4FD8]" />
         {searchQuery && (
           <button type="button" onClick={() => setSearchQuery("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#B0BCCE] hover:text-[#6B7A99]">
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" d="M18 6L6 18M6 6l12 12"/></svg>
@@ -606,62 +622,119 @@ export function TransactionTypesPanel({
         )}
       </div>
 
-      <div className="grid md:grid-cols-2 gap-2">
-        {visibleItems.map((item) => {
-          const assignedGroupIds = item.group_ids ?? [];
-          return (
-            <div key={item.scope} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
-              <Input value={item.label} onChange={(e) => onChange(item.scope, { label: e.target.value })} className="h-8 text-xs bg-white" placeholder="Label" />
-              <Input type="number" value={item.sort_order} onChange={(e) => onChange(item.scope, { sort_order: Number(e.target.value || 0) })} className="h-8 text-xs bg-white" placeholder="Sort order" />
-              {availableGroups.length > 0 && (
-                <div>
-                  <div className="text-[10px] text-[#8A9BB8] mb-1 font-medium uppercase tracking-wide">Groups</div>
-                  <div className="flex flex-wrap gap-1">
+      {/* Ledger table */}
+      <div className="rounded border border-[#DDD5C4]" style={{ overflow: "clip" }}>
+        {/* Header */}
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F5F2EC] border-b border-[#DDD5C4] text-[9px] font-semibold text-[#8A9BB8] uppercase tracking-wider">
+          <span className="flex-1">Label</span>
+          <span className="w-14 text-center shrink-0">Sort</span>
+          {availableGroups.length > 0 && <span className="shrink-0 w-40">Groups</span>}
+          <span className="w-12 text-center shrink-0">Active</span>
+          <span className="w-6 shrink-0" />
+        </div>
+        <div className="divide-y divide-[#EFE8D8]">
+          {visibleItems.map((item) => {
+            const assignedGroupIds = item.group_ids ?? [];
+            const isSaving = savingScope === item.scope;
+            const isSaved = savedScope === item.scope;
+            const isDeleting = deletingScope === item.scope;
+            const menuOpen = menuOpenScope === item.scope;
+            return (
+              <div key={item.scope} className={`flex items-center gap-2 px-3 py-1.5 transition-colors ${isDeleting ? "opacity-40 pointer-events-none" : "hover:bg-[#FDFCFA]"}`}>
+                {/* Label */}
+                <div className="flex-1 min-w-0">
+                  <input
+                    type="text"
+                    value={item.label}
+                    onChange={(e) => onChange(item.scope, { label: e.target.value })}
+                    onBlur={(e) => void handleBlurSave({ ...item, label: e.target.value })}
+                    className="w-full h-7 text-xs rounded border border-transparent bg-transparent hover:border-[#D4C9B5] focus:border-[#1B4FD8] focus:bg-white px-1.5 focus:outline-none transition-colors"
+                    placeholder="Label"
+                  />
+                </div>
+                {/* Sort */}
+                <div className="w-14 shrink-0">
+                  <input
+                    type="number"
+                    value={item.sort_order}
+                    onChange={(e) => onChange(item.scope, { sort_order: Number(e.target.value || 0) })}
+                    onBlur={(e) => void handleBlurSave({ ...item, sort_order: Number(e.target.value || 0) })}
+                    className="w-full h-7 text-xs text-center rounded border border-transparent bg-transparent hover:border-[#D4C9B5] focus:border-[#1B4FD8] focus:bg-white px-1 focus:outline-none transition-colors"
+                  />
+                </div>
+                {/* Groups */}
+                {availableGroups.length > 0 && (
+                  <div className="w-40 shrink-0 flex flex-wrap gap-0.5 items-center">
                     {availableGroups.map((g) => {
                       const checked = assignedGroupIds.includes(g.id as number);
                       return (
                         <button
                           key={g.id}
                           type="button"
-                          onClick={() => toggleGroup(item, g.id as number)}
-                          className={`text-[10px] rounded px-1.5 py-0.5 border transition-colors leading-none ${
-                            checked
-                              ? "bg-[#0F1C3F] border-[#0F1C3F] text-white"
-                              : "bg-white border-[#D4C9B5] text-[#6B7A99] hover:border-[#C49A38] hover:text-[#C49A38]"
-                          }`}
+                          onClick={() => {
+                            const current = item.group_ids ?? [];
+                            const next = current.includes(g.id as number) ? current.filter((id) => id !== g.id) : [...current, g.id as number];
+                            onChange(item.scope, { group_ids: next });
+                            void handleBlurSave({ ...item, group_ids: next });
+                          }}
+                          className={`text-[9px] rounded px-1 py-0.5 border leading-none transition-colors ${checked ? "bg-[#0F1C3F] border-[#0F1C3F] text-white" : "bg-white border-[#D4C9B5] text-[#8A9BB8] hover:border-[#C49A38] hover:text-[#C49A38]"}`}
                         >
-                          {checked ? "✓ " : ""}{g.name}
+                          {g.name}
                         </button>
                       );
                     })}
+                    {assignedGroupIds.length === 0 && (
+                      <span className="text-[9px] text-[#B0BCCE] italic leading-none">universal</span>
+                    )}
                   </div>
-                  {assignedGroupIds.length === 0 && (
-                    <div className="text-[10px] text-[#B0BCCE] mt-1">No groups — universal (visible everywhere)</div>
-                  )}
+                )}
+                {/* Active */}
+                <div className="w-12 shrink-0 flex justify-center">
+                  <input
+                    type="checkbox"
+                    checked={item.active}
+                    onChange={(e) => {
+                      const newActive = e.target.checked;
+                      onChange(item.scope, { active: newActive });
+                      void handleBlurSave({ ...item, active: newActive });
+                    }}
+                    className="accent-[#0F1C3F] cursor-pointer"
+                  />
                 </div>
-              )}
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-1 text-[11px] text-[#6B7A99]">
-                  <input type="checkbox" checked={item.active} onChange={(e) => onChange(item.scope, { active: e.target.checked })} />
-                  Active
-                </label>
-                <div className="flex items-center gap-2">
-                  {onDelete && (
-                    <button type="button" onClick={() => void handleDelete(item)} disabled={deletingScope === item.scope} className="text-[11px] text-red-500 disabled:opacity-50">
-                      {deletingScope === item.scope ? "Deleting…" : "Delete"}
-                    </button>
+                {/* Status / menu */}
+                <div className="w-6 shrink-0 flex items-center justify-center relative">
+                  {isSaving ? (
+                    <svg className="w-3.5 h-3.5 text-[#B0BCCE] animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                  ) : isSaved ? (
+                    <svg className="w-3.5 h-3.5 text-[#059669]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                  ) : (
+                    <div ref={menuOpen ? menuRef : null} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setMenuOpenScope(menuOpen ? null : item.scope)}
+                        className="flex items-center justify-center w-6 h-6 rounded text-[#C4B99A] hover:text-[#6B7A99] hover:bg-[#EFE8D8] transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                      </button>
+                      {menuOpen && (
+                        <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-[#DDD5C4] rounded shadow-lg z-30 py-1 text-[11px]">
+                          <div className="px-2.5 py-1 text-[9px] font-mono text-[#B0BCCE] border-b border-[#EFE8D8] truncate">{item.scope}</div>
+                          {onDelete && (
+                            <button type="button" onClick={() => void handleDelete(item)} className="w-full text-left px-2.5 py-1.5 text-red-600 hover:bg-red-50">
+                              Delete type
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
-                  <button type="button" onClick={() => void handleSave(item)} disabled={savingScope === item.scope} className="text-[11px] text-[#C49A38] disabled:opacity-50">
-                    {savingScope === item.scope ? "Saving…" : savedScope === item.scope ? "✓ Saved" : "Save"}
-                  </button>
                 </div>
               </div>
-              <div className="text-[10px] text-[#B0BCCE]">{item.scope}</div>
-            </div>
-          );
-        })}
-        {items.length === 0 && <div className="text-xs text-[#8A9BB8] col-span-2">No types yet. Click + Add to create one.</div>}
-        {items.length > 0 && visibleItems.length === 0 && <div className="text-xs text-[#8A9BB8] col-span-2">No results for "{searchQuery}".</div>}
+            );
+          })}
+          {items.length === 0 && <div className="px-4 py-6 text-xs text-[#8A9BB8] text-center">No types yet. Click Add Type to create one.</div>}
+          {items.length > 0 && visibleItems.length === 0 && <div className="px-4 py-6 text-xs text-[#8A9BB8] text-center">No results for "{searchQuery}".</div>}
+        </div>
       </div>
     </div>
   );
