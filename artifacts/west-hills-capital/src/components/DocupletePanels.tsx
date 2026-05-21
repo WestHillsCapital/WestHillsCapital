@@ -205,8 +205,9 @@ export function FieldGroupsPanel({
           <h3 className="text-sm font-semibold">Field Groups</h3>
           <p className="text-[11px] text-[#8A9BB8]">Bundle common fields for one-click addition to any package.</p>
         </div>
-        <button type="button" onClick={handleAdd} disabled={adding} className="text-xs text-[#C49A38] disabled:opacity-50">
-          {adding ? "Adding…" : "Add"}
+        <button type="button" onClick={handleAdd} disabled={adding} className="h-7 px-2.5 text-xs rounded border border-[#D4C9B5] bg-white text-[#4A5568] hover:text-[#0F1C3F] hover:border-[#0F1C3F] disabled:opacity-50 transition-colors flex items-center gap-1">
+          <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+          {adding ? "Adding…" : "Add Group"}
         </button>
       </div>
       {panelError && <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
@@ -215,13 +216,13 @@ export function FieldGroupsPanel({
         <input type="text" placeholder="Search groups…" value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)} className="w-full h-8 text-[11px] rounded border border-[#D4C9B5] pl-6 pr-2 bg-white focus:outline-none focus:border-[#1B4FD8]" />
       </div>
       {items.length === 0 && <div className="text-xs text-[#8A9BB8]">No field groups yet. Add one to bundle fields for fast package setup.</div>}
-      <div className="grid md:grid-cols-2 gap-2">
+      <div className="grid md:grid-cols-2 gap-2 items-stretch">
         {items.filter((i) => !groupSearch.trim() || i.name.toLowerCase().includes(groupSearch.toLowerCase())).map((item) => {
           const isExpanded = expandedId === item.id;
           const memberCount = item.fieldIds.length;
           const usagePackages = item.usagePackages ?? [];
           return (
-            <div key={item.id} className="rounded border border-[#EFE8D8] bg-[#F8F6F0] p-2 overflow-hidden">
+            <div key={item.id} className="flex flex-col rounded border border-[#EFE8D8] bg-[#F8F6F0] p-2 overflow-hidden">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1 overflow-hidden">
                   {isExpanded ? (
@@ -233,19 +234,30 @@ export function FieldGroupsPanel({
                   ) : (
                     <div className="text-xs font-medium text-[#0F1C3F] truncate">{item.name}</div>
                   )}
-                  <div className="text-[10px] text-[#8A9BB8] mt-0.5 truncate">
-                    {memberCount} field{memberCount !== 1 ? "s" : ""}
-                    {memberCount > 0 && ` — ${item.fieldIds.slice(0, 3).map((id) => fieldLibrary.find((f) => f.id === id)?.label ?? id).join(", ")}${memberCount > 3 ? ` +${memberCount - 3} more` : ""}`}
-                  </div>
-                  <div className="text-[10px] mt-0.5 truncate">
-                    {usagePackages.length === 0 ? (
-                      <span className="text-[#B0BED4]">Not used in any packages</span>
-                    ) : (
-                      <span className="text-[#6B7A99]">
-                        Used in {usagePackages.length} package{usagePackages.length !== 1 ? "s" : ""}
-                        {" — "}{usagePackages.slice(0, 3).map((p) => p.name).join(", ")}
-                        {usagePackages.length > 3 ? ` +${usagePackages.length - 3} more` : ""}
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#EBF0FB] text-[#1B4FD8] text-[9px] font-semibold leading-none shrink-0">
+                      {memberCount} field{memberCount !== 1 ? "s" : ""}
+                    </span>
+                    {memberCount > 0 && (
+                      <span className="text-[10px] text-[#8A9BB8] truncate min-w-0">
+                        {item.fieldIds.slice(0, 3).map((id) => fieldLibrary.find((f) => f.id === id)?.label ?? id).join(", ")}
+                        {memberCount > 3 ? ` +${memberCount - 3} more` : ""}
                       </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    {usagePackages.length === 0 ? (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#F0F0EF] text-[#B0BCCE] text-[9px] font-medium leading-none">No packages</span>
+                    ) : (
+                      <>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#ECFDF5] text-[#059669] text-[9px] font-semibold leading-none shrink-0">
+                          {usagePackages.length}p
+                        </span>
+                        <span className="text-[10px] text-[#6B7A99] truncate min-w-0">
+                          {usagePackages.slice(0, 3).map((p) => p.name).join(", ")}
+                          {usagePackages.length > 3 ? ` +${usagePackages.length - 3} more` : ""}
+                        </span>
+                      </>
                     )}
                   </div>
                 </div>
