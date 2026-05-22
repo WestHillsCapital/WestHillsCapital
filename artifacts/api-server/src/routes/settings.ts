@@ -1218,7 +1218,7 @@ router.get("/billing", async (req, res) => {
 
     const [pkgResult, usageResult, seatResult] = await Promise.all([
       db.query<{ count: string }>(
-        `SELECT COUNT(*) AS count FROM docuplete_packages WHERE account_id = $1`,
+        `SELECT COUNT(*) AS count FROM docuplete_packages WHERE account_id = $1 AND NOT is_demo`,
         [accountId],
       ),
       db.query<{ count: string }>(

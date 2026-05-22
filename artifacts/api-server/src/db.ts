@@ -2115,6 +2115,12 @@ export async function initDb(): Promise<void> {
   // Stamped when the automated reminder email is sent so we don't re-send.
   await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMPTZ`);
 
+  // ── Demo package flag ──────────────────────────────────────────────────────
+  // Demo packages are seeded automatically on account creation and must not
+  // count against the free-plan package quota — otherwise users hit the upgrade
+  // wall before they can create a single real package of their own.
+  await db.query(`ALTER TABLE docuplete_packages ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
+
   // ── Status page incidents ──────────────────────────────────────────────────
   await db.query(`
     CREATE TABLE IF NOT EXISTS status_incidents (
