@@ -35,7 +35,14 @@ export default function FieldLibraryOverview() {
       </ul>
 
       <h2>Accessing the Field Library</h2>
-      <p>Click the <strong>Library</strong> tab in the main navigation (alongside Packages, Sessions, and Batch). You'll see all library fields organized into Fields, Field Groups, Types, Groups, and Compliance tabs.</p>
+      <p>Click the <strong>Library</strong> tab in the main navigation (alongside Packages, Sessions, and Batch). The Library has five sub-tabs:</p>
+      <ul>
+        <li><strong>Fields</strong> — All shared field definitions. Each row is collapsible: click to expand an inline edit drawer with all field settings, a History tab (labeled diffs for every save, one-click restore), and an Analytics tab (session usage counts). Save and Delete live in a shaded footer bar at the bottom of the drawer.</li>
+        <li><strong>Field Groups</strong> — Named bundles of related library fields (e.g. "Client Address"). Equal-height cards show a blue pill for field count and a green pill for package usage. Add a group with the bordered "+ Add Group" button in the header.</li>
+        <li><strong>Types</strong> — Transaction Types appear as a compact single-row ledger. Edit the label or sort number inline and the row auto-saves on blur. An Active toggle and a ⋮ menu (scope slug + Delete) complete each row.</li>
+        <li><strong>Groups</strong> — Recipient Groups (e.g. "Equity Trust Company") displayed as cards with a three-column contact grid: PHONE NUMBER · EMAIL ADDRESS · STATUS. Each card has an isolated footer bar for Delete and Save.</li>
+        <li><strong>Compliance</strong> — Runs a per-package compliance audit. Compliant packages show a green card with ✓ Compliant; packages with missing required fields show an amber card with ⚠️ Non-Compliant. Present and Missing field lists sit side-by-side inside each card. Export the full audit as a CSV with one click.</li>
+      </ul>
 
       <div className="callout callout-info">
         <strong>Permissions:</strong> Only Admins can create, edit, or delete library fields. Members can import library fields into packages they have edit access to.

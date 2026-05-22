@@ -14,6 +14,22 @@ export default function Changelog() {
             <span className="text-xs font-mono text-white/40">May 2026</span>
             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#5B8DEF]/15 text-[#5B8DEF]">Improvement</span>
           </div>
+          <h2 className="mt-0">Shared Field Library — redesigned tab UIs</h2>
+          <p>All five Library sub-tabs have been redesigned for faster scanning and editing at scale.</p>
+          <ul>
+            <li><strong>Fields tab</strong> — Field rows are now collapsible. Click any row to expand an inline edit drawer with all settings, a History tab, and an Analytics tab. Prefill Source and Sort Order sit side-by-side in the drawer body. Save and Delete moved into an isolated shaded footer bar inside the drawer, eliminating accidental clicks. History entries now show labeled diffs (<em>Label: "old" → "new"</em>) instead of raw JSON objects.</li>
+            <li><strong>Field Groups tab</strong> — Cards are equal-height via <code>items-stretch</code>. Each card shows two badge types: a blue pill for field count and a green pill listing packages that use the group (gray "No packages" when unused). The Add button in the header is now a bordered icon button matching the platform's tool style.</li>
+            <li><strong>Types tab</strong> — Fully rewritten as a compact single-row ledger. Label and sort number edit in place and auto-save on blur. Group assignments appear as inline tag strips and toggle immediately on click. The Active checkbox saves on change. A ⋮ popover at the far right shows the type's scope slug and a Delete option — removing the inline Delete/Save clutter.</li>
+            <li><strong>Groups tab</strong> — Contact info now uses a three-column horizontal grid: <strong>PHONE NUMBER · EMAIL ADDRESS · STATUS</strong>, each with a compact uppercase metadata label above the input. The Active checkbox occupies the third column, aligning with phone and email on a shared baseline. Delete and Save moved into a dedicated shaded footer bar at the bottom of each card.</li>
+            <li><strong>Compliance tab</strong> — Compliant packages show a soft green card with a <strong>✓ Compliant</strong> badge. Packages with missing required fields switch to an amber background with a <strong>⚠️ Non-Compliant · N missing</strong> badge for immediate visual triage. The Present and Missing field lists are constrained to a 600 px side-by-side grid inside each card. The Refresh button now shows a spinning arrow icon while loading; Export CSV has a download icon.</li>
+          </ul>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-xs font-mono text-white/40">May 2026</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#5B8DEF]/15 text-[#5B8DEF]">Improvement</span>
+          </div>
           <h2 className="mt-0">Interview Order — field metadata badges</h2>
           <p>The <strong>Interview Order</strong> list in the package builder now shows a badge row beneath each field name, making the key properties of every field visible at a glance without opening the editor. The following badges appear when applicable:</p>
           <ul>
