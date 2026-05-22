@@ -1028,7 +1028,7 @@ export default function DocupleteCustomer() {
     }
   }
 
-  const screenCls = isEmbed ? "bg-white flex items-center justify-center px-4 py-10" : "min-h-screen bg-[#F8F6F0] flex items-center justify-center px-4";
+  const screenCls = isEmbed ? "bg-white flex items-center justify-center px-4 py-10" : "min-h-screen bg-gray-50 flex items-center justify-center px-4";
 
   if (pageStatus === "loading") {
     return (
@@ -1041,7 +1041,7 @@ export default function DocupleteCustomer() {
   if (pageStatus === "expired" || (!session && pageStatus !== "error")) {
     return (
       <div className={screenCls}>
-        <div className="max-w-md w-full bg-white rounded-xl border border-[#DDD5C4] p-8 text-center space-y-3">
+        <div className="max-w-md w-full bg-white rounded-xl border border-gray-200 p-8 text-center space-y-3">
           <svg className="w-10 h-10 text-[#8A9BB8] mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
           </svg>
@@ -1055,7 +1055,7 @@ export default function DocupleteCustomer() {
   if (pageStatus === "error") {
     return (
       <div className={screenCls}>
-        <div className="max-w-md w-full bg-white rounded-xl border border-[#DDD5C4] p-8 text-center space-y-3">
+        <div className="max-w-md w-full bg-white rounded-xl border border-gray-200 p-8 text-center space-y-3">
           <p className="text-sm text-red-600">Something went wrong loading your form. Please try refreshing the page.</p>
         </div>
       </div>
@@ -1225,7 +1225,7 @@ export default function DocupleteCustomer() {
     // ── Standard (non-sandbox) result screen ──────────────────────────────────
     return (
       <div className={screenCls}>
-        <div className="max-w-md w-full bg-white rounded-xl border border-[#DDD5C4] p-8 text-center space-y-5">
+        <div className="max-w-md w-full bg-white rounded-xl border border-gray-200 p-8 text-center space-y-5">
           <div className="flex justify-center"><CheckIcon /></div>
           <div>
             <h1 className="text-xl font-semibold text-[#0F1C3F]">You're all set!</h1>
@@ -1266,8 +1266,8 @@ export default function DocupleteCustomer() {
   // E-sign step overlay — renders on top of the form while user goes through identity verification
   if (esignStep !== null) {
     return (
-      <div ref={rootRef} className={isEmbed ? "bg-white" : "min-h-screen bg-[#F8F6F0]"}>
-        {!isEmbed && <header className="bg-white border-b border-[#DDD5C4] px-4 py-4">
+      <div ref={rootRef} className={isEmbed ? "bg-white" : "min-h-screen bg-gray-50"}>
+        {!isEmbed && <header className="bg-white border-b border-gray-200 px-4 py-4">
           <div className="max-w-2xl mx-auto flex items-center gap-3">
             {(() => {
               const orgName = session!.org_name ?? "your organization";
@@ -1318,9 +1318,9 @@ export default function DocupleteCustomer() {
               const active = i === stepIdx;
               return (
                 <div key={s} className="flex items-center gap-2">
-                  {i > 0 && <div className={`h-px w-6 ${done || active ? "bg-[#0F1C3F]" : "bg-[#DDD5C4]"}`} />}
+                  {i > 0 && <div className={`h-px w-6 ${done || active ? "bg-[#0F1C3F]" : "bg-gray-200"}`} />}
                   <div className={`flex items-center gap-1.5 ${active ? "text-[#0F1C3F] font-semibold" : done ? "text-[#6B7A99]" : "text-[#8A9BB8]"}`}>
-                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border ${active ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : done ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-white text-[#8A9BB8] border-[#DDD5C4]"}`}>
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border ${active ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : done ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-white text-[#8A9BB8] border-gray-200"}`}>
                       {done ? "✓" : i + 1}
                     </div>
                     <span>{labels[s as EsignStep]}</span>
@@ -1332,7 +1332,7 @@ export default function DocupleteCustomer() {
 
           {/* Email step */}
           {esignStep === "email" && (
-            <div className="bg-white rounded-xl border border-[#DDD5C4] p-6 space-y-4">
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
               <div>
                 <h2 className="text-lg font-semibold text-[#0F1C3F]">Verify your identity</h2>
                 <p className="text-sm text-[#6B7A99] mt-1">
@@ -1359,7 +1359,7 @@ export default function DocupleteCustomer() {
                   type="button"
                   onClick={() => { setEsignStep(null); setOtpError(""); }}
                   variant="outline"
-                  className="border-[#DDD5C4] text-[#6B7A99] hover:bg-[#F8F6F0]"
+                  className="border-gray-200 text-[#6B7A99] hover:bg-gray-50"
                   disabled={otpLoading}
                 >
                   Back
@@ -1378,7 +1378,7 @@ export default function DocupleteCustomer() {
 
           {/* OTP code step */}
           {esignStep === "code" && (
-            <div className="bg-white rounded-xl border border-[#DDD5C4] p-6 space-y-4">
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
               <div>
                 <h2 className="text-lg font-semibold text-[#0F1C3F]">
                   {otpLoading && !otpExpiresAt ? "Sending code…" : "Enter your code"}
@@ -1436,7 +1436,7 @@ export default function DocupleteCustomer() {
                   type="button"
                   onClick={() => { setEsignStep("email"); setOtpError(""); setOtpCode(""); }}
                   variant="outline"
-                  className="border-[#DDD5C4] text-[#6B7A99] hover:bg-[#F8F6F0]"
+                  className="border-gray-200 text-[#6B7A99] hover:bg-gray-50"
                   disabled={otpLoading}
                 >
                   Back
@@ -1455,7 +1455,7 @@ export default function DocupleteCustomer() {
 
           {/* Initials step */}
           {esignStep === "initials" && (
-            <div className="bg-white rounded-xl border border-[#DDD5C4] p-6 space-y-4">
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
               <div>
                 <h2 className="text-lg font-semibold text-[#0F1C3F]">Add your initials</h2>
                 <p className="text-sm text-[#6B7A99] mt-1">
@@ -1463,7 +1463,7 @@ export default function DocupleteCustomer() {
                 </p>
               </div>
               {/* Draw/type toggle */}
-              <div className="flex items-center gap-1 rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-1 w-fit">
+              <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1 w-fit">
                 <Button
                   type="button"
                   variant="ghost"
@@ -1516,7 +1516,7 @@ export default function DocupleteCustomer() {
                     className="max-w-xs font-mono text-xl tracking-widest text-center"
                   />
                   {typedInitials.trim() && (
-                    <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] p-3 max-w-xs">
+                    <div className="rounded border border-gray-200 bg-gray-50 p-3 max-w-xs">
                       <p className="text-[10px] text-[#8A9BB8] uppercase tracking-wide mb-1">Initials preview</p>
                       <p className="text-xl font-serif italic text-[#0F1C3F]">{typedInitials}</p>
                     </div>
@@ -1528,7 +1528,7 @@ export default function DocupleteCustomer() {
                   type="button"
                   onClick={() => { setEsignStep("code"); setOtpError(""); setOtpCode(""); setIdentityToken(null); }}
                   variant="outline"
-                  className="border-[#DDD5C4] text-[#6B7A99] hover:bg-[#F8F6F0]"
+                  className="border-gray-200 text-[#6B7A99] hover:bg-gray-50"
                 >
                   Back
                 </Button>
@@ -1546,7 +1546,7 @@ export default function DocupleteCustomer() {
 
           {/* Consent / signature step */}
           {esignStep === "consent" && (
-            <div className="bg-white rounded-xl border border-[#DDD5C4] p-6 space-y-4">
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
               {/* Identity confirmed header */}
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0 mt-0.5">
@@ -1578,7 +1578,7 @@ export default function DocupleteCustomer() {
 
               {/* Draw / type toggle */}
               <div className="space-y-2">
-                <div className="flex items-center gap-1 rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-1 w-fit">
+                <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1 w-fit">
                   <Button
                     type="button"
                     variant="ghost"
@@ -1600,7 +1600,7 @@ export default function DocupleteCustomer() {
                 </div>
 
                 {sigMode === "type" && signerName.trim() && (
-                  <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] p-3">
+                  <div className="rounded border border-gray-200 bg-gray-50 p-3">
                     <p className="text-[10px] text-[#8A9BB8] uppercase tracking-wide mb-1">Signature preview</p>
                     <p className="text-xl font-serif italic text-[#0F1C3F]">{signerName}</p>
                   </div>
@@ -1630,7 +1630,7 @@ export default function DocupleteCustomer() {
                 )}
               </div>
 
-              <div className="rounded-lg border border-[#DDD5C4] bg-[#FAFAF8] p-3 text-xs text-[#6B7A99] space-y-1">
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-[#6B7A99] space-y-1">
                 <p>By submitting, you confirm:</p>
                 <ul className="list-disc list-inside space-y-0.5 pl-1">
                   <li>The information in this form is accurate and complete.</li>
@@ -1652,7 +1652,7 @@ export default function DocupleteCustomer() {
                   type="button"
                   onClick={() => { setEsignStep(hasInitialsStep ? "initials" : "code"); if (!hasInitialsStep) { setOtpError(""); setOtpCode(""); setIdentityToken(null); } }}
                   variant="outline"
-                  className="border-[#DDD5C4] text-[#6B7A99] hover:bg-[#F8F6F0]"
+                  className="border-gray-200 text-[#6B7A99] hover:bg-gray-50"
                   disabled={pageStatus === "submitting"}
                 >
                   Back
@@ -1687,8 +1687,8 @@ export default function DocupleteCustomer() {
     const brandColor = session!.org_brand_color ?? "#C49A38";
     const brandTextColor = parseInt(brandColor.replace("#", ""), 16) > 0xffffff / 2 ? "#000000" : "#ffffff";
     return (
-      <div ref={rootRef} className={isEmbed ? "bg-white" : "min-h-screen bg-[#F8F6F0]"}>
-        {!isEmbed && <header className="bg-white border-b border-[#DDD5C4] px-4 py-4">
+      <div ref={rootRef} className={isEmbed ? "bg-white" : "min-h-screen bg-gray-50"}>
+        {!isEmbed && <header className="bg-white border-b border-gray-200 px-4 py-4">
           <div className="max-w-2xl mx-auto flex items-center gap-3">
             {(() => {
               const orgName = session!.org_name ?? "your organization";
@@ -1747,17 +1747,17 @@ export default function DocupleteCustomer() {
           )}
 
           {(previewLoading || pdfPagesLoading) && (
-            <div className="rounded-lg border border-[#DDD5C4] bg-white flex items-center justify-center" style={{ height: 480 }}>
+            <div className="rounded-lg border border-gray-200 bg-white flex items-center justify-center" style={{ height: 480 }}>
               <p className="text-sm text-[#6B7A99]">{pdfPagesLoading ? "Rendering document…" : "Loading preview…"}</p>
             </div>
           )}
 
           {/* When require_scroll_confirmation is on and pages are rendered, show a scrollable pdfjs view */}
           {previewObjectUrl && !previewLoading && !pdfPagesLoading && session!.require_scroll_confirmation && pdfPages.length > 0 && (
-            <div className="rounded-lg border border-[#DDD5C4] overflow-hidden shadow-sm">
+            <div className="rounded-lg border border-gray-200 overflow-hidden shadow-sm">
               {/* Scroll progress indicator */}
-              <div className="bg-white border-b border-[#DDD5C4] px-4 py-2 flex items-center gap-3">
-                <div className="flex-1 h-1.5 bg-[#EFE8D8] rounded-full overflow-hidden">
+              <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center gap-3">
+                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-300"
                     style={{ width: `${scrollDepthPct}%`, backgroundColor: scrollConfirmed ? "#22C55E" : brandColor }}
@@ -1815,7 +1815,7 @@ export default function DocupleteCustomer() {
 
           {/* Fallback iframe: shown when scroll confirmation is off (or pages loaded OK via pdf.js) */}
           {previewObjectUrl && !previewLoading && !pdfPagesLoading && (!session!.require_scroll_confirmation || (pdfPages.length === 0 && !pdfRenderFailed)) && (
-            <div className="rounded-lg border border-[#DDD5C4] overflow-hidden shadow-sm">
+            <div className="rounded-lg border border-gray-200 overflow-hidden shadow-sm">
               <iframe
                 src={previewObjectUrl}
                 title="Document preview"
@@ -1830,7 +1830,7 @@ export default function DocupleteCustomer() {
             <Button
               type="button"
               variant="outline"
-              className="border-[#DDD5C4] text-[#6B7A99] hover:bg-[#F8F6F0]"
+              className="border-gray-200 text-[#6B7A99] hover:bg-gray-50"
               onClick={() => {
                 setPageStatus("ready");
                 if (previewObjectUrl) { URL.revokeObjectURL(previewObjectUrl); setPreviewObjectUrl(null); }
@@ -1880,9 +1880,9 @@ export default function DocupleteCustomer() {
   }
 
   return (
-    <div ref={rootRef} className={isEmbed ? "bg-white" : "min-h-screen bg-[#F8F6F0]"}>
+    <div ref={rootRef} className={isEmbed ? "bg-white" : "min-h-screen bg-gray-50"}>
       {/* Header — hidden in embed mode */}
-      {!isEmbed && <header className="bg-white border-b border-[#DDD5C4] px-4 py-4">
+      {!isEmbed && <header className="bg-white border-b border-gray-200 px-4 py-4">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
           {(() => {
             const orgName = session!.org_name ?? "your organization";
@@ -1943,7 +1943,7 @@ export default function DocupleteCustomer() {
             className="shrink-0 flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors"
             style={merlinMode
               ? { backgroundColor: brandColor, color: brandTextColor, borderColor: brandColor }
-              : { backgroundColor: "white", color: "#4A5B7A", borderColor: "#DDD5C4" }}
+              : { backgroundColor: "white", color: "#4A5B7A", borderColor: "#E2E8F0" }}
             title={merlinMode ? "Switch to self-fill form" : "Let Merlin guide you"}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
@@ -1995,7 +1995,7 @@ export default function DocupleteCustomer() {
 
         {/* Merlin review gate — shown when switching back to form view after Merlin was used */}
         {!merlinMode && merlinWasUsed && (
-          <div className="rounded-lg border border-[#DDD5C4] bg-[#FBF9F5] px-4 py-3">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
             <p className="text-sm font-semibold text-[#0F1C3F] mb-0.5">Merlin has pre-filled your answers</p>
             <p className="text-xs text-[#6B7A99] mb-3">
               Please review each field carefully before submitting. Merlin's answers are saved automatically — you can edit any field below.
@@ -2015,7 +2015,7 @@ export default function DocupleteCustomer() {
         {/* Progress bar — shown in both modes */}
         {requiredCount > 0 && (
           <div className="space-y-1">
-            <div className="h-1.5 w-full bg-[#EFE8D8] rounded-full overflow-hidden">
+            <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{ width: `${progressPct}%`, backgroundColor: brandColor }}
@@ -2099,7 +2099,7 @@ export default function DocupleteCustomer() {
                 key={field.id}
                 id={`field-${field.id}`}
                 className={`bg-white rounded-lg border p-4 transition-colors ${
-                  hasFieldError ? "border-red-400" : isMissing ? "border-amber-400" : "border-[#DDD5C4]"
+                  hasFieldError ? "border-red-400" : isMissing ? "border-amber-400" : "border-gray-200"
                 }`}
               >
                 <div className="flex items-baseline justify-between gap-2 mb-2">
@@ -2109,14 +2109,14 @@ export default function DocupleteCustomer() {
                   <span className={`text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 border shrink-0 ${
                     isReadonly ? "bg-blue-50 text-blue-700 border-blue-100"
                     : isRequired ? "bg-red-50 text-red-700 border-red-100"
-                    : "bg-[#F8F6F0] text-[#6B7A99] border-[#EFE8D8]"
+                    : "bg-gray-50 text-[#6B7A99] border-gray-100"
                   }`}>
                     {isReadonly ? "Pre-filled" : isRequired ? "Required" : "Optional"}
                   </span>
                 </div>
 
                 {isReadonly ? (
-                  <div className="px-3 py-2 text-sm bg-[#F8F6F0] rounded border border-[#DDD5C4] text-[#334155]">
+                  <div className="px-3 py-2 text-sm bg-gray-50 rounded border border-gray-200 text-[#334155]">
                     {val || <span className="text-[#8A9BB8] italic">—</span>}
                   </div>
                 ) : field.type === "dropdown" ? (
@@ -2314,7 +2314,7 @@ export default function DocupleteCustomer() {
         )}
 
         {/* Submit / Preview */}
-        <div className="bg-white rounded-lg border border-[#DDD5C4] p-5 space-y-3">
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-3">
           <div className="text-sm text-[#6B7A99]">
             {session!.require_preview
               ? "Review the filled document before signing — click \u201cReview Document\u201d to open the PDF preview."
@@ -2333,7 +2333,7 @@ export default function DocupleteCustomer() {
               style={(session!.require_preview || session!.require_scroll_confirmation) ? { backgroundColor: brandColor, color: brandTextColor } : undefined}
               className={(session!.require_preview || session!.require_scroll_confirmation)
                 ? "flex-1 disabled:opacity-60 py-3 hover:opacity-90"
-                : "flex-1 border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0] disabled:opacity-60 py-3"}
+                : "flex-1 border-gray-200 text-[#0F1C3F] hover:bg-gray-50 disabled:opacity-60 py-3"}
               onClick={async () => {
                 if (!validate()) return;
                 setPreviewError("");
