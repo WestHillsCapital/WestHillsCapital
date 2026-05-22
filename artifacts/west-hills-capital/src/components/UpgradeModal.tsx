@@ -8,11 +8,11 @@ const SETTINGS_BASE = `${API_BASE}/api/v1/product/settings`;
 const PLAN_INFO = {
   starter: {
     label:       "Starter",
-    monthly:     49,
-    annual:      468,
-    annualPerMo: 39,
+    monthly:     69,
+    annual:      660,
+    annualPerMo: 55,
     packages:    "5 packages",
-    subs:        "75 submissions / seat / mo",
+    subs:        "150 sessions / mo",
     seats:       "Up to 2 seats",
     color:       "blue",
   },
