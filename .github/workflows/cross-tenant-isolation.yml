@@ -58,6 +58,7 @@ jobs:
         run: pnpm --filter @workspace/api-server test
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
+          ENCRYPTION_MASTER_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
 
       - name: API coverage report
         run: pnpm --filter @workspace/api-server test:coverage
