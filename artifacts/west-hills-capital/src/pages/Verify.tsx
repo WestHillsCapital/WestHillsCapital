@@ -47,7 +47,7 @@ function ShieldCheck({ ok }: { ok: boolean }) {
 
 function Row({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
-    <div className="grid grid-cols-[160px_1fr] gap-3 py-3 border-b border-[#EDE9DE] last:border-0">
+    <div className="grid grid-cols-[160px_1fr] gap-3 py-3 border-b border-gray-100 last:border-0">
       <span className="text-xs font-semibold uppercase tracking-widest text-[#8A9BB8] pt-0.5">{label}</span>
       <span className={`text-sm text-[#0F1C3F] break-all ${mono ? "font-mono" : ""}`}>{value}</span>
     </div>
@@ -121,14 +121,14 @@ export default function Verify() {
   const hashMismatch = result?.hashMatches === false;
 
   return (
-    <div className="min-h-screen bg-[#F8F6F0] flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Minimal header */}
-      <div className="bg-white border-b border-[#DDD5C4] px-4 py-4">
+      <div className="bg-white border-b border-gray-200 px-4 py-4">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
           <a href="https://docuplete.com" className="font-bold tracking-tight text-[#0B1220] text-xl hover:opacity-75 transition-opacity">
             Docuplete
           </a>
-          <span className="text-[#DDD5C4]">/</span>
+          <span className="text-gray-300">/</span>
           <span className="text-sm text-[#6B7A99]">Document Verification</span>
         </div>
       </div>
@@ -144,7 +144,7 @@ export default function Verify() {
         </div>
 
         {/* Search form */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-[#DDD5C4] p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
           <label className="text-sm font-medium text-[#0F1C3F]" htmlFor="verify-input">
             Session token or SHA-256 hash
           </label>
@@ -174,7 +174,7 @@ export default function Verify() {
 
         {/* Status: not found */}
         {status === "not_found" && (
-          <div className="bg-white rounded-xl border border-[#DDD5C4] p-6 flex items-start gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 flex items-start gap-4">
             <svg className="w-8 h-8 text-[#8A9BB8] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 15.803m10.607 0A7.5 7.5 0 0 1 5.196 5.196" />
             </svg>
@@ -207,7 +207,7 @@ export default function Verify() {
 
         {/* Status: found — result card */}
         {status === "found" && result && (
-          <div className="bg-white rounded-xl border border-[#DDD5C4] overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             {/* Header bar */}
             <div className={`px-6 py-5 flex items-center gap-4 ${hashMismatch ? "bg-red-50 border-b border-red-200" : "bg-[#EAF4EE] border-b border-emerald-200"}`}>
               <ShieldCheck ok={!hashMismatch} />
@@ -260,12 +260,12 @@ export default function Verify() {
 
             {/* TSA verification note */}
             {result.tsaObtained && (
-              <div className="mx-6 mb-5 mt-1 bg-[#F8F6F0] rounded-lg border border-[#DDD5C4] px-5 py-4 space-y-2">
+              <div className="mx-6 mb-5 mt-1 bg-gray-50 rounded-lg border border-gray-200 px-5 py-4 space-y-2">
                 <p className="text-xs font-semibold text-[#0F1C3F]">Verifying the RFC 3161 timestamp independently</p>
                 <p className="text-xs text-[#6B7A99] leading-relaxed">
                   The stored DER timestamp token can be verified against the PDF hash using OpenSSL:
                 </p>
-                <pre className="text-[11px] bg-white border border-[#DDD5C4] rounded p-3 overflow-x-auto text-[#0F1C3F] leading-relaxed whitespace-pre-wrap">
+                <pre className="text-[11px] bg-white border border-gray-200 rounded p-3 overflow-x-auto text-[#0F1C3F] leading-relaxed whitespace-pre-wrap">
 {`openssl ts -verify \\
   -data signed-document.pdf \\
   -in signing-token.tsr \\
@@ -282,7 +282,7 @@ export default function Verify() {
       </main>
 
       {/* Footer */}
-      <div className="border-t border-[#DDD5C4] bg-white px-4 py-5 text-center">
+      <div className="border-t border-gray-200 bg-white px-4 py-5 text-center">
         <p className="text-xs text-[#8A9BB8]">
           <a href="https://docuplete.com" className="underline underline-offset-2 hover:text-[#0F1C3F] transition-colors">
             Docuplete
