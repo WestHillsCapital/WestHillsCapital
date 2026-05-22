@@ -52,7 +52,7 @@ test.describe("Field Library — authenticated", () => {
     await expect(page.locator("text=Something went wrong")).not.toBeVisible({ timeout: 3_000 }).catch(() => {});
   });
 
-  test("Library shows Fields, Types, Groups subtabs", async ({ page }) => {
+  test("Library shows Fields, Types, Groups, Compliance, Tags subtabs", async ({ page }) => {
     await page.goto(APP, { waitUntil: "domcontentloaded" });
     await page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => {});
 
@@ -63,13 +63,41 @@ test.describe("Field Library — authenticated", () => {
     await libraryTab.click();
     await page.waitForTimeout(1_000);
 
-    const fieldsSubtab = page.locator("button, [role='tab']").filter({ hasText: /^fields$/i }).first();
-    const typesSubtab  = page.locator("button, [role='tab']").filter({ hasText: /^types$/i }).first();
-    const groupsSubtab = page.locator("button, [role='tab']").filter({ hasText: /^groups$/i }).first();
+    const fieldsSubtab     = page.locator("button, [role='tab']").filter({ hasText: /^fields$/i }).first();
+    const typesSubtab      = page.locator("button, [role='tab']").filter({ hasText: /^types$/i }).first();
+    const groupsSubtab     = page.locator("button, [role='tab']").filter({ hasText: /^groups$/i }).first();
+    const complianceSubtab = page.locator("button, [role='tab']").filter({ hasText: /^compliance$/i }).first();
+    const tagsSubtab       = page.locator("button, [role='tab']").filter({ hasText: /^tags$/i }).first();
 
     await expect(fieldsSubtab).toBeVisible({ timeout: 6_000 });
     await expect(typesSubtab).toBeVisible({ timeout: 6_000 });
     await expect(groupsSubtab).toBeVisible({ timeout: 6_000 });
+    await expect(complianceSubtab).toBeVisible({ timeout: 6_000 });
+    await expect(tagsSubtab).toBeVisible({ timeout: 6_000 });
+  });
+
+  test("Tags subtab renders the compliance tag manager", async ({ page }) => {
+    await page.goto(APP, { waitUntil: "domcontentloaded" });
+    await page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => {});
+
+    const libraryTab = page.locator("button, [role='tab']").filter({ hasText: /^library$/i }).first();
+    const hasLib = await libraryTab.isVisible({ timeout: 8_000 }).catch(() => false);
+    if (!hasLib) { test.skip(); return; }
+
+    await libraryTab.click();
+    await page.waitForTimeout(500);
+
+    const tagsSubtab = page.locator("button, [role='tab']").filter({ hasText: /^tags$/i }).first();
+    const hasTagsTab = await tagsSubtab.isVisible({ timeout: 5_000 }).catch(() => false);
+    if (!hasTagsTab) { test.skip(); return; }
+
+    await tagsSubtab.click();
+    await page.waitForTimeout(1_000);
+
+    await expect(page.locator("text=Something went wrong")).not.toBeVisible({ timeout: 3_000 }).catch(() => {});
+
+    const newTagBtn = page.locator("button").filter({ hasText: /new tag/i }).first();
+    await expect(newTagBtn).toBeVisible({ timeout: 6_000 });
   });
 
   test("Fields subtab shows card grid without crash", async ({ page }) => {

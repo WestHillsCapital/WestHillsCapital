@@ -870,6 +870,8 @@ export function FieldLibraryPanel({
   onLoadAnalytics,
   onExport,
   onImport,
+  openFieldId,
+  onClearOpenField,
 }: {
   items: FieldLibraryItem[];
   allComplianceTags?: ComplianceTag[];
@@ -884,6 +886,8 @@ export function FieldLibraryPanel({
   onLoadAnalytics?: (fieldId: string) => Promise<FieldAnalytics | string>;
   onExport?: (format: "json" | "csv") => Promise<void>;
   onImport?: (data: FieldLibraryImportPayload) => Promise<FieldLibraryImportResult | string>;
+  openFieldId?: string;
+  onClearOpenField?: () => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -986,6 +990,15 @@ export function FieldLibraryPanel({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [exportMenuOpen]);
+
+  useEffect(() => {
+    if (!openFieldId) return;
+    setExpandedIds((prev) => { const n = new Set(prev); n.add(openFieldId); return n; });
+    onClearOpenField?.();
+    setTimeout(() => {
+      document.getElementById(`field-row-${openFieldId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+  }, [openFieldId]);
 
 
   async function handleExport(format: "json" | "csv") {
@@ -1370,7 +1383,7 @@ export function FieldLibraryPanel({
           const toggleEdit = () => setExpandedIds((prev) => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n; });
           const toggleAdvanced = () => setAdvancedIds((prev) => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n; });
           return (
-            <div key={item.id}>
+            <div key={item.id} id={`field-row-${item.id}`}>
               {/* ── Collapsed summary row ── */}
               <div className={`flex items-center gap-2 px-3 min-h-[44px] py-1.5 transition-colors ${isEditing ? "bg-[#F5F3EE]" : "bg-white hover:bg-[#FDFCFA]"}`}>
                 <div className="min-w-0 flex-1 overflow-hidden">
@@ -1578,6 +1591,258 @@ export function FieldLibraryPanel({
         })}
         {items.length === 0 && <div className="px-4 py-6 text-xs text-[#8A9BB8] text-center">No fields yet. Click + Add to create one.</div>}
         {items.length > 0 && visibleItems.length === 0 && <div className="px-4 py-6 text-xs text-[#8A9BB8] text-center">No results for "{searchQuery}".</div>}
+      </div>
+    </div>
+  );
+}
+
+const PRESET_COLORS = ["#DC2626", "#D97706", "#059669", "#2563EB", "#7C3AED", "#DB2777", "#0F1C3F", "#C49A38", "#6B7A99"];
+
+export function ComplianceTagsPanel({
+  items,
+  onCreate,
+  onUpdate,
+  onDelete,
+}: {
+  items: ComplianceTag[];
+  onCreate: (tag: { name: string; color: string; description?: string; isRequired: boolean }) => Promise<string | null>;
+  onUpdate: (id: number, patch: { name?: string; color?: string; description?: string | null; isRequired?: boolean }) => Promise<string | null>;
+  onDelete: (id: number) => Promise<string | null>;
+}) {
+  const [panelError, setPanelError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [drafts, setDrafts] = useState<Record<number, { name: string; color: string; description: string; isRequired: boolean }>>({});
+  const [savingId, setSavingId] = useState<number | null>(null);
+  const [savedId, setSavedId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [newTag, setNewTag] = useState({ name: "", color: "#2563EB", description: "", isRequired: false });
+  const [creating, setCreating] = useState(false);
+
+  function startEdit(tag: ComplianceTag) {
+    setEditingId(tag.id);
+    setDrafts((d) => ({ ...d, [tag.id]: { name: tag.name, color: tag.color, description: tag.description ?? "", isRequired: tag.isRequired } }));
+  }
+
+  function patchDraft(id: number, patch: Partial<{ name: string; color: string; description: string; isRequired: boolean }>) {
+    setDrafts((d) => ({ ...d, [id]: { ...d[id], ...patch } }));
+  }
+
+  async function handleSave(tag: ComplianceTag) {
+    const draft = drafts[tag.id];
+    if (!draft) return;
+    setSavingId(tag.id);
+    setPanelError(null);
+    const err = await onUpdate(tag.id, { name: draft.name.trim() || tag.name, color: draft.color, description: draft.description || null, isRequired: draft.isRequired });
+    setSavingId(null);
+    if (err) {
+      setPanelError(err);
+    } else {
+      setSavedId(tag.id);
+      setTimeout(() => { setSavedId(null); setEditingId(null); }, 1500);
+    }
+  }
+
+  async function handleDelete(tag: ComplianceTag) {
+    if (!confirm(`Delete tag "${tag.name}"? This cannot be undone.`)) return;
+    setDeletingId(tag.id);
+    setPanelError(null);
+    const err = await onDelete(tag.id);
+    setDeletingId(null);
+    if (err) setPanelError(err);
+  }
+
+  async function handleCreate() {
+    if (!newTag.name.trim()) return;
+    setCreating(true);
+    setPanelError(null);
+    const err = await onCreate({ name: newTag.name.trim(), color: newTag.color, description: newTag.description || undefined, isRequired: newTag.isRequired });
+    setCreating(false);
+    if (err) {
+      setPanelError(err);
+    } else {
+      setShowNewForm(false);
+      setNewTag({ name: "", color: "#2563EB", description: "", isRequired: false });
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h3 className="text-sm font-semibold text-[#0F1C3F]">Compliance Tags</h3>
+          <p className="text-[11px] text-[#8A9BB8]">Tags are used in the Field Library to mark fields for compliance auditing. Built-in tags cannot be deleted.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => { setShowNewForm(true); setPanelError(null); }}
+          disabled={showNewForm}
+          className="h-7 px-2.5 text-xs rounded border border-[#D4C9B5] bg-white text-[#4A5568] hover:text-[#0F1C3F] hover:border-[#0F1C3F] disabled:opacity-50 transition-colors flex items-center gap-1"
+        >
+          <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+          New Tag
+        </button>
+      </div>
+
+      {panelError && <div className="mb-3 rounded border border-red-200 bg-red-50 text-red-700 px-3 py-2 text-xs">{panelError}</div>}
+
+      {showNewForm && (
+        <div className="mb-3 rounded border border-[#DDD5C4] bg-[#F8F6F0] p-3 space-y-2">
+          <div className="text-[11px] font-semibold text-[#0F1C3F] uppercase tracking-wide mb-1">New Tag</div>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder="Tag name (e.g. FINRA, KYC, AML)"
+                value={newTag.name}
+                onChange={(e) => setNewTag((t) => ({ ...t, name: e.target.value }))}
+                className="w-full h-7 text-xs rounded border border-[#D4C9B5] px-2 bg-white focus:outline-none focus:border-[#1B4FD8]"
+                autoFocus
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              {PRESET_COLORS.map((c) => (
+                <button key={c} type="button" onClick={() => setNewTag((t) => ({ ...t, color: c }))}
+                  className={`w-4 h-4 rounded-full border-2 transition-transform hover:scale-110 ${newTag.color === c ? "border-[#0F1C3F] scale-110" : "border-transparent"}`}
+                  style={{ backgroundColor: c }} />
+              ))}
+              <input type="color" value={newTag.color} onChange={(e) => setNewTag((t) => ({ ...t, color: e.target.value }))}
+                className="w-5 h-5 rounded cursor-pointer border-none p-0" title="Custom color" />
+            </div>
+          </div>
+          <input
+            type="text"
+            placeholder="Description (optional)"
+            value={newTag.description}
+            onChange={(e) => setNewTag((t) => ({ ...t, description: e.target.value }))}
+            className="w-full h-7 text-xs rounded border border-[#D4C9B5] px-2 bg-white focus:outline-none focus:border-[#1B4FD8]"
+          />
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-1.5 text-xs text-[#4A5568] cursor-pointer">
+              <input type="checkbox" checked={newTag.isRequired} onChange={(e) => setNewTag((t) => ({ ...t, isRequired: e.target.checked }))} className="accent-[#0F1C3F]" />
+              Required for compliance
+            </label>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => { setShowNewForm(false); setNewTag({ name: "", color: "#2563EB", description: "", isRequired: false }); }}
+                className="h-7 px-2.5 text-xs rounded border border-[#D4C9B5] bg-white text-[#6B7A99] hover:border-[#0F1C3F] hover:text-[#0F1C3F] transition-colors">
+                Cancel
+              </button>
+              <button type="button" onClick={() => void handleCreate()} disabled={creating || !newTag.name.trim()}
+                className="h-7 px-2.5 text-xs font-medium rounded border border-[#C49A38] bg-[#C49A38] text-white hover:bg-[#A07820] hover:border-[#A07820] disabled:opacity-50 transition-colors">
+                {creating ? "Creating…" : "Create Tag"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="rounded border border-[#DDD5C4] divide-y divide-[#EFE8D8]" style={{ overflow: "clip" }}>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F5F2EC] text-[9px] font-semibold text-[#8A9BB8] uppercase tracking-wider">
+          <span className="w-3 shrink-0" />
+          <span className="flex-1">Name</span>
+          <span className="w-20 shrink-0 text-center">Required</span>
+          <span className="w-16 shrink-0 text-center">Built-in</span>
+          <span className="w-20 shrink-0" />
+        </div>
+        {items.length === 0 && (
+          <div className="px-4 py-6 text-xs text-[#8A9BB8] text-center">No tags yet — click New Tag to create one.</div>
+        )}
+        {items.map((tag) => {
+          const isEditing = editingId === tag.id;
+          const draft = drafts[tag.id];
+          const isSaving = savingId === tag.id;
+          const isSaved = savedId === tag.id;
+          const isDeleting = deletingId === tag.id;
+          const displayColor = isEditing ? (draft?.color ?? tag.color) : tag.color;
+          return (
+            <div key={tag.id} className={`flex items-center gap-2 px-3 py-2 transition-colors ${isDeleting ? "opacity-40 pointer-events-none" : isEditing ? "bg-[#F5F3EE]" : "bg-white hover:bg-[#FDFCFA]"}`}>
+              <div className="w-3 shrink-0 flex justify-center">
+                <div className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: displayColor }} />
+              </div>
+              {isEditing && draft ? (
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={draft.name}
+                      onChange={(e) => patchDraft(tag.id, { name: e.target.value })}
+                      disabled={tag.isBuiltin}
+                      className="flex-1 h-6 text-xs rounded border border-[#D4C9B5] px-1.5 bg-white focus:outline-none focus:border-[#1B4FD8] disabled:opacity-60 disabled:bg-[#F5F2EC]"
+                    />
+                    <div className="flex items-center gap-1">
+                      {PRESET_COLORS.map((c) => (
+                        <button key={c} type="button" onClick={() => patchDraft(tag.id, { color: c })}
+                          className={`w-3.5 h-3.5 rounded-full border-2 transition-transform hover:scale-110 ${draft.color === c ? "border-[#0F1C3F] scale-110" : "border-transparent"}`}
+                          style={{ backgroundColor: c }} />
+                      ))}
+                      <input type="color" value={draft.color} onChange={(e) => patchDraft(tag.id, { color: e.target.value })}
+                        className="w-4 h-4 rounded cursor-pointer border-none p-0" title="Custom color" />
+                    </div>
+                  </div>
+                  <input
+                    type="text"
+                    value={draft.description}
+                    onChange={(e) => patchDraft(tag.id, { description: e.target.value })}
+                    placeholder="Description (optional)"
+                    className="w-full h-6 text-xs rounded border border-[#D4C9B5] px-1.5 bg-white focus:outline-none focus:border-[#1B4FD8]"
+                  />
+                </div>
+              ) : (
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium text-[#0F1C3F]">{tag.name}</div>
+                  {tag.description && <div className="text-[10px] text-[#8A9BB8] truncate">{tag.description}</div>}
+                </div>
+              )}
+              <div className="w-20 shrink-0 flex justify-center">
+                {isEditing && draft ? (
+                  <input type="checkbox" checked={draft.isRequired} onChange={(e) => patchDraft(tag.id, { isRequired: e.target.checked })} className="accent-[#0F1C3F] cursor-pointer" />
+                ) : (
+                  tag.isRequired
+                    ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium">Required</span>
+                    : <span className="text-[10px] text-[#B0BCCE]">Optional</span>
+                )}
+              </div>
+              <div className="w-16 shrink-0 flex justify-center">
+                {tag.isBuiltin
+                  ? <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#F0F0F0] text-[#9CA3AF] font-medium">Built-in</span>
+                  : <span className="text-[10px] text-[#B0BCCE]">Custom</span>}
+              </div>
+              <div className="w-20 shrink-0 flex items-center justify-end gap-1.5">
+                {isSaving ? (
+                  <svg className="w-3.5 h-3.5 text-[#B0BCCE] animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                ) : isSaved ? (
+                  <svg className="w-3.5 h-3.5 text-[#059669]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                ) : isEditing ? (
+                  <>
+                    <button type="button" onClick={() => setEditingId(null)}
+                      className="h-6 px-1.5 text-[10px] rounded border border-[#D4C9B5] bg-white text-[#6B7A99] hover:border-[#0F1C3F] hover:text-[#0F1C3F] transition-colors">
+                      Cancel
+                    </button>
+                    <button type="button" onClick={() => void handleSave(tag)}
+                      className="h-6 px-1.5 text-[10px] font-medium rounded border border-[#C49A38] bg-[#C49A38] text-white hover:bg-[#A07820] hover:border-[#A07820] transition-colors">
+                      Save
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button type="button" onClick={() => startEdit(tag)}
+                      className="h-6 w-6 flex items-center justify-center rounded border border-[#D4C9B5] bg-white text-[#6B7A99] hover:border-[#0F1C3F] hover:text-[#0F1C3F] transition-colors"
+                      title="Edit tag">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    </button>
+                    {!tag.isBuiltin && (
+                      <button type="button" onClick={() => void handleDelete(tag)} disabled={isDeleting}
+                        className="h-6 w-6 flex items-center justify-center rounded border border-red-200 bg-white text-red-400 hover:bg-red-50 hover:text-red-600 hover:border-red-400 transition-colors disabled:opacity-50"
+                        title="Delete tag">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

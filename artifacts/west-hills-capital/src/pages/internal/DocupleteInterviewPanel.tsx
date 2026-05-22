@@ -478,8 +478,8 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
               )}
               {!portalLoading && portalSessions.length > 0 && (() => {
                 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
-                  draft:       { label: "Draft",       cls: "bg-gray-100 text-gray-500" },
-                  in_progress: { label: "In Progress", cls: "bg-blue-50 text-blue-700" },
+                  draft:       { label: "Draft",       cls: "bg-gray-50 text-gray-400" },
+                  in_progress: { label: "In Progress", cls: "bg-gray-50 text-gray-400" },
                   answered:    { label: "Answered",    cls: "bg-amber-50 text-amber-700" },
                   generated:   { label: "Completed",   cls: "bg-emerald-50 text-emerald-700" },
                   signed:      { label: "Signed",      cls: "bg-emerald-50 text-emerald-700" },
@@ -514,7 +514,9 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                           </thead>
                           <tbody className="divide-y divide-[#F0EDE6] bg-white">
                             {sessions.map((s, idx) => {
-                              const recipient = s.signer_name || s.link_email_recipient || s.signer_email || "—";
+                              const recipientName = s.signer_name || s.link_email_recipient || "";
+                              const recipient = recipientName || s.signer_email || "—";
+                              const recipientEmail = recipientName ? (s.signer_email ?? null) : null;
                               const statusInfo = STATUS_MAP[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-500" };
                               const pdfUrl = `${API_BASE}${docupleteApiPath}/sessions/${s.token}/packet.pdf`;
                               const isCompleted = s.status === "generated" || s.status === "signed";
@@ -522,8 +524,13 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                               const signingScrollRequired = s.signing_scroll_required === true;
                               const signingScrollConfirmed = signingScrollRequired && Boolean(s.signing_scroll_confirmed_at);
                               return (
-                                <tr key={s.token} className={`divide-x divide-[#F0EDE6] hover:bg-[#F4F1EA] transition-colors ${idx % 2 === 1 ? "bg-[#FAFAF8]" : "bg-white"} ${!isTerminal ? "cursor-pointer" : ""}`} onClick={!isTerminal ? () => openSession(s.token) : undefined}>
-                                  <td className="px-4 py-2 text-sm text-[#0F1C3F] max-w-[180px] truncate" title={recipient}>{recipient}</td>
+                                <tr key={s.token} className={`divide-x divide-[#F0EDE6] hover:bg-[#F4F1EA] transition-colors ${idx % 2 === 1 ? "bg-[#F5F2EC]" : "bg-white"} ${!isTerminal ? "cursor-pointer" : ""}`} onClick={!isTerminal ? () => openSession(s.token) : undefined}>
+                                  <td className="px-4 py-2 max-w-[220px]">
+                                    <div className="text-sm text-[#0F1C3F] truncate" title={recipient}>{recipient}</div>
+                                    {recipientEmail && (
+                                      <div className="text-[11px] text-gray-400 truncate" title={recipientEmail}>{recipientEmail}</div>
+                                    )}
+                                  </td>
                                   <td className="px-4 py-2">
                                     <div className="flex flex-col gap-1 items-start">
                                       <span className={`inline-flex px-1.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.cls}`}>{statusInfo.label}</span>

@@ -14,6 +14,21 @@ export default function Changelog() {
             <span className="text-xs font-mono text-white/40">May 2026</span>
             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#5B8DEF]/15 text-[#5B8DEF]">Improvement</span>
           </div>
+          <h2 className="mt-0">Library UX improvements — Tags panel, deep-link, session table polish</h2>
+          <ul>
+            <li><strong>Compliance Tags panel (Library → Tags)</strong> — A new sixth Library sub-tab lets you create, edit, and delete custom compliance tags without leaving the Library. Each row shows a live color swatch, the tag's name, description, and Required/Optional badge. Built-in tags are labeled and protected from deletion. The inline "New Tag" form has a preset color palette, a custom color picker, an optional description field, and a Required toggle.</li>
+            <li><strong>Compliance → Field deep-link</strong> — In the Compliance audit, every field in the Missing list is now a clickable underlined button. Clicking it switches to the Fields sub-tab and automatically opens that field's edit drawer, scrolled into view, so you can immediately add the required compliance tag.</li>
+            <li><strong>Sessions table — badge clarity</strong> — Draft and In Progress status badges now use a low-contrast muted gray style to visually separate incomplete sessions from terminal states (Completed, Signed, Submitted). Helps admins triage active sessions faster at a glance.</li>
+            <li><strong>Sessions table — signer email subtitle</strong> — When a session's signer name and email address are both available, the email is shown as a small muted subtitle line beneath the name with <code>max-w-[200px] truncate</code> and a hover tooltip — preventing long addresses from stretching the row.</li>
+            <li><strong>Sessions table — stronger zebra stripes</strong> — Alternating rows now use <code>bg-[#F5F2EC]</code> (warm tan) instead of the near-white previous shade, making large session lists easier to scan.</li>
+          </ul>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-xs font-mono text-white/40">May 2026</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#5B8DEF]/15 text-[#5B8DEF]">Improvement</span>
+          </div>
           <h2 className="mt-0">Shared Field Library — redesigned tab UIs</h2>
           <p>All five Library sub-tabs have been redesigned for faster scanning and editing at scale.</p>
           <ul>
