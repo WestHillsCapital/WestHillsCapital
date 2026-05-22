@@ -127,14 +127,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
           {/* Left: Docuplete brand + org logo (or org name if no logo) */}
           <div className="flex items-center gap-3">
             <Link href="/app" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity shrink-0">
-              <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M6 4h18l6 6v22H6V4z" fill="#0E1D4A" />
-                <path d="M24 4l6 6h-6V4z" fill="#C49A38" />
-                <rect x="10" y="14" width="10" height="1.5" rx="0.75" fill="rgba(255,255,255,0.5)" />
-                <rect x="10" y="18" width="14" height="1.5" rx="0.75" fill="rgba(255,255,255,0.5)" />
-                <rect x="10" y="22" width="8" height="1.5" rx="0.75" fill="rgba(255,255,255,0.5)" />
-                <circle cx="26" cy="28" r="5" fill="#C49A38" />
-                <path d="M23.5 28l2 2 3.5-3.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              {/* Light logo — rounded-square favicon style */}
+              <svg width="28" height="28" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="180" height="180" rx="38" fill="#0E1D4A" />
+                <path d="M38 28h74l30 30v94H38V28z" fill="white" opacity="0.95" />
+                <path d="M112 28l30 30h-30V28z" fill="#C49A38" />
+                <rect x="54" y="78" width="48" height="7" rx="3.5" fill="#0E1D4A" opacity="0.25" />
+                <rect x="54" y="94" width="66" height="7" rx="3.5" fill="#0E1D4A" opacity="0.25" />
+                <rect x="54" y="110" width="38" height="7" rx="3.5" fill="#0E1D4A" opacity="0.25" />
+                <circle cx="124" cy="138" r="24" fill="#C49A38" />
+                <path d="M113 138l8 8 14-14" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <span className="text-base font-bold tracking-tight text-[#0E1D4A]">{APP_NAME}</span>
             </Link>
