@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import logoSrc from "@/assets/logo.webp";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const PUBLIC_BASE = `${API_BASE}/api/v1/docuplete/public`;
@@ -120,8 +121,8 @@ export default function Verify() {
       {/* Minimal header */}
       <div className="bg-white border-b border-[#DDD5C4] px-4 py-4">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
-          <a href="/" className="font-serif text-[#0F1C3F] text-lg hover:opacity-75 transition-opacity">
-            West Hills Capital
+          <a href="https://docuplete.com" className="flex items-center gap-2 hover:opacity-75 transition-opacity">
+            <img src={logoSrc} alt="Docuplete" className="h-7 w-auto" />
           </a>
           <span className="text-[#DDD5C4]">/</span>
           <span className="text-sm text-[#6B7A99]">Document Verification</span>
