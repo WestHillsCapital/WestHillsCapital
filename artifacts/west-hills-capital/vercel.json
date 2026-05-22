@@ -1,12 +1,12 @@
 {
+  "outputDirectory": "dist/public",
+  "buildCommand": "pnpm run build",
+  "installCommand": "cd ../.. && pnpm install",
+  "framework": "vite",
   "rewrites": [
     {
-      "source": "/sitemap.xml",
-      "destination": "https://workspaceapi-server-production-987b.up.railway.app/sitemap.xml"
-    },
-    {
       "source": "/api/:path*",
-      "destination": "https://workspaceapi-server-production-987b.up.railway.app/api/:path*"
+      "destination": "https://app-production-ccfc.up.railway.app/api/:path*"
     }
   ]
 }
