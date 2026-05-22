@@ -112,4 +112,55 @@ ALTER TABLE accounts
   ADD COLUMN IF NOT EXISTS interview_reminder_enabled BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS interview_reminder_days    INTEGER NOT NULL DEFAULT 2;
 
+-- ---------------------------------------------------------------------------
+-- 6. Repair stale FK constraints
+--    When these tables were created they referenced docufill_interview_sessions
+--    (the old table name).  Re-point them to docuplete_interview_sessions so
+--    that any environment whose schema predates the rename works correctly.
+-- ---------------------------------------------------------------------------
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint c
+    JOIN pg_class r ON r.oid = c.confrelid
+    WHERE c.conname = 'docufill_audit_logs_session_id_fkey'
+      AND r.relname = 'docufill_interview_sessions'
+  ) THEN
+    -- Remove orphaned rows whose session_id no longer exists in docuplete_interview_sessions
+    DELETE FROM docuplete_audit_logs
+    WHERE session_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM docuplete_interview_sessions i WHERE i.id = session_id
+      );
+    ALTER TABLE docuplete_audit_logs
+      DROP CONSTRAINT docufill_audit_logs_session_id_fkey;
+    ALTER TABLE docuplete_audit_logs
+      ADD CONSTRAINT docuplete_audit_logs_session_id_fkey
+        FOREIGN KEY (session_id)
+        REFERENCES docuplete_interview_sessions(id) ON DELETE CASCADE;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint c
+    JOIN pg_class r ON r.oid = c.confrelid
+    WHERE c.conname = 'docufill_session_signers_session_id_fkey'
+      AND r.relname = 'docufill_interview_sessions'
+  ) THEN
+    -- Remove orphaned rows whose session_id no longer exists in docuplete_interview_sessions
+    DELETE FROM docuplete_session_signers
+    WHERE NOT EXISTS (
+      SELECT 1 FROM docuplete_interview_sessions i WHERE i.id = session_id
+    );
+    ALTER TABLE docuplete_session_signers
+      DROP CONSTRAINT docufill_session_signers_session_id_fkey;
+    ALTER TABLE docuplete_session_signers
+      ADD CONSTRAINT docuplete_session_signers_session_id_fkey
+        FOREIGN KEY (session_id)
+        REFERENCES docuplete_interview_sessions(id) ON DELETE CASCADE;
+  END IF;
+END $$;
+
 COMMIT;

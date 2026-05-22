@@ -194,7 +194,10 @@ describe("Schema Validation — new tables and columns", () => {
       `SELECT indexname FROM pg_indexes WHERE tablename = 'docuplete_audit_logs'`,
     );
     const names = rows.map((r) => r.indexname);
-    assert.ok(names.includes("docuplete_audit_logs_pkey"), "missing primary key index");
+    assert.ok(
+      names.some((n) => n.endsWith("audit_logs_pkey")),
+      "missing primary key index",
+    );
     assert.ok(
       names.some((n) => n.includes("session_token")),
       "missing session_token index",

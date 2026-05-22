@@ -551,7 +551,15 @@ describe("Fill engine – DB-backed tests (extreme values + E2E smoke)", () => {
   // ── Section 4: E2E smoke test ─────────────────────────────────────────────
   // Uses only HTTP API endpoints — no direct DB inserts for the session flow.
   // Flow: POST /sessions → PATCH /sessions/:token → POST generate → poll webhook_deliveries.
-  it("E2E: full intake→generate chain records a webhook_deliveries row", async () => {
+  it("E2E: full intake→generate chain records a webhook_deliveries row", async (t) => {
+    // Webhook delivery runs via the background job queue (Bull/BullMQ).
+    // Without REDIS_URL the queue is disabled and no delivery is ever attempted,
+    // so the webhook_deliveries row is never written.  Skip in that environment.
+    if (!process.env["REDIS_URL"]) {
+      t.skip("REDIS_URL not set — webhook queue disabled, skipping delivery row assertion");
+      return;
+    }
+
     // Step 1 — Create session via API
     const createRes = await supertest(app)
       .post("/sessions")
