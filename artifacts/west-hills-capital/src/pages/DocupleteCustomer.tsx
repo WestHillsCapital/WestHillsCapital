@@ -1269,8 +1269,19 @@ export default function DocupleteCustomer() {
               const initial = orgName.charAt(0).toUpperCase();
               return (
                 <>
-                  <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden" style={{ backgroundColor: logoSrc && logoOnWhite ? "#ffffff" : bColor }}>
-                    {logoSrc ? <img src={logoSrc} alt={orgName} className="w-full h-full object-contain" /> : <span className="text-white text-xs font-bold">{initial}</span>}
+                  <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden" style={{ backgroundColor: logoSrc ? (logoOnWhite ? "#ffffff" : bColor) : "transparent" }}>
+                    {logoSrc ? <img src={logoSrc} alt={orgName} className="w-full h-full object-contain" /> : (
+                      <svg viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+                        <rect width="180" height="180" rx="38" fill="#0E1D4A"/>
+                        <path d="M38 28h74l30 30v94H38V28z" fill="white" opacity="0.95"/>
+                        <path d="M112 28l30 30h-30V28z" fill="#C49A38"/>
+                        <rect x="54" y="78" width="48" height="7" rx="3.5" fill="#0E1D4A" opacity="0.25"/>
+                        <rect x="54" y="94" width="66" height="7" rx="3.5" fill="#0E1D4A" opacity="0.25"/>
+                        <rect x="54" y="110" width="38" height="7" rx="3.5" fill="#0E1D4A" opacity="0.25"/>
+                        <circle cx="124" cy="138" r="24" fill="#C49A38"/>
+                        <path d="M113 138l8 8 14-14" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-[#0F1C3F]">{orgName}</div>
@@ -1679,8 +1690,19 @@ export default function DocupleteCustomer() {
               return (
                 <>
                   <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden"
-                    style={{ backgroundColor: logoSrc && logoOnWhite ? "#ffffff" : brandColor }}>
-                    {logoSrc ? <img src={logoSrc} alt={orgName} className="w-full h-full object-contain" /> : <span className="text-white text-xs font-bold">{initial}</span>}
+                    style={{ backgroundColor: logoSrc ? (logoOnWhite ? "#ffffff" : brandColor) : "transparent" }}>
+                    {logoSrc ? <img src={logoSrc} alt={orgName} className="w-full h-full object-contain" /> : (
+                      <svg viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+                        <rect width="180" height="180" rx="38" fill="#0E1D4A"/>
+                        <path d="M38 28h74l30 30v94H38V28z" fill="white" opacity="0.95"/>
+                        <path d="M112 28l30 30h-30V28z" fill="#C49A38"/>
+                        <rect x="54" y="78" width="48" height="7" rx="3.5" fill="#0E1D4A" opacity="0.25"/>
+                        <rect x="54" y="94" width="66" height="7" rx="3.5" fill="#0E1D4A" opacity="0.25"/>
+                        <rect x="54" y="110" width="38" height="7" rx="3.5" fill="#0E1D4A" opacity="0.25"/>
+                        <circle cx="124" cy="138" r="24" fill="#C49A38"/>
+                        <path d="M113 138l8 8 14-14" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-[#0F1C3F]">{orgName}</div>
@@ -1864,12 +1886,21 @@ export default function DocupleteCustomer() {
               <>
                 <div
                   className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden"
-                  style={{ backgroundColor: logoSrc && logoOnWhite2 ? "#ffffff" : brandColor }}
+                  style={{ backgroundColor: logoSrc ? (logoOnWhite2 ? "#ffffff" : brandColor) : "transparent" }}
                 >
                   {logoSrc ? (
                     <img src={logoSrc} alt={orgName} className="w-full h-full object-contain" />
                   ) : (
-                    <span className="text-white text-xs font-bold">{initial}</span>
+                    <svg viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+                      <rect width="180" height="180" rx="38" fill="#0E1D4A"/>
+                      <path d="M38 28h74l30 30v94H38V28z" fill="white" opacity="0.95"/>
+                      <path d="M112 28l30 30h-30V28z" fill="#C49A38"/>
+                      <rect x="54" y="78" width="48" height="7" rx="3.5" fill="#0E1D4A" opacity="0.25"/>
+                      <rect x="54" y="94" width="66" height="7" rx="3.5" fill="#0E1D4A" opacity="0.25"/>
+                      <rect x="54" y="110" width="38" height="7" rx="3.5" fill="#0E1D4A" opacity="0.25"/>
+                      <circle cx="124" cy="138" r="24" fill="#C49A38"/>
+                      <path d="M113 138l8 8 14-14" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
                   )}
                 </div>
                 <div>
