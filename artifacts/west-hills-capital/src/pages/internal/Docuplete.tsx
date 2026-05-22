@@ -4766,7 +4766,7 @@ export default function Docuplete() {
               return (
                 <button
                   key={sub}
-                  onClick={() => { setLibrarySubTab(sub); if (sub === "compliance") void loadComplianceAudit(); if (sub === "tags") void loadComplianceTags(); }}
+                  onClick={() => { setLibrarySubTab(sub); if (sub === "compliance") void loadComplianceAudit(); if (sub === "tags" && complianceTags.length === 0) void loadComplianceTags(); }}
                   className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${librarySubTab === sub ? "border-[#0F1C3F] text-[#0F1C3F]" : "border-transparent text-[#8A9BB8] hover:text-[#0F1C3F] hover:border-[#DDD5C4]"}`}
                 >
                   {label}
