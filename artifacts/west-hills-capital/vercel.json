@@ -7,6 +7,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://app-production-ccfc.up.railway.app/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
