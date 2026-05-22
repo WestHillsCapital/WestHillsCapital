@@ -125,8 +125,18 @@ export default function Verify() {
       {/* Minimal header */}
       <div className="bg-white border-b border-gray-200 px-4 py-4">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
-          <a href="https://docuplete.com" className="font-bold tracking-tight text-[#0B1220] text-xl hover:opacity-75 transition-opacity">
-            Docuplete
+          <a href="https://docuplete.com" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+            <svg width="28" height="28" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="180" height="180" rx="38" fill="#0E1D4A" />
+              <path d="M38 28h74l30 30v94H38V28z" fill="white" opacity="0.95" />
+              <path d="M112 28l30 30h-30V28z" fill="#C49A38" />
+              <rect x="54" y="78" width="48" height="7" rx="3.5" fill="#0E1D4A" opacity="0.25" />
+              <rect x="54" y="94" width="66" height="7" rx="3.5" fill="#0E1D4A" opacity="0.25" />
+              <rect x="54" y="110" width="38" height="7" rx="3.5" fill="#0E1D4A" opacity="0.25" />
+              <circle cx="124" cy="138" r="24" fill="#C49A38" />
+              <path d="M113 138l8 8 14-14" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="font-bold tracking-tight text-[#0B1220] text-xl">Docuplete</span>
           </a>
           <span className="text-gray-300">/</span>
           <span className="text-sm text-[#6B7A99]">Document Verification</span>
