@@ -6,6 +6,16 @@ const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SETTINGS_BASE = `${API_BASE}/api/v1/product/settings`;
 
 const PLAN_INFO = {
+  starter: {
+    label:       "Starter",
+    monthly:     49,
+    annual:      468,
+    annualPerMo: 39,
+    packages:    "5 packages",
+    subs:        "75 submissions / seat / mo",
+    seats:       "Up to 2 seats",
+    color:       "blue",
+  },
   pro: {
     label:       "Pro",
     monthly:     249,
@@ -95,7 +105,7 @@ export function UpgradeModal() {
 
   if (!isOpen) return null;
 
-  const targetPlan: "pro" | "enterprise" = state.requiredPlan ?? "pro";
+  const targetPlan: "starter" | "pro" | "enterprise" = state.requiredPlan ?? "pro";
   const plan = PLAN_INFO[targetPlan];
   const isAnnual = interval === "annual";
 
@@ -110,10 +120,10 @@ export function UpgradeModal() {
   const featureKey = state.feature ?? state.limitType ?? "";
   const featureLabel = state.featureLabel ?? FEATURE_LABELS[featureKey] ?? "this feature";
 
-  const showSeatAddon = true;
+  const showSeatAddon = targetPlan !== "starter";
   const showPackAddon = targetPlan === "pro";
 
-  async function handleUpgrade(planChoice: "pro" | "enterprise") {
+  async function handleUpgrade(planChoice: "starter" | "pro" | "enterprise") {
     setError(null);
     setIsLoading(true);
     try {
@@ -153,7 +163,9 @@ export function UpgradeModal() {
   }
 
   const planColorCls =
-    plan.color === "indigo"
+    plan.color === "blue"
+      ? { bg: "bg-blue-600", border: "border-blue-600", text: "text-blue-700", light: "bg-blue-50 border-blue-100 text-blue-700" }
+      : plan.color === "indigo"
       ? { bg: "bg-indigo-600", border: "border-indigo-600", text: "text-indigo-700", light: "bg-indigo-50 border-indigo-100 text-indigo-700" }
       : { bg: "bg-amber-600", border: "border-amber-600", text: "text-amber-700", light: "bg-amber-50 border-amber-100 text-amber-700" };
 
@@ -301,7 +313,17 @@ export function UpgradeModal() {
             {isLoading ? "Opening…" : `Start ${plan.label} — 14-day free trial`}
           </button>
 
-          {/* Enterprise alt CTA (only shown when target is pro) */}
+          {/* Alt CTA: Pro when target is starter, Enterprise when target is pro */}
+          {targetPlan === "starter" && (
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => void handleUpgrade("pro")}
+              className="w-full py-2.5 rounded-xl text-xs font-medium text-indigo-700 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 transition-colors disabled:opacity-60"
+            >
+              Or upgrade to Pro — unlimited packages · 50 submissions/seat ($249/mo)
+            </button>
+          )}
           {targetPlan === "pro" && (
             <button
               type="button"

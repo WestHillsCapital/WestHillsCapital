@@ -112,6 +112,7 @@ export function requireWithinPlanLimits(resource: LimitedResource) {
             error: `Your plan allows up to ${limits.maxPackages} package${limits.maxPackages !== 1 ? "s" : ""}. Upgrade to create more.`,
             upgrade_required: true,
             limit_type: "packages",
+            required_plan: "starter",
             current,
             limit: limits.maxPackages,
           });
