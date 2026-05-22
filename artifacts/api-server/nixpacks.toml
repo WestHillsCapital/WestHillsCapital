@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ['nodejs_20', 'nodePackages.pnpm']
+
+[phases.install]
+cmds = ['cd ../.. && pnpm install --frozen-lockfile']
+
+[phases.build]
+cmds = ['pnpm run build']
+
+[start]
+cmd = 'node --enable-source-maps ./dist/index.mjs'
