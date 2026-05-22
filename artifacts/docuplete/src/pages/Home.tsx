@@ -1562,6 +1562,18 @@ export default function Home() {
           <p className="text-center text-sm text-[#4B5A7A] mt-8">
             Prices shown are introductory and <strong className="text-[#0B1220]">will increase</strong> as Docuplete grows. Lock in your rate today.
           </p>
+
+          <div className="mt-10 text-center">
+            <a
+              href="https://roi.docuplete.com"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-[#1B4FD8] hover:text-[#1440b0] transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 15.75V18m-7.5-6.75h.008v.008H8.25v-.008Zm0 2.25h.008v.008H8.25V13.5Zm0 2.25h.008v.008H8.25v-.008Zm2.25-4.5h.008v.008H10.5v-.008Zm0 2.25h.008v.008H10.5V13.5Zm0 2.25h.008v.008H10.5v-.008Zm2.25-4.5h.008v.008H12.75v-.008Zm0 2.25h.008v.008H12.75V13.5Zm0 2.25h.008v.008H12.75v-.008ZM6.75 19.5H17.25M3.75 7.5h16.5M3.75 7.5A2.25 2.25 0 0 1 6 5.25h12a2.25 2.25 0 0 1 2.25 2.25v9.75a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 17.25V7.5Z" />
+              </svg>
+              Not sure which plan fits? Calculate your ROI →
+            </a>
+          </div>
         </div>
       </section>
 
