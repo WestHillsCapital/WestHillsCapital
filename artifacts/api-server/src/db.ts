@@ -1694,6 +1694,8 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS deletion_requested_by TEXT`);
   // Post-trial data retention — set when a trial ends without converting; cleared on subscribe
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS trial_ended_at TIMESTAMPTZ`);
+  // Trial end date — set at signup so billing UI can show countdown before Stripe subscription exists
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ`);
   // Set by the purge job after org content is deleted; prevents re-processing
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS data_purged_at TIMESTAMPTZ`);
 

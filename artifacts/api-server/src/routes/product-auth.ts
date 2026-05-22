@@ -117,7 +117,9 @@ router.post("/onboard", async (req, res) => {
       accountId = 1;
     } else {
       const acctResult = await getDb().query<{ id: number }>(
-        `INSERT INTO accounts (name, slug, industry) VALUES ($1, $2, $3) RETURNING id`,
+        `INSERT INTO accounts (name, slug, industry, plan_tier, subscription_status, seat_limit, trial_ends_at)
+         VALUES ($1, $2, $3, 'pro', 'trialing', 10, NOW() + INTERVAL '14 days')
+         RETURNING id`,
         [name, slug, industry ?? null],
       );
       accountId = acctResult.rows[0].id;

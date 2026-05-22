@@ -717,8 +717,8 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                 )}
               </div>
 
-              {/* Upgrade CTA — free/starter/pro only */}
-              {(billing.plan_tier === "free" || billing.plan_tier === "starter" || billing.plan_tier === "pro") && (
+              {/* Upgrade CTA — free/starter/pro only, hidden during active trial */}
+              {(billing.plan_tier === "free" || billing.plan_tier === "starter" || billing.plan_tier === "pro") && billing.subscription_status !== "trialing" && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="flex items-center gap-1 p-0.5 bg-gray-100 rounded-lg">
                     <button

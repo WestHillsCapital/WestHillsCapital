@@ -1202,8 +1202,9 @@ router.get("/billing", async (req, res) => {
       subscription_status: string | null;
       billing_period_start: Date | null;
       seat_limit: number;
+      trial_ends_at: Date | null;
     }>(
-      `SELECT plan_tier, stripe_customer_id, stripe_subscription_id, subscription_status, billing_period_start, seat_limit
+      `SELECT plan_tier, stripe_customer_id, stripe_subscription_id, subscription_status, billing_period_start, seat_limit, trial_ends_at
          FROM accounts WHERE id = $1`,
       [accountId],
     );
@@ -1297,6 +1298,9 @@ router.get("/billing", async (req, res) => {
         if (subRows[0]?.trial_end) {
           trialEnd = new Date(subRows[0].trial_end).toISOString();
         }
+        if (!trialEnd && acct.trial_ends_at) {
+          trialEnd = new Date(acct.trial_ends_at).toISOString();
+        }
         if (subRows[0]?.total_amount_cents != null) {
           renewalAmountCents = parseInt(subRows[0].total_amount_cents, 10);
         }
@@ -1318,6 +1322,12 @@ router.get("/billing", async (req, res) => {
       } catch {
         // stripe schema not yet initialized or subscription_items/prices not synced — skip silently
       }
+    }
+
+    // Fallback: if no Stripe trial_end was found, use the account-level trial_ends_at
+    // (set at signup so new accounts show a countdown before their first Stripe subscription)
+    if (!trialEnd && acct.trial_ends_at) {
+      trialEnd = new Date(acct.trial_ends_at).toISOString();
     }
 
     res.json({
