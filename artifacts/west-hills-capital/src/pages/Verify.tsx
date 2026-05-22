@@ -64,6 +64,11 @@ export default function Verify() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    document.title = "Docuplete | Document Verification";
+    return () => { document.title = "Docuplete"; };
+  }, []);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token  = params.get("token");
     const hash   = params.get("hash");
@@ -280,14 +285,10 @@ export default function Verify() {
       {/* Footer */}
       <div className="border-t border-[#DDD5C4] bg-white px-4 py-5 text-center">
         <p className="text-xs text-[#8A9BB8]">
-          Powered by{" "}
           <a href="https://docuplete.com" className="underline underline-offset-2 hover:text-[#0F1C3F] transition-colors">
             Docuplete
           </a>
-          {" · "}
-          <a href="/" className="underline underline-offset-2 hover:text-[#0F1C3F] transition-colors">
-            West Hills Capital
-          </a>
+          {" · "}Document Verification
         </p>
       </div>
     </div>
