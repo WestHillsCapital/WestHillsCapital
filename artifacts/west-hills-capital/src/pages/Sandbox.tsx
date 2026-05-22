@@ -86,7 +86,18 @@ export default function Sandbox() {
       {/* Header */}
       <header className="bg-white border-b border-[#DDD5C4] px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center gap-3">
-          <div className="w-7 h-7 rounded flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: BRAND }}>D</div>
+          <svg width="28" height="28" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="180" height="180" rx="38" fill="#0E1D4A"/>
+            <g opacity="0.95">
+              <path d="M57 36H107.5L130 59V148H57V36Z" fill="white"/>
+              <path d="M107.5 36L130 59H107.5V36Z" fill="#C49A38"/>
+            </g>
+            <rect x="70" y="75" width="46" height="5" rx="2.5" fill="#0E1D4A" opacity="0.25"/>
+            <rect x="70" y="89" width="46" height="5" rx="2.5" fill="#0E1D4A" opacity="0.25"/>
+            <rect x="70" y="103" width="30" height="5" rx="2.5" fill="#0E1D4A" opacity="0.25"/>
+            <circle cx="131" cy="131" r="26" fill="#C49A38"/>
+            <path d="M120 131L128 139L143 124" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
           <span className="text-sm font-semibold text-[#0F1C3F]">Docuplete</span>
           <span className="ml-2 text-[10px] rounded-full px-2 py-0.5 font-medium bg-amber-50 text-amber-700 border border-amber-200">SANDBOX</span>
         </div>
