@@ -411,7 +411,7 @@ function SubmissionBankSection({ getAuthHeaders }: { getAuthHeaders: () => Heade
             <Select
               value={String(selectedSize)}
               onChange={(e) => setSelectedSize(Number(e.target.value))}
-              className="h-auto rounded-md border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-700"
+              className="h-auto appearance-none rounded-md border-gray-200 bg-white pl-2.5 pr-7 py-1.5 text-xs text-gray-700"
             >
               {packs.map((p) => (
                 <option key={p.size} value={p.size}>{p.size} submissions</option>
