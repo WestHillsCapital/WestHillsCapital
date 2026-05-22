@@ -1,1 +1,123 @@
-{"cookies":[],"origins":[]}
+{
+  "cookies": [
+    {
+      "name": "_ga_CL0N3NWYHM",
+      "value": "GS2.1.s1779420769$o1$g0$t1779420769$j60$l0$h0",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1813980769.109846,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ga",
+      "value": "GA1.1.1651323411.1779420769",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1813980769.119083,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "__cf_bm",
+      "value": "LKlWiG6ovzhCEFmEK8IXyXAqjUyxGVPM1yrvd88xkRk-1779420772-1.0.1.1-cX7KZ2hZCwM0U4jRFGft.9ZdoAJNsqIoOhjqftI_Qa8jTfqbfLLouKtCZ5aPDajHyB2bhdob3tI3i4nF3SjlTy0DXDkwkRhEki2PRVMHJz8",
+      "domain": ".large-tahr-52.clerk.accounts.dev",
+      "path": "/",
+      "expires": 1779422572,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_cfuvid",
+      "value": "af9B21ySaFxvAPss0.UjJ8lHwgN5ZzIad_XcEKPuEug-1779420772013-0.0.1.1-604800000",
+      "domain": ".large-tahr-52.clerk.accounts.dev",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__clerk_db_jwt_sY8G3DzW",
+      "value": "dvb_3E3wt4utEWy93L4qg9kaPefKj0v",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1810956772,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "http://localhost",
+      "_crHasCrossSiteAncestor": false
+    },
+    {
+      "name": "__clerk_db_jwt",
+      "value": "dvb_3E3wt4utEWy93L4qg9kaPefKj0v",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1810956772,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "http://localhost",
+      "_crHasCrossSiteAncestor": false
+    },
+    {
+      "name": "__client_uat_sY8G3DzW",
+      "value": "0",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1810956772,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "http://localhost",
+      "_crHasCrossSiteAncestor": false
+    },
+    {
+      "name": "__client_uat",
+      "value": "0",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1810956772,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "http://localhost",
+      "_crHasCrossSiteAncestor": false
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:23904",
+      "localStorage": [
+        {
+          "name": "__clerk_environment",
+          "value": "{\"value\":{\"object\":\"environment\",\"auth_config\":{\"claimed_at\":null,\"id\":\"\",\"object\":\"auth_config\",\"reverification\":true,\"single_session_mode\":true,\"session_minter\":false},\"display_config\":{\"object\":\"display_config\",\"after_create_organization_url\":\"http://localhost:23904\",\"after_join_waitlist_url\":\"http://localhost:23904\",\"after_leave_organization_url\":\"http://localhost:23904\",\"after_sign_in_url\":\"http://localhost:23904\",\"after_sign_out_all_url\":\"https://large-tahr-52.accounts.dev/sign-in\",\"after_sign_out_one_url\":\"https://large-tahr-52.accounts.dev/sign-in/choose\",\"after_sign_up_url\":\"http://localhost:23904\",\"after_switch_session_url\":\"http://localhost:23904\",\"application_name\":\"West Hills Capital\",\"branded\":false,\"captcha_heartbeat\":false,\"captcha_oauth_bypass\":[],\"captcha_provider\":\"turnstile\",\"captcha_public_key_invisible\":\"0x4AAAAAAAFV93qQdS0ycilX\",\"captcha_public_key\":\"0x4AAAAAAAWXJGBD7bONzLBd\",\"captcha_widget_type\":\"smart\",\"clerk_js_version\":\"6\",\"create_organization_url\":\"https://large-tahr-52.accounts.dev/create-organization\",\"favicon_image_url\":\"\",\"home_url\":\"http://localhost:23904\",\"id\":\"display_config_3CrAhOMIpC54LAiHXdZ0yXrbqUL\",\"instance_environment_type\":\"development\",\"logo_image_url\":\"\",\"organization_profile_url\":\"https://large-tahr-52.accounts.dev/organization\",\"preferred_sign_in_strategy\":\"password\",\"privacy_policy_url\":\"\",\"show_devmode_warning\":true,\"sign_in_url\":\"https://large-tahr-52.accounts.dev/sign-in\",\"sign_up_url\":\"https://large-tahr-52.accounts.dev/sign-up\",\"support_email\":\"\",\"terms_url\":\"\",\"theme\":{\"buttons\":{\"font_color\":\"#ffffff\",\"font_family\":\"\\\"Source Sans Pro\\\", sans-serif\",\"font_weight\":\"600\"},\"general\":{\"color\":\"#6c47ff\",\"padding\":\"1em\",\"box_shadow\":\"0 2px 8px rgba(0, 0, 0, 0.2)\",\"font_color\":\"#151515\",\"font_family\":\"\\\"Source Sans Pro\\\", sans-serif\",\"border_radius\":\"0.5em\",\"background_color\":\"#ffffff\",\"label_font_weight\":\"600\"},\"accounts\":{\"background_color\":\"#ffffff\"}},\"user_profile_url\":\"https://large-tahr-52.accounts.dev/user\",\"waitlist_url\":\"https://large-tahr-52.accounts.dev/waitlist\"},\"id\":\"\",\"maintenance_mode\":false,\"client_debug_mode\":false,\"partitioned_cookies\":true,\"organization_settings\":{\"actions\":{\"admin_delete\":true},\"domains\":{\"enabled\":false,\"enrollment_modes\":[],\"default_role\":\"\"},\"enabled\":false,\"max_allowed_memberships\":0},\"user_settings\":{\"actions\":{\"delete_self\":true,\"create_organization\":true,\"create_organizations_limit\":null},\"attributes\":{\"email_address\":{\"enabled\":true,\"required\":true,\"used_for_first_factor\":true,\"first_factors\":[\"email_code\"],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[\"email_code\"],\"verify_at_sign_up\":true,\"immutable\":false,\"name\":\"email_address\"},\"phone_number\":{\"enabled\":false,\"required\":false,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"phone_number\"},\"username\":{\"enabled\":false,\"required\":false,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"username\"},\"web3_wallet\":{\"enabled\":false,\"required\":false,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"web3_wallet\"},\"first_name\":{\"enabled\":false,\"required\":false,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"first_name\"},\"last_name\":{\"enabled\":false,\"required\":false,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"last_name\"},\"password\":{\"enabled\":true,\"required\":true,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"password\"},\"authenticator_app\":{\"enabled\":false,\"required\":false,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"authenticator_app\"},\"ticket\":{\"enabled\":true,\"required\":false,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"ticket\"},\"backup_code\":{\"enabled\":false,\"required\":false,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"backup_code\"},\"passkey\":{\"enabled\":false,\"required\":false,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"passkey\"}},\"passkey_settings\":{\"allow_autofill\":true,\"show_sign_in_button\":true},\"password_settings\":{\"disable_hibp\":false,\"min_length\":8,\"max_length\":72,\"require_special_char\":false,\"require_numbers\":false,\"require_uppercase\":false,\"require_lowercase\":false,\"show_zxcvbn\":false,\"min_zxcvbn_strength\":0,\"enforce_hibp_on_sign_in\":true,\"allowed_special_characters\":\"!\\\"#$%&'()*+,-./:;<=>?@[]^_`{|}~\"},\"sign_in\":{\"second_factor\":{\"required\":false}},\"sign_up\":{\"captcha_enabled\":true,\"captcha_widget_type\":\"smart\",\"custom_action_required\":false,\"progressive\":true,\"mode\":\"public\",\"legal_consent_enabled\":false,\"mfa\":{\"required\":false}},\"social\":{\"oauth_google\":{\"enabled\":true,\"required\":false,\"authenticatable\":true,\"block_email_subaddresses\":true,\"strategy\":\"oauth_google\",\"not_selectable\":false,\"deprecated\":false,\"name\":\"Google\",\"logo_url\":\"https://img.clerk.com/static/google.png\"}}},\"commerce_settings\":{\"billing\":{\"stripe_publishable_key\":null,\"organization\":{\"enabled\":false,\"has_paid_plans\":false},\"user\":{\"enabled\":false,\"has_paid_plans\":false}}},\"api_keys_settings\":{\"user_api_keys_enabled\":false,\"orgs_api_keys_enabled\":false},\"protect_config\":{\"object\":\"protect_config\",\"id\":\"\"}},\"exp\":1779507172120}"
+        },
+        {
+          "name": "csvBatchFieldBreakdownOpen",
+          "value": "false"
+        },
+        {
+          "name": "csvBatchPackageId",
+          "value": ""
+        },
+        {
+          "name": "docuplete-mapper-scroll",
+          "value": "false"
+        },
+        {
+          "name": "csvColumnsExpanded",
+          "value": "false"
+        },
+        {
+          "name": "docuplete-snap-grid",
+          "value": "false"
+        }
+      ]
+    }
+  ]
+}

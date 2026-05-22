@@ -1,5 +1,5 @@
 import { chromium, type FullConfig } from "@playwright/test";
-import { setupClerkTestingToken } from "@clerk/testing/playwright";
+import { clerkSetup, setupClerkTestingToken } from "@clerk/testing/playwright";
 import path from "path";
 import fs from "fs";
 
@@ -9,6 +9,7 @@ const NIX_CHROMIUM =
   "/nix/store/5afrhwm7zqn1vb7p5z1mc2rkh2grsfgz-ungoogled-chromium-138.0.7204.100/bin/chromium";
 
 export default async function globalSetup(_config: FullConfig) {
+  await clerkSetup({ config: _config });
   const PORT = process.env.PORT ?? "3000";
   const BASE = process.env.BASE_URL ?? `http://localhost:${PORT}`;
 
