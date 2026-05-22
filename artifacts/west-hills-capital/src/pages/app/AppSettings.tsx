@@ -2679,7 +2679,7 @@ function NotificationsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
                           aria-checked={pref.email_enabled}
                           onClick={() => handleToggle(event.key, "email_enabled", !pref.email_enabled)}
                           className="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
-                          style={{ backgroundColor: pref.email_enabled ? "#0E1D4A" : "#E2E8F0" }}
+                          style={{ backgroundColor: pref.email_enabled ? bc : "#E2E8F0" }}
                         >
                           <span
                             className={[
@@ -2696,7 +2696,7 @@ function NotificationsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
                           aria-checked={pref.in_app_enabled}
                           onClick={() => handleToggle(event.key, "in_app_enabled", !pref.in_app_enabled)}
                           className="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
-                          style={{ backgroundColor: pref.in_app_enabled ? "#0E1D4A" : "#E2E8F0" }}
+                          style={{ backgroundColor: pref.in_app_enabled ? bc : "#E2E8F0" }}
                         >
                           <span
                             className={[
