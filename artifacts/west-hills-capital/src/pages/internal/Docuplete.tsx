@@ -34,7 +34,7 @@ import { MappingButton } from "@/components/MappingButton";
 import { FieldCard } from "@/components/FieldCard";
 import { PlacementModal } from "@/components/PlacementModal";
 import { DocumentPreviewTile } from "@/components/DocumentPreviewTile";
-import { EmptyState, SummaryCard, LabeledInput, EntityPanel, TransactionTypesPanel, FieldLibraryPanel, FieldGroupsPanel } from "@/components/DocupletePanels";
+import { EmptyState, SummaryCard, LabeledInput, EntityPanel, TransactionTypesPanel, FieldLibraryPanel, FieldGroupsPanel, ComplianceTagsPanel } from "@/components/DocupletePanels";
 import type { Entity, TransactionType, DocItem, FieldLibraryItem, FieldVersionRow, FieldAnalytics, FieldGroup, PackageItem, ComplianceTag } from "@/lib/docuplete-local-types";
 import { FieldEditorModal, type FieldEditorDraft } from "@/components/FieldEditorModal";
 import { TagChipInput, PackagePickerWithTags, ScrollPageCanvas, EmbedSnippetPanel } from "@/components/DocupleteWidgets";
@@ -471,7 +471,8 @@ export default function Docuplete() {
     } catch { /* sessionStorage unavailable */ }
     return "documents";
   });
-  const [librarySubTab, setLibrarySubTab] = useState<"fields" | "field-groups" | "types" | "groups" | "compliance">("fields");
+  const [librarySubTab, setLibrarySubTab] = useState<"fields" | "field-groups" | "types" | "groups" | "compliance" | "tags">("fields");
+  const [libraryOpenFieldId, setLibraryOpenFieldId] = useState<string | null>(null);
   const [groups, setGroups] = useState<Entity[]>([]);
   const [custodians, setCustodians] = useState<Entity[]>([]);
   const [depositories, setDepositories] = useState<Entity[]>([]);
@@ -1242,6 +1243,53 @@ export default function Docuplete() {
       return null;
     } catch (err) {
       return err instanceof Error ? err.message : "Failed to update compliance tags";
+    }
+  }
+
+  async function createComplianceTag(tag: { name: string; color: string; description?: string; isRequired: boolean }): Promise<string | null> {
+    try {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/compliance-tags`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify(tag),
+      });
+      const data = await res.json().catch(() => ({})) as { error?: string; tag?: ComplianceTag };
+      if (!res.ok) return data.error ?? "Failed to create tag";
+      if (data.tag) setComplianceTags((prev) => [...prev, data.tag!]);
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : "Failed to create tag";
+    }
+  }
+
+  async function updateComplianceTag(id: number, patch: { name?: string; color?: string; description?: string | null; isRequired?: boolean }): Promise<string | null> {
+    try {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/compliance-tags/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify(patch),
+      });
+      const data = await res.json().catch(() => ({})) as { error?: string; tag?: ComplianceTag };
+      if (!res.ok) return data.error ?? "Failed to update tag";
+      if (data.tag) setComplianceTags((prev) => prev.map((t) => t.id === id ? { ...t, ...data.tag } : t));
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : "Failed to update tag";
+    }
+  }
+
+  async function deleteComplianceTag(id: number): Promise<string | null> {
+    try {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/compliance-tags/${id}`, {
+        method: "DELETE",
+        headers: { ...getAuthHeaders() },
+      });
+      const data = await res.json().catch(() => ({})) as { error?: string };
+      if (!res.ok) return data.error ?? "Failed to delete tag";
+      setComplianceTags((prev) => prev.filter((t) => t.id !== id));
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : "Failed to delete tag";
     }
   }
 
@@ -4713,12 +4761,12 @@ export default function Docuplete() {
       {!isPublicSession && tab === "library" && (
         <section className="bg-white border border-[#DDD5C4] rounded-lg max-w-4xl mx-auto overflow-hidden mt-4">
           <div className="flex border-b border-[#DDD5C4]">
-            {(["fields", "field-groups", "types", "groups", "compliance"] as const).map((sub) => {
+            {(["fields", "field-groups", "types", "groups", "compliance", "tags"] as const).map((sub) => {
               const label = sub === "field-groups" ? "Field Groups" : sub.charAt(0).toUpperCase() + sub.slice(1);
               return (
                 <button
                   key={sub}
-                  onClick={() => { setLibrarySubTab(sub); if (sub === "compliance") void loadComplianceAudit(); }}
+                  onClick={() => { setLibrarySubTab(sub); if (sub === "compliance") void loadComplianceAudit(); if (sub === "tags") void loadComplianceTags(); }}
                   className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${librarySubTab === sub ? "border-[#0F1C3F] text-[#0F1C3F]" : "border-transparent text-[#8A9BB8] hover:text-[#0F1C3F] hover:border-[#DDD5C4]"}`}
                 >
                   {label}
@@ -4743,6 +4791,8 @@ export default function Docuplete() {
               onLoadAnalytics={loadFieldAnalytics}
               onExport={exportFieldLibrary}
               onImport={importFieldLibrary}
+              openFieldId={libraryOpenFieldId ?? undefined}
+              onClearOpenField={() => setLibraryOpenFieldId(null)}
             />
           )}
 
@@ -4777,6 +4827,15 @@ export default function Docuplete() {
               onChange={(id, patch) => updateGroupLocal(id, patch)}
               onSave={saveGroup as (g: Entity) => Promise<string | null>}
               onDelete={deleteGroup as (id: number) => Promise<string | null>}
+            />
+          )}
+
+          {librarySubTab === "tags" && (
+            <ComplianceTagsPanel
+              items={complianceTags}
+              onCreate={createComplianceTag}
+              onUpdate={updateComplianceTag}
+              onDelete={deleteComplianceTag}
             />
           )}
 
@@ -4884,7 +4943,12 @@ export default function Docuplete() {
                                 const hasRequired = f.tags.some((t) => complianceAudit.tags.find((x) => x.name === t)?.is_required);
                                 return (
                                   <li key={f.fieldId} className="flex items-center gap-1 flex-wrap">
-                                    <span className={hasRequired ? "text-[#DC2626] font-medium" : "text-[#6B7A99]"}>{f.label}</span>
+                                    <button
+                                      type="button"
+                                      title="Jump to this field in the Library"
+                                      onClick={() => { setLibrarySubTab("fields"); setLibraryOpenFieldId(f.fieldId); }}
+                                      className={`underline underline-offset-2 decoration-dotted hover:decoration-solid transition-colors ${hasRequired ? "text-[#DC2626] font-medium hover:text-[#B91C1C]" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+                                    >{f.label}</button>
                                     {f.tags.map((t) => {
                                       const tm = complianceAudit.tags.find((x) => x.name === t);
                                       return (
