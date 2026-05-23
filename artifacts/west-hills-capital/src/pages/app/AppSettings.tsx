@@ -4942,7 +4942,7 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
       spSavedTimer.current = setTimeout(() => setSpSaved(false), 4000);
     } catch (err: unknown) {
       if (isClerkAPIResponseError(err) && err.errors.some(e => e.code === "session_step_up_verification_required")) {
-        window.location.href = `/app/sign-in?redirect_url=${encodeURIComponent("/app/settings")}`;
+        window.location.href = `/sign-in?redirect_url=${encodeURIComponent("/app/settings")}`;
         return;
       }
       const msg = err instanceof Error ? err.message : "Failed to set password.";
@@ -4976,7 +4976,7 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
       passwordSavedTimer.current = setTimeout(() => setPasswordSaved(false), 4000);
     } catch (err: unknown) {
       if (isClerkAPIResponseError(err) && err.errors.some(e => e.code === "session_step_up_verification_required")) {
-        window.location.href = `/app/sign-in?redirect_url=${encodeURIComponent("/app/settings")}`;
+        window.location.href = `/sign-in?redirect_url=${encodeURIComponent("/app/settings")}`;
         return;
       }
       const msg = err instanceof Error ? err.message : "Failed to update password.";

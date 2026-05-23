@@ -105,7 +105,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   const handleSignOut = () => {
     setDropdownOpen(false);
-    signOut({ redirectUrl: `${basePath}/app/sign-in` });
+    signOut({ redirectUrl: `${basePath}/sign-in` });
   };
 
   useEffect(() => {

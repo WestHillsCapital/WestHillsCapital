@@ -202,10 +202,8 @@ function Router() {
         <ErrorBoundary label="app portal">
           <Suspense fallback={<PageSpinner />}>
             <Switch>
-              <Route path="/sign-in/*?"><Redirect to="/app/sign-in" /></Route>
-              <Route path="/sign-up/*?"><Redirect to="/app/sign-up" /></Route>
-              <Route path="/app/sign-in/*?" component={AppSignIn} />
-              <Route path="/app/sign-up/*?" component={AppSignUp} />
+              <Route path="/sign-in/*?" component={AppSignIn} />
+              <Route path="/sign-up/*?" component={AppSignUp} />
               <Route path="/app/*?"         component={AppPortal} />
             </Switch>
           </Suspense>
@@ -315,9 +313,9 @@ function ClerkProviderWithRouter({ children }: { children: React.ReactNode }) {
     <ClerkProvider
       publishableKey={CLERK_PUB_KEY}
       proxyUrl={CLERK_PROXY_URL}
-      signInUrl={`${basePath}/app/sign-in`}
-      signUpUrl={`${basePath}/app/sign-up`}
-      afterSignOutUrl={`${basePath}/app/sign-in`}
+      signInUrl={`${basePath}/sign-in`}
+      signUpUrl={`${basePath}/sign-up`}
+      afterSignOutUrl={`${basePath}/sign-in`}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >

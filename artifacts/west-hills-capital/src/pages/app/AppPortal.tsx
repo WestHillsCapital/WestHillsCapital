@@ -23,7 +23,7 @@ function Spinner() {
 function SignInRedirect() {
   const [, setLocation] = useLocation();
   useEffect(() => {
-    const t = setTimeout(() => setLocation("/app/sign-in"), 2000);
+    const t = setTimeout(() => setLocation("/sign-in"), 2000);
     return () => clearTimeout(t);
   }, [setLocation]);
   return <Spinner />;
@@ -84,7 +84,7 @@ export default function AppPortal() {
       <TwoFAGate
         verify2FA={verify2FA}
         onVerified={() => refreshAccount()}
-        onSignOut={() => signOut({ redirectUrl: "/app/sign-in" })}
+        onSignOut={() => signOut({ redirectUrl: "/sign-in" })}
       />
     );
   }
@@ -104,7 +104,7 @@ export default function AppPortal() {
             </button>
             <button
               type="button"
-              onClick={() => signOut({ redirectUrl: "/app/sign-in" })}
+              onClick={() => signOut({ redirectUrl: "/sign-in" })}
               className="text-sm underline text-gray-500 hover:text-gray-800"
             >
               Sign out
