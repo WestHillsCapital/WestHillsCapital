@@ -55,9 +55,9 @@ export function inferFieldCategory(field: FieldItem): "name" | "first" | "last" 
   if (/\bzip\b|postal/i.test(hay)) return "zip";
   if (/\bstate\b/.test(hay)) return "state";
   if (/\bcity\b|town/.test(hay)) return "city";
+  if (/\bemail\b/.test(hay)) return "email";
   if (/\baddress\b|street|addr/.test(hay)) return "address";
   if (/\bphone\b|mobile|cell|fax/.test(hay)) return "phone";
-  if (/\bemail\b/.test(hay)) return "email";
   if (/\baccount.?(num|#|no)\b/.test(hay)) return "account";
   if (/\brelation(ship)?\b/.test(hay)) return "relationship";
   if (/\bshare\b|percent|%/.test(hay)) return "share";
