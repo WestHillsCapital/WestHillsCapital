@@ -179,12 +179,10 @@ function getInit(cfg: FieldColorConfig | null) {
 // ── Component ─────────────────────────────────────────────────────────────────
 export function FieldColorsSection({
   getAuthHeaders,
-  isAdmin,
   currentConfig,
   onConfigChange,
 }: {
   getAuthHeaders: () => HeadersInit;
-  isAdmin: boolean;
   currentConfig: FieldColorConfig | null;
   onConfigChange: (config: FieldColorConfig | null) => void;
 }) {
@@ -241,7 +239,6 @@ export function FieldColorsSection({
     nextDirId:      string,
     sendNull = false,
   ) {
-    if (!isAdmin) return;
     setSaving(true);
     setError(null);
     const id = ++seq.current;
@@ -343,11 +340,6 @@ export function FieldColorsSection({
             Customize the palette and per-type color assignments used when new fields are auto-colored.
           </p>
         </div>
-        {!isAdmin && (
-          <span className="flex-shrink-0 text-[11px] bg-gray-100 text-gray-500 px-2 py-1 rounded-md font-medium">
-            View only
-          </span>
-        )}
       </div>
 
       {/* ── Palette style ──────────────────────────────────────────────────── */}
@@ -366,14 +358,14 @@ export function FieldColorsSection({
                 <button
                   key={dir.id}
                   type="button"
-                  disabled={!isAdmin || saving}
+                  disabled={saving}
                   onClick={() => applyDirection(dir.id)}
                   title={dir.description}
                   className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-xs font-medium transition-all
                     ${sel
                       ? "border-gray-800 bg-gray-50 text-gray-900"
-                      : "border-gray-200 hover:border-gray-300 text-gray-600 hover:bg-gray-50 disabled:hover:border-gray-200 disabled:hover:bg-transparent"
-                    } disabled:cursor-not-allowed`}
+                      : "border-gray-200 hover:border-gray-300 text-gray-600 hover:bg-gray-50"
+                    } disabled:cursor-not-allowed disabled:opacity-60`}
                 >
                   <span className="flex gap-[3px]">
                     {dir.colors.slice(0, 5).map((c, i) => (
@@ -390,11 +382,9 @@ export function FieldColorsSection({
               );
             })}
           </div>
-          {isAdmin && (
-            <p className="text-[11px] text-gray-400 mt-2">
-              Selecting a style resets your active palette to that style's default colors.
-            </p>
-          )}
+          <p className="text-[11px] text-gray-400 mt-2">
+            Selecting a style resets your active palette to that style's default colors.
+          </p>
         </div>
       </div>
 
@@ -415,7 +405,7 @@ export function FieldColorsSection({
                 <button
                   key={color}
                   type="button"
-                  disabled={!isAdmin || saving}
+                  disabled={saving}
                   onClick={() => toggleMaster(color)}
                   title={`${active ? "Remove" : "Add"} ${color.toUpperCase()}`}
                   className="relative w-8 h-8 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:cursor-not-allowed"
@@ -459,27 +449,24 @@ export function FieldColorsSection({
                 <div key={color} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5">
                   <div className="w-3.5 h-3.5 rounded flex-shrink-0 ring-1 ring-black/10" style={{ backgroundColor: color }} />
                   <span className="text-[11px] font-mono text-gray-600">{color.toUpperCase()}</span>
-                  {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => removeCustom(color)}
-                      disabled={saving}
-                      className="ml-0.5 text-gray-300 hover:text-red-400 transition-colors disabled:opacity-50"
-                      aria-label={`Remove ${color}`}
-                    >
-                      <svg viewBox="0 0 10 10" className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round">
-                        <path d="M1 1l8 8M9 1L1 9" />
-                      </svg>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeCustom(color)}
+                    disabled={saving}
+                    className="ml-0.5 text-gray-300 hover:text-red-400 transition-colors disabled:opacity-50"
+                    aria-label={`Remove ${color}`}
+                  >
+                    <svg viewBox="0 0 10 10" className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round">
+                      <path d="M1 1l8 8M9 1L1 9" />
+                    </svg>
+                  </button>
                 </div>
               ))}
             </div>
           )}
 
           {/* Add custom color */}
-          {isAdmin && (
-            <div className="relative inline-block" ref={addRef}>
+          <div className="relative inline-block" ref={addRef}>
               <button
                 type="button"
                 disabled={saving}
@@ -522,7 +509,6 @@ export function FieldColorsSection({
                 </div>
               )}
             </div>
-          )}
         </div>
       </div>
 
@@ -552,7 +538,7 @@ export function FieldColorsSection({
                   >
                     <button
                       type="button"
-                      disabled={!isAdmin || saving}
+                      disabled={saving}
                       onClick={() => setOpenType(isOpen ? null : opt.value)}
                       className="flex items-center gap-2 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs hover:border-gray-300 transition-colors disabled:cursor-not-allowed disabled:opacity-60 min-w-[116px]"
                     >
@@ -660,7 +646,7 @@ export function FieldColorsSection({
       {/* Footer */}
       <div className="px-6 py-3.5 bg-gray-50/50 rounded-b-xl flex items-center justify-between min-h-[52px]">
         <div className="flex items-center gap-3">
-          {isAdmin && !isDefault && (
+          {!isDefault && (
             <button
               type="button"
               disabled={saving}

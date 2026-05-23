@@ -930,7 +930,6 @@ export default function AppSettings() {
       <div id="field-colors-section">
         <FieldColorsSection
           getAuthHeaders={getAuthHeaders}
-          isAdmin={isAdmin}
           currentConfig={org?.field_palette ?? null}
           onConfigChange={(config) => {
             setOrg((prev) => prev ? { ...prev, field_palette: config } : prev);
