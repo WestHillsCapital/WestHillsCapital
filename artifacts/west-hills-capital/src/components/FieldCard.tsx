@@ -50,8 +50,8 @@ export function FieldCard({
   const rotation = (mapping.rotation ?? 0) as 0 | 90 | 180 | 270;
 
   return (
-    <div style={{ maxHeight: "55%", overflowY: "auto" }} className="flex flex-col flex-shrink-0 border-b border-[#DDD5C4]">
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#DDD5C4] flex-shrink-0">
+    <div style={{ maxHeight: "55%", overflowY: "auto" }} className="flex flex-col flex-shrink-0 border-b border-[#E2E8F0]">
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#E2E8F0] flex-shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           {field && <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: field.color }} />}
           <h2 className="text-xs font-semibold text-[#0F1C3F] uppercase tracking-wide truncate">
@@ -63,7 +63,7 @@ export function FieldCard({
             <button
               type="button"
               onClick={() => onOpenFieldEditor(field.id)}
-              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-[#C49A38] border border-[#C49A38]/40 hover:bg-[#FEF3C7] transition-colors"
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-[#1B4FD8] border border-[#1B4FD8]/40 hover:bg-[#FEF3C7] transition-colors"
               title="Edit field definition"
             >
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" /></svg>
@@ -87,7 +87,7 @@ export function FieldCard({
               value={field.name}
               onChange={(e) => { if (!isSystemEsignFieldId(field.id)) onUpdateField(field.id, { name: e.target.value }); }}
               readOnly={isSystemEsignFieldId(field.id)}
-              className={`w-full border border-[#D4C9B5] rounded px-2.5 py-1.5 text-xs text-[#0F1C3F] focus:outline-none ${isSystemEsignFieldId(field.id) ? "bg-[#F8F6F0] text-[#6B7A99] cursor-default" : "focus:ring-1 focus:ring-[#C49A38] focus:border-[#C49A38]"}`}
+              className={`w-full border border-[#E2E8F0] rounded px-2.5 py-1.5 text-xs text-[#0F1C3F] focus:outline-none ${isSystemEsignFieldId(field.id) ? "bg-[#F8FAFC] text-[#6B7A99] cursor-default" : "focus:ring-1 focus:ring-[#1B4FD8] focus:border-[#1B4FD8]"}`}
               placeholder="Field name"
             />
           </div>
@@ -100,7 +100,7 @@ export function FieldCard({
               <button
                 type="button"
                 onClick={() => onUpdateMapping({ recipientId: undefined })}
-                className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border transition-colors ${!assignedRecipient ? "border-[#0F1C3F] bg-[#0F1C3F] text-white" : "border-[#D4C9B5] text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border transition-colors ${!assignedRecipient ? "border-[#0F1C3F] bg-[#0F1C3F] text-white" : "border-[#E2E8F0] text-[#6B7A99] hover:bg-[#F8FAFC]"}`}
               >
                 <span className="w-2 h-2 rounded-full border border-current inline-block" />
                 <span>None</span>
@@ -110,7 +110,7 @@ export function FieldCard({
                   key={r.id}
                   type="button"
                   onClick={() => onUpdateMapping({ recipientId: r.id })}
-                  className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border transition-colors ${mapping.recipientId === r.id ? "border-[#0F1C3F] bg-[#0F1C3F] text-white" : "border-[#D4C9B5] text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                  className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border transition-colors ${mapping.recipientId === r.id ? "border-[#0F1C3F] bg-[#0F1C3F] text-white" : "border-[#E2E8F0] text-[#6B7A99] hover:bg-[#F8FAFC]"}`}
                 >
                   <span className="w-2 h-2 rounded-full inline-block flex-shrink-0 border-2" style={{ borderColor: r.color }} />
                   <span>{r.label}</span>
@@ -130,13 +130,13 @@ export function FieldCard({
               </div>
             ) : (
               <>
-                <div className="flex rounded overflow-hidden border border-[#D4C9B5]">
+                <div className="flex rounded overflow-hidden border border-[#E2E8F0]">
                   {INTERVIEW_MODES.map((m) => (
                     <button
                       key={m.value}
                       type="button"
                       onClick={() => onUpdateField(field.id, { interviewMode: m.value })}
-                      className={`flex-1 py-1.5 text-[10px] font-medium border-r last:border-r-0 border-[#D4C9B5] transition-colors leading-tight ${fieldInterviewMode === m.value ? `${m.textClass} bg-white` : "text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                      className={`flex-1 py-1.5 text-[10px] font-medium border-r last:border-r-0 border-[#E2E8F0] transition-colors leading-tight ${fieldInterviewMode === m.value ? `${m.textClass} bg-white` : "text-[#6B7A99] hover:bg-[#F8FAFC]"}`}
                       style={fieldInterviewMode === m.value ? { boxShadow: `inset 0 0 0 2px ${m.color}` } : undefined}
                     >
                       {m.label}
@@ -154,11 +154,11 @@ export function FieldCard({
         {field && (
           <div className="flex gap-4">
             <label className="flex items-center gap-1.5 cursor-pointer select-none">
-              <input type="checkbox" checked={isMasked} onChange={() => onUpdateField(field.id, { sensitive: !isMasked })} className="w-3 h-3 accent-[#C49A38] cursor-pointer" />
+              <input type="checkbox" checked={isMasked} onChange={() => onUpdateField(field.id, { sensitive: !isMasked })} className="w-3 h-3 accent-[#1B4FD8] cursor-pointer" />
               <span className="text-xs text-[#334155]">Mask</span>
             </label>
             <label className="flex items-center gap-1.5 cursor-pointer select-none">
-              <input type="checkbox" checked={isMultiLine} onChange={() => onUpdateMapping({ multiLine: !isMultiLine })} className="w-3 h-3 accent-[#C49A38] cursor-pointer" />
+              <input type="checkbox" checked={isMultiLine} onChange={() => onUpdateMapping({ multiLine: !isMultiLine })} className="w-3 h-3 accent-[#1B4FD8] cursor-pointer" />
               <span className="text-xs text-[#334155]">Multi-line</span>
             </label>
           </div>
@@ -166,10 +166,10 @@ export function FieldCard({
 
         <div>
           <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1.5">Rotation</div>
-          <div className="flex rounded overflow-hidden border border-[#D4C9B5]">
+          <div className="flex rounded overflow-hidden border border-[#E2E8F0]">
             {([0, 90, 180, 270] as const).map((deg) => (
               <button key={deg} type="button" onClick={() => onUpdateMapping({ rotation: deg })}
-                className={`flex-1 py-1 text-[11px] font-medium border-r last:border-r-0 border-[#D4C9B5] transition-colors ${rotation === deg ? "bg-[#0F1C3F] text-white" : "text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                className={`flex-1 py-1 text-[11px] font-medium border-r last:border-r-0 border-[#E2E8F0] transition-colors ${rotation === deg ? "bg-[#0F1C3F] text-white" : "text-[#6B7A99] hover:bg-[#F8FAFC]"}`}
               >{deg}°</button>
             ))}
           </div>
@@ -184,7 +184,7 @@ export function FieldCard({
                   key={option.value}
                   type="button"
                   onClick={() => onChooseMappingFormat(mapping.id, option.value)}
-                  className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs hover:bg-[#F8F6F0] ${mapping.format === option.value ? "bg-[#F8F6F0] text-[#0F1C3F] font-semibold" : "text-[#334155]"}`}
+                  className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs hover:bg-[#F8FAFC] ${mapping.format === option.value ? "bg-[#F8FAFC] text-[#0F1C3F] font-semibold" : "text-[#334155]"}`}
                 >
                   <span>{option.label}</span>
                   <span className="text-[10px] text-[#8A9BB8]">{option.group}</span>
@@ -196,13 +196,13 @@ export function FieldCard({
 
 
       </div>
-      <div className="flex gap-2 border-t border-[#EFE8D8] px-3 py-2.5 flex-shrink-0">
+      <div className="flex gap-2 border-t border-[#E2E8F0] px-3 py-2.5 flex-shrink-0">
         {field && (
-          <button type="button" onClick={() => onCopyField(field.id)} className="flex-1 rounded border border-[#D4C9B5] px-2 py-1.5 text-[11px] text-[#334155] hover:bg-[#F8F6F0] text-center">
+          <button type="button" onClick={() => onCopyField(field.id)} className="flex-1 rounded border border-[#E2E8F0] px-2 py-1.5 text-[11px] text-[#334155] hover:bg-[#F8FAFC] text-center">
             Copy
           </button>
         )}
-        <button type="button" onClick={() => onDuplicateMapping(mapping.id)} className="flex-1 rounded border border-[#D4C9B5] px-2 py-1.5 text-[11px] text-[#334155] hover:bg-[#F8F6F0] text-center">
+        <button type="button" onClick={() => onDuplicateMapping(mapping.id)} className="flex-1 rounded border border-[#E2E8F0] px-2 py-1.5 text-[11px] text-[#334155] hover:bg-[#F8FAFC] text-center">
           Duplicate
         </button>
         <button

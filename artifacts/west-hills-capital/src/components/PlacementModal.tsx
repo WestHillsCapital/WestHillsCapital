@@ -81,7 +81,7 @@ export function PlacementModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div
-          className="flex items-center justify-between px-4 py-3 border-b border-[#DDD5C4] cursor-move select-none"
+          className="flex items-center justify-between px-4 py-3 border-b border-[#E2E8F0] cursor-move select-none"
           onPointerDown={startModalDrag}
         >
           <div className="flex items-center gap-2">
@@ -94,7 +94,7 @@ export function PlacementModal({
                 type="button"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => onOpenFieldEditor(field.id)}
-                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-[#C49A38] border border-[#C49A38]/40 hover:bg-[#FEF3C7] transition-colors cursor-pointer"
+                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-[#1B4FD8] border border-[#1B4FD8]/40 hover:bg-[#FEF3C7] transition-colors cursor-pointer"
                 title="Edit field definition"
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" /></svg>
@@ -114,7 +114,7 @@ export function PlacementModal({
                 value={field.name}
                 onChange={(e) => { if (!isSystemEsignFieldId(field.id)) onUpdateField(field.id, { name: e.target.value }); }}
                 readOnly={isSystemEsignFieldId(field.id)}
-                className={`flex-1 border border-[#D4C9B5] rounded px-2.5 py-1.5 text-xs text-[#0F1C3F] focus:outline-none ${isSystemEsignFieldId(field.id) ? "bg-[#F8F6F0] text-[#6B7A99] cursor-default" : "focus:ring-1 focus:ring-[#C49A38] focus:border-[#C49A38]"}`}
+                className={`flex-1 border border-[#E2E8F0] rounded px-2.5 py-1.5 text-xs text-[#0F1C3F] focus:outline-none ${isSystemEsignFieldId(field.id) ? "bg-[#F8FAFC] text-[#6B7A99] cursor-default" : "focus:ring-1 focus:ring-[#1B4FD8] focus:border-[#1B4FD8]"}`}
                 placeholder="Field name"
               />
               {isSystemEsignFieldId(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-indigo-50 text-indigo-600 border border-indigo-200 px-1 py-0.5 font-semibold flex-shrink-0">E-Sign</span>}
@@ -128,7 +128,7 @@ export function PlacementModal({
                 <button
                   type="button"
                   onClick={() => onUpdateMapping({ recipientId: undefined })}
-                  className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border transition-colors ${!assignedRecipient ? "border-[#0F1C3F] bg-[#0F1C3F] text-white" : "border-[#D4C9B5] text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                  className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border transition-colors ${!assignedRecipient ? "border-[#0F1C3F] bg-[#0F1C3F] text-white" : "border-[#E2E8F0] text-[#6B7A99] hover:bg-[#F8FAFC]"}`}
                 >
                   <span className="w-2 h-2 rounded-full border border-current inline-block" />
                   <span>None</span>
@@ -138,7 +138,7 @@ export function PlacementModal({
                     key={r.id}
                     type="button"
                     onClick={() => onUpdateMapping({ recipientId: r.id })}
-                    className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border transition-colors ${mapping.recipientId === r.id ? "border-[#0F1C3F] bg-[#0F1C3F] text-white" : "border-[#D4C9B5] text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                    className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border transition-colors ${mapping.recipientId === r.id ? "border-[#0F1C3F] bg-[#0F1C3F] text-white" : "border-[#E2E8F0] text-[#6B7A99] hover:bg-[#F8FAFC]"}`}
                   >
                     <span className="w-2 h-2 rounded-full inline-block flex-shrink-0 border-2" style={{ borderColor: r.color }} />
                     <span>{r.label}</span>
@@ -158,13 +158,13 @@ export function PlacementModal({
                 </div>
               ) : (
                 <>
-                  <div className="flex rounded overflow-hidden border border-[#D4C9B5]">
+                  <div className="flex rounded overflow-hidden border border-[#E2E8F0]">
                     {INTERVIEW_MODES.map((m) => (
                       <button
                         key={m.value}
                         type="button"
                         onClick={() => onUpdateField(field.id, { interviewMode: m.value })}
-                        className={`flex-1 py-1.5 text-[11px] font-medium border-r last:border-r-0 border-[#D4C9B5] transition-colors ${fieldInterviewMode === m.value ? `${m.textClass} bg-white` : "text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                        className={`flex-1 py-1.5 text-[11px] font-medium border-r last:border-r-0 border-[#E2E8F0] transition-colors ${fieldInterviewMode === m.value ? `${m.textClass} bg-white` : "text-[#6B7A99] hover:bg-[#F8FAFC]"}`}
                         style={fieldInterviewMode === m.value ? { boxShadow: `inset 0 0 0 2px ${m.color}` } : undefined}
                       >
                         {m.label}
@@ -182,11 +182,11 @@ export function PlacementModal({
           {field && (
             <div className="flex gap-4">
               <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                <input type="checkbox" checked={isMasked} onChange={() => onUpdateField(field.id, { sensitive: !isMasked })} className="w-3 h-3 accent-[#C49A38] cursor-pointer" />
+                <input type="checkbox" checked={isMasked} onChange={() => onUpdateField(field.id, { sensitive: !isMasked })} className="w-3 h-3 accent-[#1B4FD8] cursor-pointer" />
                 <span className="text-xs text-[#334155]">Mask</span>
               </label>
               <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                <input type="checkbox" checked={isMultiLine} onChange={() => onUpdateMapping({ multiLine: !isMultiLine })} className="w-3 h-3 accent-[#C49A38] cursor-pointer" />
+                <input type="checkbox" checked={isMultiLine} onChange={() => onUpdateMapping({ multiLine: !isMultiLine })} className="w-3 h-3 accent-[#1B4FD8] cursor-pointer" />
                 <span className="text-xs text-[#334155]">Multi-line</span>
               </label>
             </div>
@@ -194,10 +194,10 @@ export function PlacementModal({
 
           <div>
             <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1">Rotation</div>
-            <div className="flex rounded overflow-hidden border border-[#D4C9B5]">
+            <div className="flex rounded overflow-hidden border border-[#E2E8F0]">
               {([0, 90, 180, 270] as const).map((deg) => (
                 <button key={deg} type="button" onClick={() => onUpdateMapping({ rotation: deg })}
-                  className={`flex-1 py-1 text-[11px] font-medium border-r last:border-r-0 border-[#D4C9B5] transition-colors ${modalRotation === deg ? "bg-[#0F1C3F] text-white" : "text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                  className={`flex-1 py-1 text-[11px] font-medium border-r last:border-r-0 border-[#E2E8F0] transition-colors ${modalRotation === deg ? "bg-[#0F1C3F] text-white" : "text-[#6B7A99] hover:bg-[#F8FAFC]"}`}
                 >{deg}°</button>
               ))}
             </div>
@@ -212,7 +212,7 @@ export function PlacementModal({
                     key={option.value}
                     type="button"
                     onClick={() => onChooseMappingFormat(mapping.id, option.value)}
-                    className={`flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-[#F8F6F0] ${mapping.format === option.value ? "bg-[#F8F6F0] text-[#0F1C3F] font-semibold" : "text-[#334155]"}`}
+                    className={`flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-[#F8FAFC] ${mapping.format === option.value ? "bg-[#F8FAFC] text-[#0F1C3F] font-semibold" : "text-[#334155]"}`}
                   >
                     <span>{option.label}</span>
                     <span className="text-[10px] text-[#8A9BB8]">{option.group}</span>
@@ -222,13 +222,13 @@ export function PlacementModal({
             </div>
           )}
 
-          <div className="flex gap-2 border-t border-[#EFE8D8] pt-2.5">
+          <div className="flex gap-2 border-t border-[#E2E8F0] pt-2.5">
             {field && (
-              <button type="button" onClick={() => onCopyField(field.id)} className="flex-1 rounded border border-[#D4C9B5] px-2 py-1.5 text-[11px] text-[#334155] hover:bg-[#F8F6F0] text-center">
+              <button type="button" onClick={() => onCopyField(field.id)} className="flex-1 rounded border border-[#E2E8F0] px-2 py-1.5 text-[11px] text-[#334155] hover:bg-[#F8FAFC] text-center">
                 Copy field
               </button>
             )}
-            <button type="button" onClick={() => onDuplicateMapping(mapping.id)} className="flex-1 rounded border border-[#D4C9B5] px-2 py-1.5 text-[11px] text-[#334155] hover:bg-[#F8F6F0] text-center">
+            <button type="button" onClick={() => onDuplicateMapping(mapping.id)} className="flex-1 rounded border border-[#E2E8F0] px-2 py-1.5 text-[11px] text-[#334155] hover:bg-[#F8FAFC] text-center">
               Duplicate
             </button>
             <button

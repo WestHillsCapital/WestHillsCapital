@@ -125,8 +125,8 @@ function computeInitialDecisions(
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
 const NAV    = "#0F1C3F";
-const CREAM  = "#F8F6F0";
-const BORDER = "#DDD5C4";
+const CREAM  = "#F8FAFC";
+const BORDER = "#E2E8F0";
 const MUTED  = "#6B7A99";
 
 const GRID = "24px minmax(140px,1fr) 56px 48px minmax(200px,260px) 128px 108px";
@@ -186,7 +186,7 @@ function IconActionButton({
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         className={`w-full flex items-center justify-center py-1.5 rounded transition-colors ${
-          disabled ? "opacity-30 cursor-not-allowed" : "hover:bg-[#F8F6F0]"
+          disabled ? "opacity-30 cursor-not-allowed" : "hover:bg-[#F8FAFC]"
         }`}
         style={{ color }}
       >
@@ -257,7 +257,7 @@ function FieldDropdown({ current, autoMatch, packageFields, fieldLibrary, disabl
         disabled={disabled}
         onClick={() => !disabled && setOpen((v) => !v)}
         className={`w-full h-8 flex items-center justify-between gap-1.5 px-2.5 rounded border text-sm transition-colors ${
-          disabled ? "bg-[#F1EEE8] cursor-default opacity-70 border-[#DDD5C4]"
+          disabled ? "bg-[#F1EEE8] cursor-default opacity-70 border-[#E2E8F0]"
             : current.source === "mapper"
             ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
             : current.source === "none"
@@ -281,7 +281,7 @@ function FieldDropdown({ current, autoMatch, packageFields, fieldLibrary, disabl
         >
           {/* ── Search bar ── */}
           <div className="shrink-0 p-2 border-b" style={{ borderColor: BORDER }}>
-            <div className="flex items-center gap-2 px-2 py-1.5 bg-[#F8F6F0] rounded-lg">
+            <div className="flex items-center gap-2 px-2 py-1.5 bg-[#F8FAFC] rounded-lg">
               <Search className="w-3.5 h-3.5 flex-shrink-0" style={{ color: MUTED }} />
               <input
                 ref={inputRef}
@@ -304,7 +304,7 @@ function FieldDropdown({ current, autoMatch, packageFields, fieldLibrary, disabl
                 </div>
                 {filteredPkg.map((f) => (
                   <button key={f.id} onClick={() => select({ source: "package", fieldId: f.id, label: f.name })}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-[#F8F6F0] flex items-center justify-between gap-2 transition-colors"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-[#F8FAFC] flex items-center justify-between gap-2 transition-colors"
                     style={{ color: NAV }}>
                     <span className="truncate">{f.name}</span>
                     <span className="text-[10px] text-emerald-600 font-medium shrink-0">pkg</span>
@@ -323,7 +323,7 @@ function FieldDropdown({ current, autoMatch, packageFields, fieldLibrary, disabl
                   </div>
                   {catFields.map((f) => (
                     <button key={f.id} onClick={() => select({ source: "library", libraryId: f.id, label: f.label })}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-[#F8F6F0] flex items-center justify-between gap-2 transition-colors"
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-[#F8FAFC] flex items-center justify-between gap-2 transition-colors"
                       style={{ color: NAV }}>
                       <span className="truncate">{f.label}</span>
                       <span className="text-[10px] font-mono" style={{ color: MUTED }}>{f.id.slice(0, 18)}</span>
@@ -766,7 +766,7 @@ export function AcroFieldReviewOverlay({
                 <div
                   key={i}
                   className={`grid items-center gap-3 px-4 py-2.5 bg-white rounded-lg border transition-colors ${
-                    isPrefilled ? "opacity-75" : "hover:border-[#C49A38]/40"
+                    isPrefilled ? "opacity-75" : "hover:border-[#1B4FD8]/40"
                   }`}
                   style={{ gridTemplateColumns: GRID, borderColor: BORDER }}
                 >

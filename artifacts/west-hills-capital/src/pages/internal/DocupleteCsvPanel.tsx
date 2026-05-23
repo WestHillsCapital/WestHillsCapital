@@ -197,8 +197,8 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
   }
 
   return (
-    <section className="bg-white border border-[#DDD5C4] rounded-lg max-w-4xl mx-auto overflow-hidden">
-      <div className="flex border-b border-[#DDD5C4]">
+    <section className="bg-white border border-[#E2E8F0] rounded-lg max-w-4xl mx-auto overflow-hidden">
+      <div className="flex border-b border-[#E2E8F0]">
         {(["import", "dashboard"] as const).map((t) => (
           <button
             key={t}
@@ -207,7 +207,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
             className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
               csvDashboardTab === t
                 ? "border-[#0F1C3F] text-[#0F1C3F]"
-                : "border-transparent text-[#8A9BB8] hover:text-[#0F1C3F] hover:border-[#DDD5C4]"
+                : "border-transparent text-[#8A9BB8] hover:text-[#0F1C3F] hover:border-[#E2E8F0]"
             }`}
           >
             {t === "import" ? "Import" : "Batch Dashboard"}
@@ -242,10 +242,10 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                 const rowSessions = csvDashRunSessions[run.batch_run_id] ?? [];
                 const rowLoading  = csvDashRunLoading[run.batch_run_id] ?? false;
                 return (
-                  <div key={run.batch_run_id} className="border border-[#DDD5C4] rounded-lg overflow-hidden">
+                  <div key={run.batch_run_id} className="border border-[#E2E8F0] rounded-lg overflow-hidden">
                     <button
                       type="button"
-                      className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[#F8F6F0] transition-colors"
+                      className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[#F8FAFC] transition-colors"
                       onClick={() => {
                         const next = isExpanded ? null : run.batch_run_id;
                         setCsvDashExpanded(next);
@@ -282,7 +282,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                       </div>
                     </button>
                     {isExpanded && (
-                      <div className="border-t border-[#DDD5C4]">
+                      <div className="border-t border-[#E2E8F0]">
                         {rowLoading && (
                           <div className="flex justify-center py-5">
                             <div className="w-4 h-4 border-2 border-[#0F1C3F] border-t-transparent rounded-full animate-spin" />
@@ -291,7 +291,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                         {!rowLoading && rowSessions.length > 0 && (
                           <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-[#F0EDE6]">
-                              <thead className="bg-[#F8F6F0]">
+                              <thead className="bg-[#F8FAFC]">
                                 <tr>
                                   <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">#</th>
                                   <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Recipient</th>
@@ -320,7 +320,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                                         <span className={`inline-flex px-1.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.cls}`}>{statusInfo.label}</span>
                                       </td>
                                       <td className="px-4 py-2">
-                                        <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-[#0F1C3F] underline underline-offset-2 hover:text-[#C49A38]">
+                                        <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-[#0F1C3F] underline underline-offset-2 hover:text-[#1B4FD8]">
                                           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                           PDF
                                         </a>
@@ -387,7 +387,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                 }
               }
             }}
-            className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-sm bg-white"
+            className="w-full border border-[#E2E8F0] rounded px-3 py-2 text-sm bg-white"
           >
             <option value="">Select active package</option>
             {activePackages.map((pkg) => (
@@ -412,14 +412,14 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                   const csv = packageTemplateToCsv(pkg.id, pkg.name, pkg.fields);
                   downloadCsv(csv, `docuplete-template-${safeName}-${date}.csv`);
                 }}
-                className="text-sm text-[#C49A38] underline hover:text-[#b58c31]"
+                className="text-sm text-[#1B4FD8] underline hover:text-[#b58c31]"
               >
                 Download blank template
               </button>
 
               {/* 2 — Drop zone */}
               <div
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${csvBatchFile ? "border-[#C49A38] bg-[#FDFAF4]" : "border-[#D4C9B5] bg-white"}`}
+                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${csvBatchFile ? "border-[#1B4FD8] bg-[#FDFAF4]" : "border-[#E2E8F0] bg-white"}`}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault();
@@ -443,7 +443,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                 ) : (
                   <div>
                     <p className="text-sm text-[#6B7A99] mb-2">Drag a CSV file here or</p>
-                    <button type="button" onClick={() => csvBatchFileInputRef.current?.click()} className="text-sm text-[#C49A38] underline hover:text-[#b58c31]">Browse to upload</button>
+                    <button type="button" onClick={() => csvBatchFileInputRef.current?.click()} className="text-sm text-[#1B4FD8] underline hover:text-[#b58c31]">Browse to upload</button>
                   </div>
                 )}
               </div>
@@ -455,7 +455,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                     type="button"
                     onClick={() => void runPreflight()}
                     disabled={preflightRunning}
-                    className="shrink-0 text-xs font-medium text-[#0F1C3F] border border-[#DDD5C4] bg-white hover:bg-[#F8F6F0] disabled:opacity-50 rounded px-3 py-1.5 transition-colors"
+                    className="shrink-0 text-xs font-medium text-[#0F1C3F] border border-[#E2E8F0] bg-white hover:bg-[#F8FAFC] disabled:opacity-50 rounded px-3 py-1.5 transition-colors"
                   >
                     {preflightRunning ? (
                       <span className="flex items-center gap-1.5">
@@ -489,7 +489,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                       setCsvCorrectedDownloaded(true);
                       csvCorrectedDownloadedTimerRef.current = setTimeout(() => setCsvCorrectedDownloaded(false), 2000);
                     }}
-                    className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
+                    className="border-[#E2E8F0] text-[#0F1C3F] hover:bg-[#F8FAFC]"
                   >
                     {csvCorrectedDownloaded ? (
                       <span className="flex items-center gap-1.5">
@@ -579,7 +579,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
 
               const renderBodyRow = (row: Record<string, string>, rowIdx: number, isErrorRow: boolean) => (
                 <tr key={`${rowIdx}-${isErrorRow ? "err" : "pre"}`} className={isErrorRow ? "bg-[#FFFBF0]" : ""}>
-                  <td className="px-2 py-1 text-[#9AAAC0] border-r border-[#DDD5C4] text-center select-none">{rowIdx + 1}</td>
+                  <td className="px-2 py-1 text-[#9AAAC0] border-r border-[#E2E8F0] text-center select-none">{rowIdx + 1}</td>
                   {visibleHeaders.map((h) => {
                     const isMetadata = h === "__package_id__" || h === "__package_name__";
                     const matchedField = csvBatchPackageId ? csvBatchFieldMap.get(h.toLowerCase().trim()) : undefined;
@@ -757,11 +757,11 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                   <h3 className="text-sm font-semibold mb-2">
                     Preview (first {previewCount} row{previewCount === 1 ? "" : "s"}{headingExtra})
                   </h3>
-                  <div className="overflow-x-auto rounded border border-[#DDD5C4]">
+                  <div className="overflow-x-auto rounded border border-[#E2E8F0]">
                     <table className="text-xs min-w-full">
-                      <thead className="bg-[#F8F6F0] border-b border-[#DDD5C4]">
+                      <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
                         <tr>
-                          <th className="px-2 py-2 text-left font-medium text-[#9AAAC0] border-r border-[#DDD5C4] w-8">#</th>
+                          <th className="px-2 py-2 text-left font-medium text-[#9AAAC0] border-r border-[#E2E8F0] w-8">#</th>
                           {visibleHeaders.map((h) => {
                             const isMetadata = h === "__package_id__" || h === "__package_name__";
                             const matchedField = csvBatchPackageId ? csvBatchFieldMap.get(h.toLowerCase().trim()) : undefined;
@@ -849,7 +849,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                                 {matchedField && invalidCount > 0 && autoFixLabel(matchedField) && (
                                   <button
                                     type="button"
-                                    className="mt-1 block text-[10px] text-[#C49A38] hover:text-[#b58c31] underline whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-[#C49A38] rounded"
+                                    className="mt-1 block text-[10px] text-[#1B4FD8] hover:text-[#b58c31] underline whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-[#1B4FD8] rounded"
                                     title="Auto-convert all invalid values in this column to the expected format"
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -874,7 +874,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                             <th className="px-3 py-2 text-left font-medium">
                               <button
                                 type="button"
-                                className="text-[#C49A38] hover:text-[#b58c31] underline text-xs whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-[#C49A38] rounded"
+                                className="text-[#1B4FD8] hover:text-[#b58c31] underline text-xs whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-[#1B4FD8] rounded"
                                 onClick={() => setCsvColumnsExpanded((prev) => !prev)}
                               >
                                 {csvColumnsExpanded ? "← Show less" : `+${csvBatchHeaders.length - maxVisibleCols} more`}
@@ -887,7 +887,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                         {csvBatchRows.slice(0, 5).map((row, idx) => renderBodyRow(row, idx, false))}
                         {errorRowsAbovePreview.length > 0 && (
                           <tr>
-                            <td colSpan={colCount} className="px-3 py-1.5 text-[10px] font-semibold text-[#6B7A99] bg-[#F3F0E8] border-t border-b border-[#DDD5C4] tracking-wide">
+                            <td colSpan={colCount} className="px-3 py-1.5 text-[10px] font-semibold text-[#6B7A99] bg-[#F3F0E8] border-t border-b border-[#E2E8F0] tracking-wide">
                               Rows with errors beyond preview
                             </td>
                           </tr>
@@ -900,7 +900,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                     <div className="mt-4 flex items-center gap-4 text-[10px] text-[#6B7A99]">
                       <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-red-100 border border-red-200" /> Invalid value <span className="text-[#9AAAC0]">(click to fix)</span></span>
                       <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-amber-100 border border-amber-200" /> Required but empty <span className="text-[#9AAAC0]">(click to fix)</span></span>
-                      <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-[#F8F6F0] border border-[#DDD5C4] line-through" /><span className="line-through">Column</span> will be skipped</span>
+                      <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-[#F8FAFC] border border-[#E2E8F0] line-through" /><span className="line-through">Column</span> will be skipped</span>
                     </div>
                   )}
                 </>
@@ -1007,7 +1007,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
           <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{preflightError}</div>
         )}
         {preflightResult && (
-          <div className="rounded border border-[#DDD5C4] overflow-hidden">
+          <div className="rounded border border-[#E2E8F0] overflow-hidden">
                 {/* Summary bar */}
                 <div className={`px-4 py-2.5 flex items-center gap-3 text-sm font-medium ${preflightResult.summary.failing === 0 ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>
                   {preflightResult.summary.failing === 0 ? (
@@ -1035,7 +1035,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                 </div>
                 {/* Failing rows */}
                 {preflightResult.rows.filter((r) => !r.pass).length > 0 && (
-                  <div className="divide-y divide-[#EFE8D8]">
+                  <div className="divide-y divide-[#E2E8F0]">
                     {preflightResult.rows.filter((r) => !r.pass).map((row) => {
                       const isExpanded = preflightExpanded.has(row.rowIndex);
                       return (
@@ -1092,7 +1092,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                   <button
                     type="button"
                     onClick={() => setShowCsvFieldKey((v) => !v)}
-                    className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-[#0F1C3F] hover:bg-[#EFE8D8] transition-colors"
+                    className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-[#0F1C3F] hover:bg-[#E2E8F0] transition-colors"
                   >
                     <span className="flex items-center gap-2">
                       <svg className="w-3.5 h-3.5 text-[#8A9BB8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
@@ -1116,18 +1116,18 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                                 <td className="px-3 py-2 text-[#6B7A99] font-medium whitespace-nowrap">Package Name</td>
                                 <td className="px-3 py-2 text-[#0F1C3F] font-medium" colSpan={3}>{selectedPkg.name}</td>
                               </tr>
-                              <tr className="bg-[#F0EDE5] border-t border-[#DDD5C4]">
+                              <tr className="bg-[#F0EDE5] border-t border-[#E2E8F0]">
                                 <td className="px-3 py-2 text-[#6B7A99] font-medium whitespace-nowrap">Package ID</td>
                                 <td className="px-3 py-2 font-mono text-[#0F1C3F]" colSpan={3}>{selectedPkg.id}</td>
                               </tr>
-                              <tr className="bg-[#EFE8D8] border-t-2 border-[#DDD5C4]">
+                              <tr className="bg-[#E2E8F0] border-t-2 border-[#E2E8F0]">
                                 <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Field Name (CSV column header)</td>
                                 <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Status</td>
                                 <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Condition</td>
                                 <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Type</td>
                               </tr>
-                              <tr className="border-t border-[#DDD5C4]">
-                                <td colSpan={4} className="px-3 py-1 text-[10px] text-[#6B7A99] uppercase tracking-wide font-medium bg-[#EFE8D8]">Fields</td>
+                              <tr className="border-t border-[#E2E8F0]">
+                                <td colSpan={4} className="px-3 py-1 text-[10px] text-[#6B7A99] uppercase tracking-wide font-medium bg-[#E2E8F0]">Fields</td>
                               </tr>
                             </>
                           )}
@@ -1136,7 +1136,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                             const hasOptions = (f.type === "dropdown" || f.type === "radio" || f.type === "checkbox") && (f.options ?? []).length > 0;
                             const typeHint = f.type === "date" ? "MM/DD/YYYY" : validationTypeHint(f.validationType, f.validationMessage);
                             return (
-                              <tr key={f.id} className={`border-t border-[#EFE8D8] align-top ${condText ? "bg-purple-50/40" : ""}`}>
+                              <tr key={f.id} className={`border-t border-[#E2E8F0] align-top ${condText ? "bg-purple-50/40" : ""}`}>
                                 <td className="px-3 py-2">
                                   <div className="font-mono text-[#0F1C3F]">
                                     {f.name}
@@ -1160,7 +1160,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                                       ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-700">Required</span>
                                       : f.interviewMode === "readonly"
                                         ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700">Auto-filled</span>
-                                        : <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-[#EFE8D8] text-[#6B7A99]">Optional</span>
+                                        : <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-[#E2E8F0] text-[#6B7A99]">Optional</span>
                                   }
                                 </td>
                                 <td className="px-3 py-2 text-[10px]">
@@ -1194,9 +1194,9 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                 : `Results — ${csvBatchResults.filter((r) => r.status === "created").length} created · ${csvBatchResults.filter((r) => r.status === "error").length} failed`
               }
             </h3>
-            <div className="overflow-x-auto rounded border border-[#DDD5C4]">
+            <div className="overflow-x-auto rounded border border-[#E2E8F0]">
               <table className="text-xs min-w-full">
-                <thead className="bg-[#F8F6F0] border-b border-[#DDD5C4]">
+                <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
                   <tr>
                     <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Row #</th>
                     <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Status</th>
@@ -1207,11 +1207,11 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                 </thead>
                 <tbody>
                   {csvBatchResults.map((result) => (
-                    <tr key={result.rowIndex} className="border-b border-[#EFE8D8] last:border-0">
+                    <tr key={result.rowIndex} className="border-b border-[#E2E8F0] last:border-0">
                       <td className="px-3 py-2 text-[#334155]">{result.rowIndex + 1}</td>
                       <td className="px-3 py-2">
                         {result.status === "processing"
-                          ? <span className="flex items-center gap-1.5 text-[#6B7A99]"><span className="inline-block w-3 h-3 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />Processing</span>
+                          ? <span className="flex items-center gap-1.5 text-[#6B7A99]"><span className="inline-block w-3 h-3 border-2 border-[#1B4FD8] border-t-transparent rounded-full animate-spin" />Processing</span>
                           : result.status === "created"
                             ? <span className="text-green-700 font-medium">Created</span>
                             : <span className="text-red-700 font-medium">Error</span>
@@ -1220,7 +1220,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                       <td className="px-3 py-2 text-[#6B7A99] font-mono text-[10px] max-w-[160px] truncate">{result.token ?? "—"}</td>
                       <td className="px-3 py-2">
                         {result.status === "created" && result.token
-                          ? <a href={`/internal/docuplete?session=${result.token}`} target="_blank" rel="noreferrer" className="text-[#C49A38] underline">Open session</a>
+                          ? <a href={`/internal/docuplete?session=${result.token}`} target="_blank" rel="noreferrer" className="text-[#1B4FD8] underline">Open session</a>
                           : <span className="text-[#8A9BB8]">—</span>
                         }
                       </td>
@@ -1253,10 +1253,10 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
               return (
                 <>
                   {generatedResults.length > 0 && (
-                    <div className="mt-4 border border-[#DDD5C4] rounded bg-[#F8F6F0]">
+                    <div className="mt-4 border border-[#E2E8F0] rounded bg-[#F8FAFC]">
                       <button
                         type="button"
-                        className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-[#0F1C3F] hover:bg-[#EFE8D8] rounded"
+                        className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-[#0F1C3F] hover:bg-[#E2E8F0] rounded"
                         onClick={() => setCsvInviteOpen((v) => !v)}
                       >
                         <span>📨 Send interview invitations</span>
@@ -1270,7 +1270,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                         </span>
                       </button>
                       {csvInviteOpen && (
-                        <div className="border-t border-[#DDD5C4] px-4 py-3 space-y-3">
+                        <div className="border-t border-[#E2E8F0] px-4 py-3 space-y-3">
                           {!csvEmailHeader ? (
                             <p className="text-xs text-[#6B7A99]">No email field found in this CSV. Make sure your package has a field with email validation and that column is present in the uploaded file.</p>
                           ) : (
@@ -1283,7 +1283,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                                 <label className="block text-xs font-medium text-[#6B7A99] mb-1">Custom message (optional)</label>
                                 <textarea
                                   rows={2}
-                                  className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-xs bg-white resize-none focus:outline-none focus:ring-1 focus:ring-[#C49A38]"
+                                  className="w-full border border-[#E2E8F0] rounded px-3 py-2 text-xs bg-white resize-none focus:outline-none focus:ring-1 focus:ring-[#1B4FD8]"
                                   placeholder="Add a personal note to include in the email…"
                                   value={csvInviteMessage}
                                   onChange={(e) => setCsvInviteMessage(e.target.value)}
@@ -1411,7 +1411,7 @@ export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: Do
                             const dateStr = new Date().toISOString().slice(0, 10);
                             downloadCsv(batchResultsToCsv(csvBatchResults, API_BASE, csvBatchHeaders, csvBatchRows), `docuplete-batch-results-${dateStr}.csv`);
                           }}
-                          className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
+                          className="border-[#E2E8F0] text-[#0F1C3F] hover:bg-[#F8FAFC]"
                         >
                           Download Results CSV
                         </Button>

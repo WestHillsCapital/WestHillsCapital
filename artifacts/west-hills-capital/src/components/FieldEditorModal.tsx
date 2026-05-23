@@ -75,7 +75,7 @@ export function FieldEditorModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div
-          className="flex items-center justify-between px-5 py-4 border-b border-[#DDD5C4] select-none"
+          className="flex items-center justify-between px-5 py-4 border-b border-[#E2E8F0] select-none"
           style={{ cursor: isDragging ? "grabbing" : "grab" }}
           onMouseDown={onDragStart}
           onTouchStart={onTouchStart}
@@ -123,7 +123,7 @@ export function FieldEditorModal({
                 type="color"
                 value={draft.color}
                 onChange={(e) => setDraft((d) => ({ ...d, color: e.target.value }))}
-                className="h-7 w-9 rounded cursor-pointer border border-[#D4C9B5] p-0.5 flex-shrink-0"
+                className="h-7 w-9 rounded cursor-pointer border border-[#E2E8F0] p-0.5 flex-shrink-0"
                 title="Custom color"
               />
               <span className="text-xs text-[#8A9BB8] font-mono">{draft.color.toUpperCase()}</span>
@@ -146,7 +146,7 @@ export function FieldEditorModal({
                     <button
                       type="button"
                       onClick={() => setDraft((d) => ({ ...d, type: value }))}
-                      className={`px-2.5 py-1 text-xs rounded border transition-colors ${draft.type === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"}`}
+                      className={`px-2.5 py-1 text-xs rounded border transition-colors ${draft.type === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#E2E8F0] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"}`}
                     >
                       {label}
                     </button>
@@ -162,7 +162,7 @@ export function FieldEditorModal({
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-medium text-[#6B7A99]">Options</label>
-                <button type="button" onClick={() => setDraft((d) => ({ ...d, options: [...d.options, ""] }))} className="text-xs text-[#C49A38] hover:underline">+ Add option</button>
+                <button type="button" onClick={() => setDraft((d) => ({ ...d, options: [...d.options, ""] }))} className="text-xs text-[#1B4FD8] hover:underline">+ Add option</button>
               </div>
               <div className="space-y-1.5">
                 {draft.options.map((opt, i) => (
@@ -182,9 +182,9 @@ export function FieldEditorModal({
                         return { ...d, options: opts };
                       });
                     }}
-                    className="flex items-center gap-2 bg-[#F8F6F0] rounded px-2 py-1.5 border border-[#EFE8D8]"
+                    className="flex items-center gap-2 bg-[#F8FAFC] rounded px-2 py-1.5 border border-[#E2E8F0]"
                   >
-                    <span className="text-[#C4B99A] cursor-grab select-none text-sm">⠿</span>
+                    <span className="text-[#CBD5E1] cursor-grab select-none text-sm">⠿</span>
                     {(draft.type === "radio" || draft.type === "checkbox") && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -203,7 +203,7 @@ export function FieldEditorModal({
                         const v = e.target.value;
                         setDraft((d) => { const opts = [...d.options]; opts[i] = v; return { ...d, options: opts }; });
                       }}
-                      className="flex-1 bg-transparent text-sm outline-none border-b border-[#D4C9B5] py-0.5 min-w-0"
+                      className="flex-1 bg-transparent text-sm outline-none border-b border-[#E2E8F0] py-0.5 min-w-0"
                       placeholder={`Option ${i + 1}`}
                     />
                     <button type="button" onClick={() => setDraft((d) => ({ ...d, options: d.options.filter((_, idx) => idx !== i) }))} className="text-red-400 hover:text-red-600 text-base leading-none px-1">×</button>
@@ -218,7 +218,7 @@ export function FieldEditorModal({
           )}
 
           {/* Interview mode */}
-          <div className="space-y-2 rounded border border-[#EFE8D8] bg-[#F8F6F0] px-3 py-3">
+          <div className="space-y-2 rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3">
             <div className="flex items-center gap-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={draft.interviewMode === "omitted"} onChange={(e) => setDraft((d) => ({ ...d, interviewMode: e.target.checked ? "omitted" : "optional" }))} className="rounded" />
@@ -248,7 +248,7 @@ export function FieldEditorModal({
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <select value={draft.interviewMode} onChange={(e) => setDraft((d) => ({ ...d, interviewMode: e.target.value as FieldInterviewMode }))} className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white">
+                <select value={draft.interviewMode} onChange={(e) => setDraft((d) => ({ ...d, interviewMode: e.target.value as FieldInterviewMode }))} className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white">
                   <option value="optional">Optional — staff fills in during interview</option>
                   <option value="required">Required — must answer before generating</option>
                   <option value="readonly">Read only — shown but not editable</option>
@@ -264,7 +264,7 @@ export function FieldEditorModal({
 
           {/* Conditions */}
           {draft.interviewMode !== "omitted" && (
-            <div className="space-y-2 rounded border border-[#EFE8D8] bg-[#F8F6F0] px-3 py-3">
+            <div className="space-y-2 rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3">
               <div className="flex items-center gap-2">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -294,7 +294,7 @@ export function FieldEditorModal({
                     <select
                       value={draft.condition.fieldId}
                       onChange={(e) => setDraft((d) => ({ ...d, condition: d.condition ? { ...d.condition, fieldId: e.target.value } : null }))}
-                      className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                      className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
                     >
                       <option value="">— select a field —</option>
                       {packageFields
@@ -307,7 +307,7 @@ export function FieldEditorModal({
                     <select
                       value={draft.condition.operator}
                       onChange={(e) => setDraft((d) => ({ ...d, condition: d.condition ? { ...d.condition, operator: e.target.value as FieldCondition["operator"] } : null }))}
-                      className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                      className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
                     >
                       <option value="is_answered">has any answer</option>
                       <option value="is_not_answered">has no answer</option>
@@ -326,7 +326,7 @@ export function FieldEditorModal({
                           <select
                             value={draft.condition!.value}
                             onChange={(e) => setDraft((d) => ({ ...d, condition: d.condition ? { ...d.condition, value: e.target.value } : null }))}
-                            className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                            className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
                           >
                             <option value="">— select value —</option>
                             {triggerOpts.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
@@ -344,7 +344,7 @@ export function FieldEditorModal({
                 </div>
               )}
               {draft.condition !== null && (
-                <div className="pt-2 mt-1 border-t border-[#EFE8D8]">
+                <div className="pt-2 mt-1 border-t border-[#E2E8F0]">
                   {draft.condition2 === null ? (
                     <button
                       type="button"
@@ -356,7 +356,7 @@ export function FieldEditorModal({
                   ) : (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1 rounded border border-[#D4C9B5] overflow-hidden text-xs">
+                        <div className="flex items-center gap-1 rounded border border-[#E2E8F0] overflow-hidden text-xs">
                           <button
                             type="button"
                             onClick={() => setDraft((d) => ({ ...d, conditionOperator: "and" }))}
@@ -375,7 +375,7 @@ export function FieldEditorModal({
                         <select
                           value={draft.condition2.fieldId}
                           onChange={(e) => setDraft((d) => ({ ...d, condition2: d.condition2 ? { ...d.condition2, fieldId: e.target.value } : null }))}
-                          className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                          className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
                         >
                           <option value="">— select a field —</option>
                           {packageFields
@@ -388,7 +388,7 @@ export function FieldEditorModal({
                         <select
                           value={draft.condition2.operator}
                           onChange={(e) => setDraft((d) => ({ ...d, condition2: d.condition2 ? { ...d.condition2, operator: e.target.value as FieldCondition["operator"] } : null }))}
-                          className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                          className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
                         >
                           <option value="is_answered">has any answer</option>
                           <option value="is_not_answered">has no answer</option>
@@ -407,7 +407,7 @@ export function FieldEditorModal({
                               <select
                                 value={draft.condition2!.value}
                                 onChange={(e) => setDraft((d) => ({ ...d, condition2: d.condition2 ? { ...d.condition2, value: e.target.value } : null }))}
-                                className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                                className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
                               >
                                 <option value="">— select value —</option>
                                 {triggerOpts2.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
@@ -436,7 +436,7 @@ export function FieldEditorModal({
 
           {/* Copy From — auto-fill from another field when condition is met */}
           {draft.interviewMode !== "omitted" && draft.interviewMode !== "readonly" && (
-            <div className="space-y-2 rounded border border-[#EFE8D8] bg-[#F8F6F0] px-3 py-3">
+            <div className="space-y-2 rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3">
               <div className="flex items-center gap-2">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -466,7 +466,7 @@ export function FieldEditorModal({
                     <select
                       value={draft.copyFrom.fieldId}
                       onChange={(e) => setDraft((d) => ({ ...d, copyFrom: d.copyFrom ? { ...d.copyFrom, fieldId: e.target.value } : null }))}
-                      className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                      className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
                     >
                       <option value="">— select source field —</option>
                       {packageFields
@@ -492,7 +492,7 @@ export function FieldEditorModal({
                           } : null,
                         }));
                       }}
-                      className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                      className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
                     >
                       <option value="">— select trigger field —</option>
                       {packageFields
@@ -510,7 +510,7 @@ export function FieldEditorModal({
                         <select
                           value={draft.copyFrom!.whenValue}
                           onChange={(e) => setDraft((d) => ({ ...d, copyFrom: d.copyFrom ? { ...d.copyFrom, whenValue: e.target.value } : null }))}
-                          className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                          className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
                         >
                           <option value="">— select value —</option>
                           {triggerOpts.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
@@ -566,7 +566,7 @@ export function FieldEditorModal({
                       type="button"
                       aria-pressed={(draft.validationType ?? "none") === value}
                       onClick={() => setDraft((d) => ({ ...d, validationType: value as FieldItem["validationType"] }))}
-                      className={`px-2 py-0.5 text-xs rounded border transition-colors ${(draft.validationType ?? "none") === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"}`}
+                      className={`px-2 py-0.5 text-xs rounded border transition-colors ${(draft.validationType ?? "none") === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#E2E8F0] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"}`}
                     >
                       {label}
                     </button>
@@ -582,7 +582,7 @@ export function FieldEditorModal({
 
           {/* Sum Group */}
           {(draft.validationType === "percent" || draft.validationType === "number") && (
-            <div className="space-y-1.5 rounded border border-[#EFE8D8] bg-[#F8F6F0] px-3 py-3">
+            <div className="space-y-1.5 rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3">
               <div className="flex items-center gap-1.5">
                 <label className="text-xs font-medium text-[#6B7A99]">Sum Group</label>
                 <Tooltip>
@@ -610,7 +610,7 @@ export function FieldEditorModal({
                       value={draft.sumGroup}
                       onChange={(e) => setDraft((d) => ({ ...d, sumGroup: e.target.value }))}
                       placeholder={existingGroups.length > 0 ? "Select or type a group name…" : "e.g. primary_beneficiary (optional)"}
-                      className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                      className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
                     />
                     {existingGroups.length > 0 && (
                       <datalist id={listId}>
@@ -630,20 +630,20 @@ export function FieldEditorModal({
 
           {/* Package-only checkbox (add mode only) */}
           {modal.mode === "add" && (
-            <label className="flex items-center gap-2 rounded border border-[#DDD5C4] bg-[#F8F6F0] px-3 py-2.5 cursor-pointer">
+            <label className="flex items-center gap-2 rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 cursor-pointer">
               <input type="checkbox" checked={draft.packageOnly} onChange={(e) => setDraft((d) => ({ ...d, packageOnly: e.target.checked }))} className="rounded" />
               <span className="text-sm text-[#6B7A99]">Package only — don't save to shared library</span>
             </label>
           )}
         </div>
 
-        <div className="px-5 py-4 border-t border-[#DDD5C4] flex items-center justify-between gap-2">
+        <div className="px-5 py-4 border-t border-[#E2E8F0] flex items-center justify-between gap-2">
           {modal.mode === "edit" && modal.fieldId && (
             <button type="button" onClick={() => onRemove(modal.fieldId!)} className="text-xs text-red-600 hover:underline">Remove field</button>
           )}
           <div className="flex gap-2 ml-auto">
-            <button type="button" onClick={onClose} className="text-sm px-4 py-2 rounded border border-[#D4C9B5] text-[#6B7A99] hover:bg-[#F8F6F0]">Cancel</button>
-            <button type="button" onClick={onSave} disabled={saving} className="text-sm px-4 py-2 rounded bg-[#C49A38] hover:bg-[#b58c31] text-black font-medium disabled:opacity-50">
+            <button type="button" onClick={onClose} className="text-sm px-4 py-2 rounded border border-[#E2E8F0] text-[#6B7A99] hover:bg-[#F8FAFC]">Cancel</button>
+            <button type="button" onClick={onSave} disabled={saving} className="text-sm px-4 py-2 rounded bg-[#1B4FD8] hover:bg-[#b58c31] text-black font-medium disabled:opacity-50">
               {saving ? "Saving…" : modal.mode === "add" ? "Add Field" : "Save Changes"}
             </button>
           </div>

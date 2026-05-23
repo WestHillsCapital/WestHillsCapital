@@ -271,11 +271,11 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
   );
 
   return (
-    <section className="bg-white border border-[#DDD5C4] rounded-lg max-w-4xl mx-auto overflow-hidden">
+    <section className="bg-white border border-[#E2E8F0] rounded-lg max-w-4xl mx-auto overflow-hidden">
       {!session ? (
         isPublicSession ? <div className="p-5"><EmptyState message="This interview link is invalid or expired." /></div> : (
           <>
-          <div className="flex border-b border-[#DDD5C4]">
+          <div className="flex border-b border-[#E2E8F0]">
             {(["interviews", "dashboard"] as const).map((t) => (
               <button
                 key={t}
@@ -284,7 +284,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                 className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
                   interviewSubTab === t
                     ? "border-[#0F1C3F] text-[#0F1C3F]"
-                    : "border-transparent text-[#8A9BB8] hover:text-[#0F1C3F] hover:border-[#DDD5C4]"
+                    : "border-transparent text-[#8A9BB8] hover:text-[#0F1C3F] hover:border-[#E2E8F0]"
                 }`}
               >
                 {t === "interviews" ? "Interviews" : "Interview Dashboard"}
@@ -328,7 +328,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                     </div>
                   )}
 
-                  {hasStaff && hasCustomerLink && <div className="border-t border-[#EFE8D8]" />}
+                  {hasStaff && hasCustomerLink && <div className="border-t border-[#E2E8F0]" />}
 
                   {hasCustomerLink && (
                     <div className="space-y-3">
@@ -459,7 +459,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                       { label: "Submitted", value: submitted, cls: "text-violet-700" },
                       { label: "Completed", value: signed,    cls: "text-emerald-700" },
                     ].map(({ label, value, cls }) => (
-                      <div key={label} className="rounded-lg border border-[#DDD5C4] bg-white shadow-sm px-4 py-3 flex flex-col items-center justify-center gap-0.5">
+                      <div key={label} className="rounded-lg border border-[#E2E8F0] bg-white shadow-sm px-4 py-3 flex flex-col items-center justify-center gap-0.5">
                         <div className={`text-2xl font-bold leading-none ${cls}`}>{value}</div>
                         <div className="text-[11px] font-medium text-[#8A9BB8] uppercase tracking-wide">{label}</div>
                       </div>
@@ -497,8 +497,8 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                 return (
                   <div className="space-y-4">
                     {groups.map(([packageName, sessions]) => (
-                      <div key={packageName} className="overflow-x-auto rounded-lg border border-[#DDD5C4]">
-                        <div className="px-4 py-2 bg-[#F8F6F0] border-b border-[#DDD5C4]">
+                      <div key={packageName} className="overflow-x-auto rounded-lg border border-[#E2E8F0]">
+                        <div className="px-4 py-2 bg-[#F8FAFC] border-b border-[#E2E8F0]">
                           <span className="text-xs font-semibold text-[#0F1C3F] uppercase tracking-wide">{packageName}</span>
                           <span className="ml-2 text-xs text-[#8A9BB8]">{sessions.length} session{sessions.length !== 1 ? "s" : ""}</span>
                         </div>
@@ -550,7 +550,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                                   </td>
                                   <td className="px-4 py-2">
                                     {isCompleted ? (
-                                      <a href={pdfUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 text-xs text-[#0F1C3F] underline underline-offset-2 hover:text-[#C49A38]">
+                                      <a href={pdfUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 text-xs text-[#0F1C3F] underline underline-offset-2 hover:text-[#1B4FD8]">
                                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                         PDF
                                       </a>
@@ -656,7 +656,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                           return next;
                         })}
                         title={isDeferred ? "Staff will collect this field" : "Client fills this in during signing"}
-                        className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border transition-colors ${isDeferred ? "bg-violet-100 text-violet-700 border-violet-300 hover:bg-violet-200" : "bg-white text-[#8A9BB8] border-[#DDD5C4] hover:text-violet-700 hover:border-violet-300"}`}
+                        className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border transition-colors ${isDeferred ? "bg-violet-100 text-violet-700 border-violet-300 hover:bg-violet-200" : "bg-white text-[#8A9BB8] border-[#E2E8F0] hover:text-violet-700 hover:border-violet-300"}`}
                       >
                         <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
                         {isDeferred ? "Client fills in" : "Defer to client"}
@@ -665,7 +665,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                     <span className={`rounded px-2 py-0.5 text-[10px] uppercase tracking-wide ${
                       mode === "required" ? "bg-red-50 text-red-700 border border-red-100"
                       : mode === "readonly" ? "bg-blue-50 text-blue-700 border border-blue-100"
-                      : "bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8]"
+                      : "bg-[#F8FAFC] text-[#6B7A99] border border-[#E2E8F0]"
                     }`}>{mode === "required" ? "Required" : mode === "readonly" ? "Read only" : "Optional"}</span>
                   </div>
                 </div>
@@ -675,7 +675,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                     Client will enter this securely during signing
                   </div>
                 ) : isReadonly ? (
-                  <div className="px-3 py-2 text-sm bg-[#F8F6F0] rounded border border-[#DDD5C4] text-[#334155]">
+                  <div className="px-3 py-2 text-sm bg-[#F8FAFC] rounded border border-[#E2E8F0] text-[#334155]">
                     {currentValue || <span className="text-[#8A9BB8] italic">—</span>}
                   </div>
                 ) : field.type === "dropdown" ? (
@@ -685,7 +685,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                     value={currentValue}
                     onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))}
                     onBlur={(e) => handleInterviewFieldBlur(field, e.target.value)}
-                    className={`w-full border rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 ${fieldError ? "border-red-400" : isMissing ? "border-amber-400" : "border-[#D4C9B5]"}`}
+                    className={`w-full border rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 ${fieldError ? "border-red-400" : isMissing ? "border-amber-400" : "border-[#E2E8F0]"}`}
                   >
                     <option value="">{mode === "required" ? "— select —" : "Select…"}</option>
                     {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
@@ -770,7 +770,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
               );
             })}
           </div>
-          <div className="rounded border border-[#DDD5C4] bg-white p-4">
+          <div className="rounded border border-[#E2E8F0] bg-white p-4">
             <h3 className="text-sm font-semibold mb-2">Preview before send</h3>
             <div className="grid sm:grid-cols-2 gap-2 text-xs text-[#6B7A99]">
               {visibleInterviewFields.filter((f) => !SYSTEM_FIELD_IDS.has(f.id)).map((field) => {
@@ -804,19 +804,19 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
             {saveFeedback === "saved" && <span className="text-xs text-emerald-600 font-medium">✓ Saved</span>}
             {saveFeedback === "error" && <span className="text-xs text-red-500">Save failed — try again</span>}
             <Button onClick={generatePacket} disabled={isSaving || missingRequiredFields.length > 0 || Object.keys(fieldErrors).length > 0} className="disabled:opacity-60">{isSaving ? "Generating…" : "Generate Packet"}</Button>
-            <Button onClick={handleDownloadInterviewCsv} variant="outline" className="text-[#6B7A99] border-[#DDD5C4]">Download CSV</Button>
+            <Button onClick={handleDownloadInterviewCsv} variant="outline" className="text-[#6B7A99] border-[#E2E8F0]">Download CSV</Button>
             {generatedUrl && (
-              <button type="button" onClick={downloadGeneratedPacket} disabled={isDownloading} className="text-sm text-[#C49A38] underline disabled:opacity-60">
+              <button type="button" onClick={downloadGeneratedPacket} disabled={isDownloading} className="text-sm text-[#1B4FD8] underline disabled:opacity-60">
                 {isDownloading ? "Downloading…" : "Download packet PDF"}
               </button>
             )}
-            {driveUrl && <a href={driveUrl} target="_blank" rel="noreferrer" className="text-sm text-[#C49A38] underline">Open saved Drive packet</a>}
+            {driveUrl && <a href={driveUrl} target="_blank" rel="noreferrer" className="text-sm text-[#1B4FD8] underline">Open saved Drive packet</a>}
           </div>
           {driveWarnings.length > 0 && <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{driveWarnings.join(" ")}</div>}
 
           {/* Send for Signature section — only for staff non-public sessions */}
           {!isPublicSession && (
-            <div className="rounded-lg border border-[#DDD5C4] bg-[#FAFAF8] p-4 space-y-3">
+            <div className="rounded-lg border border-[#E2E8F0] bg-[#FAFAF8] p-4 space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-semibold text-[#0F1C3F]">Send for Client Signature</h3>
@@ -853,13 +853,13 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                     <input
                       readOnly
                       value={sigLink}
-                      className="flex-1 rounded border border-[#DDD5C4] bg-white px-3 py-1.5 text-xs text-[#334155] font-mono select-all"
+                      className="flex-1 rounded border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs text-[#334155] font-mono select-all"
                       onClick={(e) => (e.target as HTMLInputElement).select()}
                     />
                     <button
                       type="button"
                       onClick={copySigLink}
-                      className={`shrink-0 rounded border px-3 py-1.5 text-xs font-medium transition-colors ${sigLinkCopied ? "bg-green-50 border-green-300 text-green-700" : "bg-white border-[#DDD5C4] text-[#334155] hover:border-[#C49A38] hover:text-[#C49A38]"}`}
+                      className={`shrink-0 rounded border px-3 py-1.5 text-xs font-medium transition-colors ${sigLinkCopied ? "bg-green-50 border-green-300 text-green-700" : "bg-white border-[#E2E8F0] text-[#334155] hover:border-[#1B4FD8] hover:text-[#1B4FD8]"}`}
                     >
                       {sigLinkCopied ? "Copied!" : "Copy"}
                     </button>
@@ -874,33 +874,33 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                     <button
                       type="button"
                       onClick={() => setShowSigSendForm(true)}
-                      className="block text-xs text-[#C49A38] underline hover:text-[#A07B2E]"
+                      className="block text-xs text-[#1B4FD8] underline hover:text-[#A07B2E]"
                     >
                       Send by email instead
                     </button>
                   ) : (
-                    <div className="space-y-2 rounded border border-[#DDD5C4] bg-white p-3">
+                    <div className="space-y-2 rounded border border-[#E2E8F0] bg-white p-3">
                       <h4 className="text-xs font-semibold text-[#0F1C3F]">Send signing link by email</h4>
                       <input
                         type="email"
                         placeholder="Client email *"
                         value={sigSendEmail}
                         onChange={(e) => setSigSendEmail(e.target.value)}
-                        className="w-full rounded border border-[#DDD5C4] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C49A38]/30"
+                        className="w-full rounded border border-[#E2E8F0] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4FD8]/30"
                       />
                       <input
                         type="text"
                         placeholder="Client name (optional)"
                         value={sigSendName}
                         onChange={(e) => setSigSendName(e.target.value)}
-                        className="w-full rounded border border-[#DDD5C4] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C49A38]/30"
+                        className="w-full rounded border border-[#E2E8F0] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4FD8]/30"
                       />
                       <textarea
                         placeholder="Add a personal message (optional)"
                         value={sigSendMessage}
                         onChange={(e) => setSigSendMessage(e.target.value)}
                         rows={2}
-                        className="w-full rounded border border-[#DDD5C4] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C49A38]/30 resize-none"
+                        className="w-full rounded border border-[#E2E8F0] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4FD8]/30 resize-none"
                       />
                       <div className="flex items-center gap-2">
                         <Button

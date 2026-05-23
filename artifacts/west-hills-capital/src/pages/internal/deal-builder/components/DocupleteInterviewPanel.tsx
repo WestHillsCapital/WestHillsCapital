@@ -174,9 +174,9 @@ export function DocupleteInterviewPanel({ token, getAuthHeaders }: Props) {
 
   if (isLoading) {
     return (
-      <div className="mt-6 bg-white border border-[#DDD5C4] rounded-lg p-6">
+      <div className="mt-6 bg-white border border-[#E2E8F0] rounded-lg p-6">
         <div className="flex items-center gap-3 text-sm text-[#6B7A99]">
-          <div className="w-4 h-4 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />
+          <div className="w-4 h-4 border-2 border-[#1B4FD8] border-t-transparent rounded-full animate-spin" />
           Loading interview…
         </div>
       </div>
@@ -207,9 +207,9 @@ export function DocupleteInterviewPanel({ token, getAuthHeaders }: Props) {
   const prefillEntries = Object.entries(session.prefill ?? {}).filter(([, v]) => String(v ?? "").trim());
 
   return (
-    <div className="mt-6 bg-white border border-[#C49A38]/40 rounded-lg shadow-sm">
+    <div className="mt-6 bg-white border border-[#1B4FD8]/40 rounded-lg shadow-sm">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-[#DDD5C4]">
+      <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-[#E2E8F0]">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-sm font-semibold text-[#0F1C3F]">Document Interview</h2>
@@ -229,7 +229,7 @@ export function DocupleteInterviewPanel({ token, getAuthHeaders }: Props) {
         <button
           type="button"
           onClick={() => navigate(`/internal/docuplete?session=${token}`)}
-          className="text-xs text-[#6B7A99] border border-[#DDD5C4] rounded px-2.5 py-1.5 hover:text-[#0F1C3F] whitespace-nowrap shrink-0"
+          className="text-xs text-[#6B7A99] border border-[#E2E8F0] rounded px-2.5 py-1.5 hover:text-[#0F1C3F] whitespace-nowrap shrink-0"
         >
           Open full view →
         </button>
@@ -248,7 +248,7 @@ export function DocupleteInterviewPanel({ token, getAuthHeaders }: Props) {
 
         {/* Prefilled data (collapsible) */}
         {prefillEntries.length > 0 && (
-          <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0]">
+          <div className="rounded border border-[#E2E8F0] bg-[#F8FAFC]">
             <button
               type="button"
               onClick={() => setShowPrefill((v) => !v)}
@@ -258,7 +258,7 @@ export function DocupleteInterviewPanel({ token, getAuthHeaders }: Props) {
               <span className="text-[#8A9BB8]">{showPrefill ? "▲" : "▼"}</span>
             </button>
             {showPrefill && (
-              <div className="px-3 pb-3 grid sm:grid-cols-2 gap-1.5 text-xs text-[#6B7A99] border-t border-[#DDD5C4] pt-2">
+              <div className="px-3 pb-3 grid sm:grid-cols-2 gap-1.5 text-xs text-[#6B7A99] border-t border-[#E2E8F0] pt-2">
                 {prefillEntries.map(([key, value]) => (
                   <div key={key}><span className="font-medium text-[#0F1C3F]">{key}:</span> {String(value)}</div>
                 ))}
@@ -276,7 +276,7 @@ export function DocupleteInterviewPanel({ token, getAuthHeaders }: Props) {
               const mode = field.interviewMode ?? (field.required ? "required" : "optional");
               const readonly = fieldIsReadonly(field);
               const currentValue = fieldCurrentValue(field, answers, session.prefill);
-              const borderColor = field.color ?? "#DDD5C4";
+              const borderColor = field.color ?? "#E2E8F0";
 
               return (
                 <label
@@ -289,21 +289,21 @@ export function DocupleteInterviewPanel({ token, getAuthHeaders }: Props) {
                     <span className={`rounded px-2 py-0.5 text-[10px] uppercase tracking-wide shrink-0 ${
                       mode === "required" ? "bg-red-50 text-red-700 border border-red-100"
                       : mode === "readonly" ? "bg-blue-50 text-blue-700 border border-blue-100"
-                      : "bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8]"
+                      : "bg-[#F8FAFC] text-[#6B7A99] border border-[#E2E8F0]"
                     }`}>
                       {mode === "required" ? "Required" : mode === "readonly" ? "Read only" : "Optional"}
                     </span>
                   </span>
 
                   {readonly ? (
-                    <div className="px-3 py-2 text-sm bg-[#F8F6F0] rounded border border-[#DDD5C4] text-[#334155]">
+                    <div className="px-3 py-2 text-sm bg-[#F8FAFC] rounded border border-[#E2E8F0] text-[#334155]">
                       {currentValue || <span className="text-[#8A9BB8] italic">—</span>}
                     </div>
                   ) : field.type === "dropdown" ? (
                     <select
                       value={currentValue}
                       onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))}
-                      className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-sm"
+                      className="w-full border border-[#E2E8F0] rounded px-3 py-2 text-sm"
                     >
                       <option value="">{mode === "required" ? "— select —" : "Select"}</option>
                       {(field.options ?? []).map((opt) => (
@@ -377,13 +377,13 @@ export function DocupleteInterviewPanel({ token, getAuthHeaders }: Props) {
         )}
 
         {/* Actions */}
-        <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-[#EFE8D8]">
+        <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-[#E2E8F0]">
           <Button
             type="button"
             variant="outline"
             onClick={saveAnswers}
             disabled={isSaving || isGenerating}
-            className="text-[#0F1C3F] border-[#DDD5C4]"
+            className="text-[#0F1C3F] border-[#E2E8F0]"
           >
             {isSaving ? "Saving…" : "Save Progress"}
           </Button>
@@ -393,7 +393,7 @@ export function DocupleteInterviewPanel({ token, getAuthHeaders }: Props) {
               type="button"
               onClick={generatePacket}
               disabled={isGenerating || isSaving}
-              className="bg-[#C49A38] hover:bg-[#b58c31] text-black"
+              className="bg-[#1B4FD8] hover:bg-[#b58c31] text-black"
             >
               {isGenerating ? "Generating…" : "Generate Packet"}
             </Button>
@@ -424,7 +424,7 @@ export function DocupleteInterviewPanel({ token, getAuthHeaders }: Props) {
               });
               downloadCsv(csv, `docuplete-${safeName}-${date}.csv`);
             }}
-            className="text-[#6B7A99] border-[#DDD5C4]"
+            className="text-[#6B7A99] border-[#E2E8F0]"
           >
             Download CSV
           </Button>

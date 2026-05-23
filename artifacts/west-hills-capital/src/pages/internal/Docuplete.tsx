@@ -651,7 +651,7 @@ export default function Docuplete() {
     document.addEventListener("touchcancel", onEnd);
     fieldEditorDragCleanupRef.current = cleanup;
   }, [fieldEditorPos.x, fieldEditorPos.y]);
-  const [fieldEditorDraft, setFieldEditorDraft] = useState<FieldEditorDraft>({ name: "", color: "#C49A38", type: "text", options: [], interviewMode: "optional", hasDefault: false, defaultValue: "", validationType: "none", validationPattern: "", validationMessage: "", packageOnly: false, condition: null, condition2: null, conditionOperator: "and", sumGroup: "", copyFrom: null });
+  const [fieldEditorDraft, setFieldEditorDraft] = useState<FieldEditorDraft>({ name: "", color: "#1B4FD8", type: "text", options: [], interviewMode: "optional", hasDefault: false, defaultValue: "", validationType: "none", validationPattern: "", validationMessage: "", packageOnly: false, condition: null, condition2: null, conditionOperator: "and", sumGroup: "", copyFrom: null });
   const sortSensors = useSensors(useSensor(SmartPointerSensor, { activationConstraint: { distance: 6 } }));
   const [session, setSession] = useState<Session | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -4278,42 +4278,42 @@ export default function Docuplete() {
         {!isPublicSession && <div className="flex items-stretch">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button onClick={() => goBuilderStep(builderStep)} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "packages" || tab === "mapper" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Packages</button>
+              <button onClick={() => goBuilderStep(builderStep)} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "packages" || tab === "mapper" ? "border-[#1B4FD8] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Packages</button>
             </TooltipTrigger>
             <TooltipContent side="bottom">A Package bundles multiple PDF forms into one guided interview session. Configure documents, fields, and automation here.</TooltipContent>
           </Tooltip>
-          <div className="w-px self-stretch my-1 bg-[#DDD5C4]" />
+          <div className="w-px self-stretch my-1 bg-[#E2E8F0]" />
           <Tooltip>
             <TooltipTrigger asChild>
-              <button onClick={() => setTab("sessions")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "sessions" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Sessions</button>
+              <button onClick={() => setTab("sessions")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "sessions" ? "border-[#1B4FD8] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Sessions</button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Launch a single interview session for one package at a time — staff-guided or via a customer self-service link.</TooltipContent>
           </Tooltip>
-          <div className="w-px self-stretch my-1 bg-[#DDD5C4]" />
+          <div className="w-px self-stretch my-1 bg-[#E2E8F0]" />
           <Tooltip>
             <TooltipTrigger asChild>
-              <button onClick={() => setTab("batch")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "batch" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Batch</button>
+              <button onClick={() => setTab("batch")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "batch" ? "border-[#1B4FD8] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Batch</button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Upload a CSV to create many sessions at once — one row per client.</TooltipContent>
           </Tooltip>
-          <div className="w-px self-stretch my-1 bg-[#DDD5C4]" />
+          <div className="w-px self-stretch my-1 bg-[#E2E8F0]" />
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 onClick={() => { setTab("library"); window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior }); }}
-                className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "library" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+                className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "library" ? "border-[#1B4FD8] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
               >
                 Library
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Shared field definitions, field groups, and compliance tags reusable across all packages.</TooltipContent>
           </Tooltip>
-          <div className="w-px self-stretch my-1 bg-[#DDD5C4]" />
+          <div className="w-px self-stretch my-1 bg-[#E2E8F0]" />
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 onClick={() => setTab("help")}
-                className={`px-4 py-2 text-sm border-b-2 transition-colors flex items-center gap-1.5 ${tab === "help" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+                className={`px-4 py-2 text-sm border-b-2 transition-colors flex items-center gap-1.5 ${tab === "help" ? "border-[#1B4FD8] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -4759,15 +4759,15 @@ export default function Docuplete() {
       )}
 
       {!isPublicSession && tab === "library" && (
-        <section className="bg-white border border-[#DDD5C4] rounded-lg max-w-4xl mx-auto overflow-hidden mt-4">
-          <div className="flex border-b border-[#DDD5C4]">
+        <section className="bg-white border border-[#E2E8F0] rounded-lg max-w-4xl mx-auto overflow-hidden mt-4">
+          <div className="flex border-b border-[#E2E8F0]">
             {(["fields", "field-groups", "types", "groups", "compliance", "tags"] as const).map((sub) => {
               const label = sub === "field-groups" ? "Field Groups" : sub.charAt(0).toUpperCase() + sub.slice(1);
               return (
                 <button
                   key={sub}
                   onClick={() => { setLibrarySubTab(sub); if (sub === "compliance") void loadComplianceAudit(); if (sub === "tags" && complianceTags.length === 0) void loadComplianceTags(); }}
-                  className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${librarySubTab === sub ? "border-[#0F1C3F] text-[#0F1C3F]" : "border-transparent text-[#8A9BB8] hover:text-[#0F1C3F] hover:border-[#DDD5C4]"}`}
+                  className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${librarySubTab === sub ? "border-[#0F1C3F] text-[#0F1C3F]" : "border-transparent text-[#8A9BB8] hover:text-[#0F1C3F] hover:border-[#E2E8F0]"}`}
                 >
                   {label}
                 </button>
@@ -4875,7 +4875,7 @@ export default function Docuplete() {
                         const a = document.createElement("a"); a.href = url; a.download = "compliance-audit.csv"; a.click();
                         URL.revokeObjectURL(url);
                       }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-gray-200 bg-white text-[#0F1C3F] hover:border-[#C49A38] hover:shadow-sm transition-all"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-gray-200 bg-white text-[#0F1C3F] hover:border-[#1B4FD8] hover:shadow-sm transition-all"
                     >
                       <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                       Export CSV
@@ -4887,14 +4887,14 @@ export default function Docuplete() {
                 <div className="mb-3 rounded border border-red-200 bg-red-50 text-red-700 px-3 py-2 text-sm">{complianceAuditError}</div>
               )}
               {!complianceAudit && !complianceAuditLoading && !complianceAuditError && (
-                <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] px-4 py-6 text-center text-sm text-[#8A9BB8]">
+                <div className="rounded border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-6 text-center text-sm text-[#8A9BB8]">
                   Click <strong>Refresh</strong> to generate the compliance audit report.
                 </div>
               )}
               {complianceAudit && (
                 <div className="space-y-3">
                   {complianceAudit.report.length === 0 && (
-                    <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] px-4 py-6 text-center text-sm text-[#8A9BB8]">No packages found.</div>
+                    <div className="rounded border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-6 text-center text-sm text-[#8A9BB8]">No packages found.</div>
                   )}
                   {complianceAudit.report.map((row) => (
                     <div key={row.packageId} className={`rounded border ${row.hasGap ? "border-amber-200 bg-amber-50/25" : "border-green-200 bg-green-50/20"} p-4`}>
@@ -5005,7 +5005,7 @@ export default function Docuplete() {
       {recipientPickerOpen && selectedPackage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setRecipientPickerOpen(false)}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#DDD5C4]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#E2E8F0]">
               <h2 className="text-sm font-semibold text-[#0F1C3F]">Add Recipient</h2>
               <button type="button" onClick={() => setRecipientPickerOpen(false)} className="text-[#8A9BB8] hover:text-[#0F1C3F]">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -5018,7 +5018,7 @@ export default function Docuplete() {
                   type="button"
                   disabled={storeRecipientList.some((r) => r.type === "customer")}
                   onClick={() => addRecipient({ id: newRecipientId(), label: "Customer", color: pickRecipientColor(storeRecipientList.map((r) => r.color)), type: "customer" })}
-                  className="flex w-full items-center gap-2 rounded px-3 py-2 text-xs text-[#334155] hover:bg-[#F8F6F0] border border-[#EFE8D8] disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex w-full items-center gap-2 rounded px-3 py-2 text-xs text-[#334155] hover:bg-[#F8FAFC] border border-[#E2E8F0] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <svg className="w-3.5 h-3.5 text-[#8A9BB8] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                   Customer
@@ -5041,7 +5041,7 @@ export default function Docuplete() {
                             type="button"
                             disabled={already}
                             onClick={() => addRecipient({ id: newRecipientId(), label: g.name, color: pickRecipientColor(storeRecipientList.map((r) => r.color)), type: "group", refId: g.id })}
-                            className="flex w-full items-center gap-2 rounded px-3 py-2 text-xs text-[#334155] hover:bg-[#F8F6F0] border border-[#EFE8D8] disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex w-full items-center gap-2 rounded px-3 py-2 text-xs text-[#334155] hover:bg-[#F8FAFC] border border-[#E2E8F0] disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             {icon}
                             {g.name}
@@ -5077,7 +5077,7 @@ export default function Docuplete() {
 
       {deleteGuard && selectedPackage && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-[1px]">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-5 border border-[#DDD5C4] mx-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-5 border border-[#E2E8F0] mx-4">
             <h3 className="text-base font-semibold text-[#0F1C3F] mb-1">Remove "{deleteGuard.fieldName}"?</h3>
             <p className="text-sm text-[#6B7A99] mb-3">
               {deleteGuard.deps.length === 1 ? "1 other field references" : `${deleteGuard.deps.length} other fields reference`} this field.
@@ -5102,7 +5102,7 @@ export default function Docuplete() {
               <select
                 value={deleteGuard.replacementFieldId}
                 onChange={(e) => setDeleteGuard((g) => g ? { ...g, replacementFieldId: e.target.value } : null)}
-                className="w-full border border-[#DDD5C4] rounded-md h-9 px-2.5 text-sm bg-white text-[#0F1C3F] focus:outline-none focus:border-[#C49A38]"
+                className="w-full border border-[#E2E8F0] rounded-md h-9 px-2.5 text-sm bg-white text-[#0F1C3F] focus:outline-none focus:border-[#1B4FD8]"
               >
                 <option value="">— none, mark for repair later —</option>
                 {selectedPackage.fields
@@ -5115,7 +5115,7 @@ export default function Docuplete() {
               <button
                 type="button"
                 onClick={() => setDeleteGuard(null)}
-                className="px-4 py-2 text-sm rounded-md border border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38] hover:text-[#0F1C3F] transition-colors"
+                className="px-4 py-2 text-sm rounded-md border border-[#E2E8F0] text-[#6B7A99] hover:border-[#1B4FD8] hover:text-[#0F1C3F] transition-colors"
               >Cancel</button>
               <button
                 type="button"

@@ -103,7 +103,7 @@ export function DocupletePackagesSection({
   const selectedPkg = matchingPackages.find((p) => String(p.id) === packageId);
 
   return (
-    <section className="bg-white border border-[#DDD5C4] rounded-lg shadow-sm p-5">
+    <section className="bg-white border border-[#E2E8F0] rounded-lg shadow-sm p-5">
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
           <h2 className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wider">IRA Paperwork</h2>
@@ -112,7 +112,7 @@ export function DocupletePackagesSection({
         <button
           type="button"
           onClick={() => navigate("/internal/docuplete")}
-          className="text-xs px-2.5 py-1.5 rounded border border-[#DDD5C4] text-[#6B7A99] hover:text-[#0F1C3F] shrink-0"
+          className="text-xs px-2.5 py-1.5 rounded border border-[#E2E8F0] text-[#6B7A99] hover:text-[#0F1C3F] shrink-0"
         >
           Manage
         </button>
@@ -132,7 +132,7 @@ export function DocupletePackagesSection({
                 custodian: custodian?.name ?? "",
               }));
             }}
-            className="w-full bg-white border border-[#D4C9B5] rounded px-3 py-1.5 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] disabled:opacity-60"
+            className="w-full bg-white border border-[#E2E8F0] rounded px-3 py-1.5 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#1B4FD8] disabled:opacity-60"
           >
             <option value="">Select custodian</option>
             {custodians.filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -151,7 +151,7 @@ export function DocupletePackagesSection({
                 depository: depository?.name ?? "",
               }));
             }}
-            className="w-full bg-white border border-[#D4C9B5] rounded px-3 py-1.5 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] disabled:opacity-60"
+            className="w-full bg-white border border-[#E2E8F0] rounded px-3 py-1.5 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#1B4FD8] disabled:opacity-60"
           >
             <option value="">Select depository</option>
             {depositories.filter((d) => d.active).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -165,7 +165,7 @@ export function DocupletePackagesSection({
           value={transactionScope}
           onChange={(e) => onTransactionScopeChange(e.target.value)}
           disabled={locked || isLoading}
-          className="w-full bg-white border border-[#D4C9B5] rounded px-3 py-1.5 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] disabled:opacity-60"
+          className="w-full bg-white border border-[#E2E8F0] rounded px-3 py-1.5 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#1B4FD8] disabled:opacity-60"
         >
           {transactionTypes.filter((item) => item.active).map((item) => <option key={item.scope} value={item.scope}>{item.label}</option>)}
         </select>
@@ -177,7 +177,7 @@ export function DocupletePackagesSection({
           value={packageId}
           onChange={(e) => onPackageChange(e.target.value)}
           disabled={isLoading || matchingPackages.length === 0 || locked}
-          className="w-full bg-white border border-[#D4C9B5] rounded px-3 py-1.5 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] disabled:opacity-60"
+          className="w-full bg-white border border-[#E2E8F0] rounded px-3 py-1.5 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#1B4FD8] disabled:opacity-60"
         >
           <option value="">{matchingPackages.length ? "Select package" : `No active ${labelForScope(transactionScope)} package for this combination`}</option>
           {matchingPackages.map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name} · {labelForScope(pkg.transaction_scope)} · v{pkg.version}</option>)}

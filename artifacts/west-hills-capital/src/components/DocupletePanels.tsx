@@ -199,13 +199,13 @@ export function FieldGroupsPanel({
   }, {});
 
   return (
-    <div className="border border-[#DDD5C4] rounded p-3">
+    <div className="border border-[#E2E8F0] rounded p-3">
       <div className="flex items-center justify-between mb-2">
         <div>
           <h3 className="text-sm font-semibold">Field Groups</h3>
           <p className="text-[11px] text-[#8A9BB8]">Bundle common fields for one-click addition to any package.</p>
         </div>
-        <button type="button" onClick={handleAdd} disabled={adding} className="h-7 px-2.5 text-xs rounded border border-[#D4C9B5] bg-white text-[#4A5568] hover:text-[#0F1C3F] hover:border-[#0F1C3F] disabled:opacity-50 transition-colors flex items-center gap-1">
+        <button type="button" onClick={handleAdd} disabled={adding} className="h-7 px-2.5 text-xs rounded border border-[#E2E8F0] bg-white text-[#4A5568] hover:text-[#0F1C3F] hover:border-[#0F1C3F] disabled:opacity-50 transition-colors flex items-center gap-1">
           <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
           {adding ? "Adding…" : "Add Group"}
         </button>
@@ -213,7 +213,7 @@ export function FieldGroupsPanel({
       {panelError && <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
       <div className="mb-2 relative">
         <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#B0BCCE] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>
-        <input type="text" placeholder="Search groups…" value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)} className="w-full h-8 text-[11px] rounded border border-[#D4C9B5] pl-6 pr-2 bg-white focus:outline-none focus:border-[#1B4FD8]" />
+        <input type="text" placeholder="Search groups…" value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)} className="w-full h-8 text-[11px] rounded border border-[#E2E8F0] pl-6 pr-2 bg-white focus:outline-none focus:border-[#1B4FD8]" />
       </div>
       {items.length === 0 && <div className="text-xs text-[#8A9BB8]">No field groups yet. Add one to bundle fields for fast package setup.</div>}
       <div className="grid md:grid-cols-2 gap-2 items-stretch">
@@ -222,7 +222,7 @@ export function FieldGroupsPanel({
           const memberCount = item.fieldIds.length;
           const usagePackages = item.usagePackages ?? [];
           return (
-            <div key={item.id} className="flex flex-col rounded border border-[#EFE8D8] bg-[#F8F6F0] p-2 overflow-hidden">
+            <div key={item.id} className="flex flex-col rounded border border-[#E2E8F0] bg-[#F8FAFC] p-2 overflow-hidden">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1 overflow-hidden">
                   {isExpanded ? (
@@ -264,7 +264,7 @@ export function FieldGroupsPanel({
                 <button
                   type="button"
                   onClick={() => setExpandedId(isExpanded ? null : item.id)}
-                  className="shrink-0 flex items-center justify-center w-8 h-8 rounded hover:bg-[#EFE8D8] text-[#8A9BB8] hover:text-[#4A5568] transition-colors"
+                  className="shrink-0 flex items-center justify-center w-8 h-8 rounded hover:bg-[#E2E8F0] text-[#8A9BB8] hover:text-[#4A5568] transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d={isExpanded ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
@@ -289,7 +289,7 @@ export function FieldGroupsPanel({
                   <div className="max-h-52 overflow-y-auto rounded border border-[#E8E0D4] bg-white text-[11px]">
                     {Object.keys(byCategory).sort().map((cat) => (
                       <div key={cat}>
-                        <div className="sticky top-0 bg-[#F5F2EC] border-b border-[#EFE8D8] px-2 py-0.5 text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide">{cat}</div>
+                        <div className="sticky top-0 bg-[#F5F2EC] border-b border-[#E2E8F0] px-2 py-0.5 text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide">{cat}</div>
                         {byCategory[cat].map((f) => (
                           <label key={f.id} className="flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-[#F5F2EC]">
                             <input
@@ -333,7 +333,7 @@ export function FieldGroupsPanel({
                         type="button"
                         onClick={() => handleSave(item)}
                         disabled={savingId === item.id}
-                        className="text-[11px] text-[#C49A38] disabled:opacity-50"
+                        className="text-[11px] text-[#1B4FD8] disabled:opacity-50"
                       >
                         {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save"}
                       </button>
@@ -353,12 +353,12 @@ export function FieldGroupsPanel({
 }
 
 export function EmptyState({ message }: { message: string }) {
-  return <div className="rounded border border-dashed border-[#D4C9B5] bg-white p-8 text-center text-sm text-[#6B7A99]">{message}</div>;
+  return <div className="rounded border border-dashed border-[#E2E8F0] bg-white p-8 text-center text-sm text-[#6B7A99]">{message}</div>;
 }
 
 export function SummaryCard({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <div className="rounded-lg border border-[#DDD5C4] bg-white p-4">
+    <div className="rounded-lg border border-[#E2E8F0] bg-white p-4">
       <div className="text-xs uppercase tracking-wide text-[#6B7A99]">{label}</div>
       <div className="mt-1 text-2xl font-semibold">{value}</div>
       <div className="mt-1 text-xs text-[#8A9BB8]">{detail}</div>
@@ -438,10 +438,10 @@ export function EntityPanel({
   }
 
   return (
-    <div className="border border-[#DDD5C4] rounded p-3">
+    <div className="border border-[#E2E8F0] rounded p-3">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold">{title}</h3>
-        <button type="button" onClick={handleAdd} disabled={adding} className="h-7 px-2.5 text-xs rounded border border-[#D4C9B5] bg-white text-[#4A5568] hover:text-[#0F1C3F] hover:border-[#0F1C3F] disabled:opacity-50 transition-colors flex items-center gap-1">
+        <button type="button" onClick={handleAdd} disabled={adding} className="h-7 px-2.5 text-xs rounded border border-[#E2E8F0] bg-white text-[#4A5568] hover:text-[#0F1C3F] hover:border-[#0F1C3F] disabled:opacity-50 transition-colors flex items-center gap-1">
           <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
           {adding ? "Adding…" : `Add ${title.replace(/s$/, "")}`}
         </button>
@@ -449,11 +449,11 @@ export function EntityPanel({
       {panelError && <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
       <div className="mb-2 relative">
         <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#B0BCCE] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>
-        <input type="text" placeholder="Search…" value={entitySearch} onChange={(e) => setEntitySearch(e.target.value)} className="w-full h-7 text-[11px] rounded border border-[#D4C9B5] pl-6 pr-2 bg-white focus:outline-none focus:border-[#1B4FD8]" />
+        <input type="text" placeholder="Search…" value={entitySearch} onChange={(e) => setEntitySearch(e.target.value)} className="w-full h-7 text-[11px] rounded border border-[#E2E8F0] pl-6 pr-2 bg-white focus:outline-none focus:border-[#1B4FD8]" />
       </div>
       <div className="grid md:grid-cols-2 gap-2 items-stretch text-sm">
         {filteredEntities.map((item) => (
-          <div key={item.id} className="flex flex-col rounded bg-[#F8F6F0] border border-[#EFE8D8] overflow-hidden">
+          <div key={item.id} className="flex flex-col rounded bg-[#F8FAFC] border border-[#E2E8F0] overflow-hidden">
             <div className="p-2 space-y-2 flex-1">
               <Input value={item.name} onChange={(e) => onChange(item.id, { name: e.target.value })} className="h-8 text-xs bg-white" placeholder="Group name" />
               {showKind && (
@@ -465,7 +465,7 @@ export function EntityPanel({
                     value={item.kind ?? "general"}
                     onChange={(e) => onChange(item.id, { kind: e.target.value })}
                     placeholder="e.g. Vendor, Partner…"
-                    className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white focus:outline-none focus:border-[#1B4FD8]"
+                    className="w-full border border-[#E2E8F0] rounded px-2 py-1 text-xs bg-white focus:outline-none focus:border-[#1B4FD8]"
                   />
                   {kindSuggestions && kindSuggestions.length > 0 && (
                     <datalist id={`kind-suggestions-${item.id}`}>
@@ -501,7 +501,7 @@ export function EntityPanel({
                     {deletingId === item.id ? "Deleting…" : "Delete"}
                   </button>
                 )}
-                <button type="button" onClick={() => handleSave(item)} disabled={savingId === item.id} className="h-7 px-2.5 text-[11px] font-medium rounded border border-[#C49A38] bg-[#C49A38] text-white hover:bg-[#A07820] hover:border-[#A07820] disabled:opacity-50 transition-colors">
+                <button type="button" onClick={() => handleSave(item)} disabled={savingId === item.id} className="h-7 px-2.5 text-[11px] font-medium rounded border border-[#1B4FD8] bg-[#1B4FD8] text-white hover:bg-[#A07820] hover:border-[#A07820] disabled:opacity-50 transition-colors">
                   {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save"}
                 </button>
               </div>
@@ -610,7 +610,7 @@ export function TransactionTypesPanel({
           <h3 className="text-sm font-semibold">Transaction Types</h3>
           <p className="text-[11px] text-[#8A9BB8]">Types with no groups assigned are universal — visible to all packages.</p>
         </div>
-        <button type="button" onClick={handleAdd} disabled={adding} className="h-7 px-2.5 text-xs rounded border border-[#D4C9B5] bg-white text-[#4A5568] hover:text-[#0F1C3F] hover:border-[#0F1C3F] disabled:opacity-50 transition-colors flex items-center gap-1">
+        <button type="button" onClick={handleAdd} disabled={adding} className="h-7 px-2.5 text-xs rounded border border-[#E2E8F0] bg-white text-[#4A5568] hover:text-[#0F1C3F] hover:border-[#0F1C3F] disabled:opacity-50 transition-colors flex items-center gap-1">
           <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
           {adding ? "Adding…" : "Add Type"}
         </button>
@@ -618,7 +618,7 @@ export function TransactionTypesPanel({
       {panelError && <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
       <div className="relative mb-2">
         <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#B0BCCE] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>
-        <input type="text" placeholder="Search types…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full h-8 text-[11px] rounded border border-[#D4C9B5] pl-6 pr-6 bg-white focus:outline-none focus:border-[#1B4FD8]" />
+        <input type="text" placeholder="Search types…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full h-8 text-[11px] rounded border border-[#E2E8F0] pl-6 pr-6 bg-white focus:outline-none focus:border-[#1B4FD8]" />
         {searchQuery && (
           <button type="button" onClick={() => setSearchQuery("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#B0BCCE] hover:text-[#6B7A99]">
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" d="M18 6L6 18M6 6l12 12"/></svg>
@@ -627,16 +627,16 @@ export function TransactionTypesPanel({
       </div>
 
       {/* Ledger table */}
-      <div className="rounded border border-[#DDD5C4]" style={{ overflow: "clip" }}>
+      <div className="rounded border border-[#E2E8F0]" style={{ overflow: "clip" }}>
         {/* Header */}
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F5F2EC] border-b border-[#DDD5C4] text-[9px] font-semibold text-[#8A9BB8] uppercase tracking-wider">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F5F2EC] border-b border-[#E2E8F0] text-[9px] font-semibold text-[#8A9BB8] uppercase tracking-wider">
           <span className="flex-1">Label</span>
           <span className="w-14 text-center shrink-0">Sort</span>
           {availableGroups.length > 0 && <span className="shrink-0 w-40">Groups</span>}
           <span className="w-12 text-center shrink-0">Active</span>
           <span className="w-6 shrink-0" />
         </div>
-        <div className="divide-y divide-[#EFE8D8]">
+        <div className="divide-y divide-[#E2E8F0]">
           {visibleItems.map((item) => {
             const assignedGroupIds = item.group_ids ?? [];
             const isSaving = savingScope === item.scope;
@@ -652,7 +652,7 @@ export function TransactionTypesPanel({
                     value={item.label}
                     onChange={(e) => onChange(item.scope, { label: e.target.value })}
                     onBlur={(e) => void handleBlurSave({ ...item, label: e.target.value })}
-                    className="w-full h-7 text-xs rounded border border-transparent bg-transparent hover:border-[#D4C9B5] focus:border-[#1B4FD8] focus:bg-white px-1.5 focus:outline-none transition-colors"
+                    className="w-full h-7 text-xs rounded border border-transparent bg-transparent hover:border-[#E2E8F0] focus:border-[#1B4FD8] focus:bg-white px-1.5 focus:outline-none transition-colors"
                     placeholder="Label"
                   />
                 </div>
@@ -663,7 +663,7 @@ export function TransactionTypesPanel({
                     value={item.sort_order}
                     onChange={(e) => onChange(item.scope, { sort_order: Number(e.target.value || 0) })}
                     onBlur={(e) => void handleBlurSave({ ...item, sort_order: Number(e.target.value || 0) })}
-                    className="w-full h-7 text-xs text-center rounded border border-transparent bg-transparent hover:border-[#D4C9B5] focus:border-[#1B4FD8] focus:bg-white px-1 focus:outline-none transition-colors"
+                    className="w-full h-7 text-xs text-center rounded border border-transparent bg-transparent hover:border-[#E2E8F0] focus:border-[#1B4FD8] focus:bg-white px-1 focus:outline-none transition-colors"
                   />
                 </div>
                 {/* Groups */}
@@ -681,7 +681,7 @@ export function TransactionTypesPanel({
                             onChange(item.scope, { group_ids: next });
                             void handleBlurSave({ ...item, group_ids: next });
                           }}
-                          className={`text-[9px] rounded px-1 py-0.5 border leading-none transition-colors ${checked ? "bg-[#0F1C3F] border-[#0F1C3F] text-white" : "bg-white border-[#D4C9B5] text-[#8A9BB8] hover:border-[#C49A38] hover:text-[#C49A38]"}`}
+                          className={`text-[9px] rounded px-1 py-0.5 border leading-none transition-colors ${checked ? "bg-[#0F1C3F] border-[#0F1C3F] text-white" : "bg-white border-[#E2E8F0] text-[#8A9BB8] hover:border-[#1B4FD8] hover:text-[#1B4FD8]"}`}
                         >
                           {g.name}
                         </button>
@@ -716,13 +716,13 @@ export function TransactionTypesPanel({
                       <button
                         type="button"
                         onClick={() => setMenuOpenScope(menuOpen ? null : item.scope)}
-                        className="flex items-center justify-center w-6 h-6 rounded text-[#C4B99A] hover:text-[#6B7A99] hover:bg-[#EFE8D8] transition-colors"
+                        className="flex items-center justify-center w-6 h-6 rounded text-[#CBD5E1] hover:text-[#6B7A99] hover:bg-[#E2E8F0] transition-colors"
                       >
                         <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
                       </button>
                       {menuOpen && (
-                        <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-[#DDD5C4] rounded shadow-lg z-30 py-1 text-[11px]">
-                          <div className="px-2.5 py-1 text-[9px] font-mono text-[#B0BCCE] border-b border-[#EFE8D8] truncate">{item.scope}</div>
+                        <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-[#E2E8F0] rounded shadow-lg z-30 py-1 text-[11px]">
+                          <div className="px-2.5 py-1 text-[9px] font-mono text-[#B0BCCE] border-b border-[#E2E8F0] truncate">{item.scope}</div>
                           {onDelete && (
                             <button type="button" onClick={() => void handleDelete(item)} className="w-full text-left px-2.5 py-1.5 text-red-600 hover:bg-red-50">
                               Delete type
@@ -825,7 +825,7 @@ function ComplianceTagPicker({
   return (
     <div
       ref={ref}
-      className="absolute left-0 top-full mt-1 z-50 w-56 rounded-lg border border-[#DDD5C4] bg-white shadow-lg py-1"
+      className="absolute left-0 top-full mt-1 z-50 w-56 rounded-lg border border-[#E2E8F0] bg-white shadow-lg py-1"
     >
       <div className="px-2 pt-1 pb-0.5 text-[10px] text-[#8A9BB8] uppercase tracking-wide font-semibold">Compliance tags</div>
       {allTags.length === 0 && (
@@ -838,7 +838,7 @@ function ComplianceTagPicker({
             key={tag.id}
             type="button"
             onClick={() => onToggle(tag.name)}
-            className="flex items-center gap-2 w-full px-2 py-1 text-left hover:bg-[#F8F6F0] transition-colors"
+            className="flex items-center gap-2 w-full px-2 py-1 text-left hover:bg-[#F8FAFC] transition-colors"
           >
             <span
               className="w-2.5 h-2.5 rounded-full flex-shrink-0 border"
@@ -849,7 +849,7 @@ function ComplianceTagPicker({
           </button>
         );
       })}
-      <div className="border-t border-[#EFE8D8] mt-1 pt-1 px-2 pb-1">
+      <div className="border-t border-[#E2E8F0] mt-1 pt-1 px-2 pb-1">
         <button type="button" onClick={onClose} className="text-[10px] text-[#8A9BB8] hover:text-[#0F1C3F]">Done</button>
       </div>
     </div>
@@ -1189,11 +1189,11 @@ export function FieldLibraryPanel({
     : items;
 
   return (
-    <div className="border border-[#DDD5C4] rounded p-3">
+    <div className="border border-[#E2E8F0] rounded p-3">
       {importPreview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-[#DDD5C4] w-full max-w-lg max-h-[80vh] flex flex-col">
-            <div className="px-5 pt-5 pb-3 border-b border-[#EFE8D8]">
+          <div className="bg-white rounded-xl shadow-2xl border border-[#E2E8F0] w-full max-w-lg max-h-[80vh] flex flex-col">
+            <div className="px-5 pt-5 pb-3 border-b border-[#E2E8F0]">
               <h2 className="text-sm font-semibold text-[#0F1C3F]">Review import</h2>
               <p className="text-[11px] text-[#6B7A99] mt-0.5">
                 {importPreview.newFields.length > 0 && `${importPreview.newFields.length} field${importPreview.newFields.length !== 1 ? "s" : ""} will be added`}
@@ -1229,7 +1229,7 @@ export function FieldLibraryPanel({
                 </div>
               ))}
               {(importPreview.payload.fieldGroups ?? []).length > 0 && (
-                <div className="pt-2 mt-2 border-t border-[#EFE8D8]">
+                <div className="pt-2 mt-2 border-t border-[#E2E8F0]">
                   <p className="text-[10px] text-[#8A9BB8] font-medium uppercase tracking-wide mb-1">Field groups</p>
                   {(importPreview.payload.fieldGroups ?? []).map((g, i) => (
                     <div key={i} className="text-[11px] text-[#4A5568]">{g.name}</div>
@@ -1237,7 +1237,7 @@ export function FieldLibraryPanel({
                 </div>
               )}
             </div>
-            <div className="px-5 py-3 border-t border-[#EFE8D8] flex items-center justify-end gap-2">
+            <div className="px-5 py-3 border-t border-[#E2E8F0] flex items-center justify-end gap-2">
               <button type="button" onClick={() => setImportPreview(null)} disabled={importLoading} className="text-xs text-[#6B7A99] hover:text-[#0F1C3F] disabled:opacity-50">Cancel</button>
               <button
                 type="button"
@@ -1284,9 +1284,9 @@ export function FieldLibraryPanel({
           <div className="flex items-center gap-1.5">
             <h3 className="text-sm font-semibold">Shared Field Library</h3>
             <span className="relative">
-              <button type="button" onClick={() => setShowHints((v) => !v)} className={`flex items-center justify-center w-4 h-4 rounded-full border text-[10px] leading-none select-none transition-colors ${showHints ? "bg-[#C49A38] border-[#C49A38] text-white" : "border-[#C4B99A] text-[#8A9BB8] hover:border-[#C49A38] hover:text-[#C49A38]"}`}>?</button>
+              <button type="button" onClick={() => setShowHints((v) => !v)} className={`flex items-center justify-center w-4 h-4 rounded-full border text-[10px] leading-none select-none transition-colors ${showHints ? "bg-[#1B4FD8] border-[#1B4FD8] text-white" : "border-[#CBD5E1] text-[#8A9BB8] hover:border-[#1B4FD8] hover:text-[#1B4FD8]"}`}>?</button>
               {showHints && (
-                <div className="absolute left-0 top-full mt-1.5 w-72 rounded-lg border border-[#DDD5C4] bg-white shadow-lg text-[11px] text-[#4A5568] leading-relaxed px-3 py-2.5 z-50 space-y-1.5">
+                <div className="absolute left-0 top-full mt-1.5 w-72 rounded-lg border border-[#E2E8F0] bg-white shadow-lg text-[11px] text-[#4A5568] leading-relaxed px-3 py-2.5 z-50 space-y-1.5">
                   <p><span className="font-semibold text-[#0F1C3F]">Label</span> — the question or prompt shown to the client during the interview.</p>
                   <p><span className="font-semibold text-[#0F1C3F]">Category</span> — groups this field with related fields (e.g. "Personal info", "Account details").</p>
                   <p><span className="font-semibold text-[#0F1C3F]">Prefill source</span> — the variable key used when mapping this field to a document template (e.g. "firstName").</p>
@@ -1309,7 +1309,7 @@ export function FieldLibraryPanel({
               <button
                 type="button"
                 onClick={() => { setImportParseError(null); setImportResult(null); importFileRef.current?.click(); }}
-                className="h-7 px-2.5 text-xs rounded border border-[#D4C9B5] bg-white text-[#6B7A99] hover:text-[#0F1C3F] hover:border-[#0F1C3F] transition-colors"
+                className="h-7 px-2.5 text-xs rounded border border-[#E2E8F0] bg-white text-[#6B7A99] hover:text-[#0F1C3F] hover:border-[#0F1C3F] transition-colors"
               >
                 Import
               </button>
@@ -1321,20 +1321,20 @@ export function FieldLibraryPanel({
                 type="button"
                 onClick={() => setExportMenuOpen((v) => !v)}
                 disabled={!!exportLoading}
-                className="h-7 px-2.5 text-xs rounded border border-[#D4C9B5] bg-white text-[#6B7A99] hover:text-[#0F1C3F] hover:border-[#0F1C3F] disabled:opacity-50 transition-colors flex items-center gap-0.5"
+                className="h-7 px-2.5 text-xs rounded border border-[#E2E8F0] bg-white text-[#6B7A99] hover:text-[#0F1C3F] hover:border-[#0F1C3F] disabled:opacity-50 transition-colors flex items-center gap-0.5"
               >
                 {exportLoading ? "Exporting…" : "Export"}
                 <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor"><path d="M4 6l4 4 4-4"/></svg>
               </button>
               {exportMenuOpen && (
-                <div className="absolute right-0 top-full mt-1 w-28 bg-white border border-[#DDD5C4] rounded shadow-lg z-30 py-1 text-[11px]">
-                  <button type="button" onClick={() => void handleExport("json")} className="w-full text-left px-3 py-1.5 hover:bg-[#F8F6F0] text-[#0F1C3F]">JSON</button>
-                  <button type="button" onClick={() => void handleExport("csv")} className="w-full text-left px-3 py-1.5 hover:bg-[#F8F6F0] text-[#0F1C3F]">CSV</button>
+                <div className="absolute right-0 top-full mt-1 w-28 bg-white border border-[#E2E8F0] rounded shadow-lg z-30 py-1 text-[11px]">
+                  <button type="button" onClick={() => void handleExport("json")} className="w-full text-left px-3 py-1.5 hover:bg-[#F8FAFC] text-[#0F1C3F]">JSON</button>
+                  <button type="button" onClick={() => void handleExport("csv")} className="w-full text-left px-3 py-1.5 hover:bg-[#F8FAFC] text-[#0F1C3F]">CSV</button>
                 </div>
               )}
             </div>
           )}
-          <button type="button" onClick={handleAdd} disabled={adding} className="h-7 px-2.5 text-xs rounded border border-[#C49A38] bg-[#C49A38] text-white hover:bg-[#A07820] hover:border-[#A07820] disabled:opacity-50 transition-colors">
+          <button type="button" onClick={handleAdd} disabled={adding} className="h-7 px-2.5 text-xs rounded border border-[#1B4FD8] bg-[#1B4FD8] text-white hover:bg-[#A07820] hover:border-[#A07820] disabled:opacity-50 transition-colors">
             {adding ? "Adding…" : "+ Add"}
           </button>
         </div>
@@ -1346,7 +1346,7 @@ export function FieldLibraryPanel({
           placeholder="Search fields…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full h-8 text-[11px] rounded border border-[#D4C9B5] pl-6 pr-6 bg-white focus:outline-none focus:border-[#1B4FD8]"
+          className="w-full h-8 text-[11px] rounded border border-[#E2E8F0] pl-6 pr-6 bg-white focus:outline-none focus:border-[#1B4FD8]"
         />
         {searchQuery && (
           <button type="button" onClick={() => setSearchQuery("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#B0BCCE] hover:text-[#6B7A99]">
@@ -1354,7 +1354,7 @@ export function FieldLibraryPanel({
           </button>
         )}
       </div>
-      <div className="rounded border border-[#DDD5C4] divide-y divide-[#EFE8D8]" style={{ overflow: "clip" }}>
+      <div className="rounded border border-[#E2E8F0] divide-y divide-[#E2E8F0]" style={{ overflow: "clip" }}>
         {visibleItems.map((item) => {
           const isEditing = expandedIds.has(item.id) || showHints;
           const showAdvanced = advancedIds.has(item.id) || showHints;
@@ -1403,7 +1403,7 @@ export function FieldLibraryPanel({
                   type="button"
                   title={isEditing ? "Collapse" : "Edit field"}
                   onClick={toggleEdit}
-                  className={`shrink-0 flex items-center justify-center w-7 h-7 rounded border transition-colors ${isEditing ? "bg-[#0F1C3F] border-[#0F1C3F] text-white" : "border-[#D4C9B5] bg-white text-[#6B7A99] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"}`}
+                  className={`shrink-0 flex items-center justify-center w-7 h-7 rounded border transition-colors ${isEditing ? "bg-[#0F1C3F] border-[#0F1C3F] text-white" : "border-[#E2E8F0] bg-white text-[#6B7A99] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"}`}
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d={isEditing ? "M5 15l7-7 7 7" : "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"} />
@@ -1412,7 +1412,7 @@ export function FieldLibraryPanel({
               </div>
               {/* ── Edit drawer ── */}
               {isEditing && (
-                <div className="border-t border-[#EFE8D8] bg-[#F8F6F0] px-3 pt-3 pb-3 space-y-2">
+                <div className="border-t border-[#E2E8F0] bg-[#F8FAFC] px-3 pt-3 pb-3 space-y-2">
                   {item.packageCount !== undefined && (
                     <div className="flex flex-wrap items-center gap-1 text-[10px]">
                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full font-medium ${item.packageCount > 0 ? "bg-[#EBF0FB] text-[#1B4FD8]" : "bg-[#F0F0F0] text-[#9CA3AF]"}`}>{item.packageCount}p</span>
@@ -1433,7 +1433,7 @@ export function FieldLibraryPanel({
                       {showHints && <HL>Field type</HL>}
                       <div className="flex flex-wrap gap-1">
                         {(["text", "radio", "checkbox", "dropdown"] as const).map((t) => (
-                          <button key={t} type="button" onClick={() => onChange(item.id, { type: t })} disabled={itemIsInherited} className={`px-2 py-0.5 text-[10px] rounded border capitalize transition-colors ${item.type === t ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F]"}`}>{t}</button>
+                          <button key={t} type="button" onClick={() => onChange(item.id, { type: t })} disabled={itemIsInherited} className={`px-2 py-0.5 text-[10px] rounded border capitalize transition-colors ${item.type === t ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#E2E8F0] hover:border-[#0F1C3F]"}`}>{t}</button>
                         ))}
                       </div>
                     </div>
@@ -1462,12 +1462,12 @@ export function FieldLibraryPanel({
                     </button>
                   )}
                   {showAdvanced && !itemIsInherited && (
-                    <div className="space-y-2 border-t border-[#EFE8D8] pt-2">
+                    <div className="space-y-2 border-t border-[#E2E8F0] pt-2">
                       <div className="relative pt-1">
                         {showHints && <HL>Validation rule</HL>}
                         <div className="flex flex-wrap gap-1">
                           {(["none", "name", "email", "phone", "ssn", "number", "currency", "date", "custom"] as const).map((v) => (
-                            <button key={v} type="button" onClick={() => onChange(item.id, { validationType: v as FieldLibraryItem["validationType"] })} className={`px-2 py-0.5 text-[10px] rounded border capitalize transition-colors ${(item.validationType ?? "none") === v ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F]"}`}>{v}</button>
+                            <button key={v} type="button" onClick={() => onChange(item.id, { validationType: v as FieldLibraryItem["validationType"] })} className={`px-2 py-0.5 text-[10px] rounded border capitalize transition-colors ${(item.validationType ?? "none") === v ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#E2E8F0] hover:border-[#0F1C3F]"}`}>{v}</button>
                           ))}
                         </div>
                       </div>
@@ -1533,13 +1533,13 @@ export function FieldLibraryPanel({
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-baseline gap-1.5">
                                           <span className="font-medium text-[#0B1220] whitespace-nowrap">{relativeTime(v.changedAt)}</span>
-                                          <span className="text-[#C4B99A]">·</span>
+                                          <span className="text-[#CBD5E1]">·</span>
                                           <span className="text-[#6B7A99] text-[10px] truncate">{author}</span>
                                         </div>
                                         <div className="text-[10px] text-[#8A9BB8]">{summary}</div>
                                       </div>
                                       {onRestoreVersion && (
-                                        <button type="button" disabled={restoringVersionId === v.id} onClick={() => void handleRestore(item.id, v.id)} className="shrink-0 text-[10px] text-[#C49A38] hover:text-[#A07820] disabled:opacity-50 pt-0.5">
+                                        <button type="button" disabled={restoringVersionId === v.id} onClick={() => void handleRestore(item.id, v.id)} className="shrink-0 text-[10px] text-[#1B4FD8] hover:text-[#A07820] disabled:opacity-50 pt-0.5">
                                           {restoringVersionId === v.id ? "Restoring…" : "Restore"}
                                         </button>
                                       )}
@@ -1577,7 +1577,7 @@ export function FieldLibraryPanel({
                               {deletingId === item.id ? "Deleting…" : "Delete"}
                             </button>
                           )}
-                          <button type="button" onClick={() => void handleSave(item)} disabled={savingId === item.id} className="h-7 px-2.5 text-[11px] font-medium rounded border border-[#C49A38] bg-[#C49A38] text-white hover:bg-[#A07820] hover:border-[#A07820] disabled:opacity-50 transition-colors">
+                          <button type="button" onClick={() => void handleSave(item)} disabled={savingId === item.id} className="h-7 px-2.5 text-[11px] font-medium rounded border border-[#1B4FD8] bg-[#1B4FD8] text-white hover:bg-[#A07820] hover:border-[#A07820] disabled:opacity-50 transition-colors">
                             {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save field changes"}
                           </button>
                         </>
@@ -1596,7 +1596,7 @@ export function FieldLibraryPanel({
   );
 }
 
-const PRESET_COLORS = ["#DC2626", "#D97706", "#059669", "#2563EB", "#7C3AED", "#DB2777", "#0F1C3F", "#C49A38", "#6B7A99"];
+const PRESET_COLORS = ["#DC2626", "#D97706", "#059669", "#2563EB", "#7C3AED", "#DB2777", "#0F1C3F", "#1B4FD8", "#6B7A99"];
 
 export function ComplianceTagsPanel({
   items,
@@ -1677,7 +1677,7 @@ export function ComplianceTagsPanel({
           type="button"
           onClick={() => { setShowNewForm(true); setPanelError(null); }}
           disabled={showNewForm}
-          className="h-7 px-2.5 text-xs rounded border border-[#D4C9B5] bg-white text-[#4A5568] hover:text-[#0F1C3F] hover:border-[#0F1C3F] disabled:opacity-50 transition-colors flex items-center gap-1"
+          className="h-7 px-2.5 text-xs rounded border border-[#E2E8F0] bg-white text-[#4A5568] hover:text-[#0F1C3F] hover:border-[#0F1C3F] disabled:opacity-50 transition-colors flex items-center gap-1"
         >
           <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
           New Tag
@@ -1687,7 +1687,7 @@ export function ComplianceTagsPanel({
       {panelError && <div className="mb-3 rounded border border-red-200 bg-red-50 text-red-700 px-3 py-2 text-xs">{panelError}</div>}
 
       {showNewForm && (
-        <div className="mb-3 rounded border border-[#DDD5C4] bg-[#F8F6F0] p-3 space-y-2">
+        <div className="mb-3 rounded border border-[#E2E8F0] bg-[#F8FAFC] p-3 space-y-2">
           <div className="text-[11px] font-semibold text-[#0F1C3F] uppercase tracking-wide mb-1">New Tag</div>
           <div className="flex gap-2">
             <div className="flex-1">
@@ -1696,7 +1696,7 @@ export function ComplianceTagsPanel({
                 placeholder="Tag name (e.g. FINRA, KYC, AML)"
                 value={newTag.name}
                 onChange={(e) => setNewTag((t) => ({ ...t, name: e.target.value }))}
-                className="w-full h-7 text-xs rounded border border-[#D4C9B5] px-2 bg-white focus:outline-none focus:border-[#1B4FD8]"
+                className="w-full h-7 text-xs rounded border border-[#E2E8F0] px-2 bg-white focus:outline-none focus:border-[#1B4FD8]"
                 autoFocus
               />
             </div>
@@ -1715,7 +1715,7 @@ export function ComplianceTagsPanel({
             placeholder="Description (optional)"
             value={newTag.description}
             onChange={(e) => setNewTag((t) => ({ ...t, description: e.target.value }))}
-            className="w-full h-7 text-xs rounded border border-[#D4C9B5] px-2 bg-white focus:outline-none focus:border-[#1B4FD8]"
+            className="w-full h-7 text-xs rounded border border-[#E2E8F0] px-2 bg-white focus:outline-none focus:border-[#1B4FD8]"
           />
           <div className="flex items-center justify-between">
             <label className="flex items-center gap-1.5 text-xs text-[#4A5568] cursor-pointer">
@@ -1724,11 +1724,11 @@ export function ComplianceTagsPanel({
             </label>
             <div className="flex gap-2">
               <button type="button" onClick={() => { setShowNewForm(false); setNewTag({ name: "", color: "#2563EB", description: "", isRequired: false }); }}
-                className="h-7 px-2.5 text-xs rounded border border-[#D4C9B5] bg-white text-[#6B7A99] hover:border-[#0F1C3F] hover:text-[#0F1C3F] transition-colors">
+                className="h-7 px-2.5 text-xs rounded border border-[#E2E8F0] bg-white text-[#6B7A99] hover:border-[#0F1C3F] hover:text-[#0F1C3F] transition-colors">
                 Cancel
               </button>
               <button type="button" onClick={() => void handleCreate()} disabled={creating || !newTag.name.trim()}
-                className="h-7 px-2.5 text-xs font-medium rounded border border-[#C49A38] bg-[#C49A38] text-white hover:bg-[#A07820] hover:border-[#A07820] disabled:opacity-50 transition-colors">
+                className="h-7 px-2.5 text-xs font-medium rounded border border-[#1B4FD8] bg-[#1B4FD8] text-white hover:bg-[#A07820] hover:border-[#A07820] disabled:opacity-50 transition-colors">
                 {creating ? "Creating…" : "Create Tag"}
               </button>
             </div>
@@ -1736,7 +1736,7 @@ export function ComplianceTagsPanel({
         </div>
       )}
 
-      <div className="rounded border border-[#DDD5C4] divide-y divide-[#EFE8D8]" style={{ overflow: "clip" }}>
+      <div className="rounded border border-[#E2E8F0] divide-y divide-[#E2E8F0]" style={{ overflow: "clip" }}>
         <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F5F2EC] text-[9px] font-semibold text-[#8A9BB8] uppercase tracking-wider">
           <span className="w-3 shrink-0" />
           <span className="flex-1">Name</span>
@@ -1767,7 +1767,7 @@ export function ComplianceTagsPanel({
                       value={draft.name}
                       onChange={(e) => patchDraft(tag.id, { name: e.target.value })}
                       disabled={tag.isBuiltin}
-                      className="flex-1 h-6 text-xs rounded border border-[#D4C9B5] px-1.5 bg-white focus:outline-none focus:border-[#1B4FD8] disabled:opacity-60 disabled:bg-[#F5F2EC]"
+                      className="flex-1 h-6 text-xs rounded border border-[#E2E8F0] px-1.5 bg-white focus:outline-none focus:border-[#1B4FD8] disabled:opacity-60 disabled:bg-[#F5F2EC]"
                     />
                     <div className="flex items-center gap-1">
                       {PRESET_COLORS.map((c) => (
@@ -1784,7 +1784,7 @@ export function ComplianceTagsPanel({
                     value={draft.description}
                     onChange={(e) => patchDraft(tag.id, { description: e.target.value })}
                     placeholder="Description (optional)"
-                    className="w-full h-6 text-xs rounded border border-[#D4C9B5] px-1.5 bg-white focus:outline-none focus:border-[#1B4FD8]"
+                    className="w-full h-6 text-xs rounded border border-[#E2E8F0] px-1.5 bg-white focus:outline-none focus:border-[#1B4FD8]"
                   />
                 </div>
               ) : (
@@ -1815,18 +1815,18 @@ export function ComplianceTagsPanel({
                 ) : isEditing ? (
                   <>
                     <button type="button" onClick={() => setEditingId(null)}
-                      className="h-6 px-1.5 text-[10px] rounded border border-[#D4C9B5] bg-white text-[#6B7A99] hover:border-[#0F1C3F] hover:text-[#0F1C3F] transition-colors">
+                      className="h-6 px-1.5 text-[10px] rounded border border-[#E2E8F0] bg-white text-[#6B7A99] hover:border-[#0F1C3F] hover:text-[#0F1C3F] transition-colors">
                       Cancel
                     </button>
                     <button type="button" onClick={() => void handleSave(tag)}
-                      className="h-6 px-1.5 text-[10px] font-medium rounded border border-[#C49A38] bg-[#C49A38] text-white hover:bg-[#A07820] hover:border-[#A07820] transition-colors">
+                      className="h-6 px-1.5 text-[10px] font-medium rounded border border-[#1B4FD8] bg-[#1B4FD8] text-white hover:bg-[#A07820] hover:border-[#A07820] transition-colors">
                       Save
                     </button>
                   </>
                 ) : (
                   <>
                     <button type="button" onClick={() => startEdit(tag)}
-                      className="h-6 w-6 flex items-center justify-center rounded border border-[#D4C9B5] bg-white text-[#6B7A99] hover:border-[#0F1C3F] hover:text-[#0F1C3F] transition-colors"
+                      className="h-6 w-6 flex items-center justify-center rounded border border-[#E2E8F0] bg-white text-[#6B7A99] hover:border-[#0F1C3F] hover:text-[#0F1C3F] transition-colors"
                       title="Edit tag">
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                     </button>

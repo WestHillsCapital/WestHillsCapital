@@ -20,7 +20,7 @@ export function TagChipInput({ tags, onChange, placeholder }: {
       onClick={() => inputRef.current?.focus()}
     >
       {tags.map((tag) => (
-        <span key={tag} className="inline-flex items-center gap-1 text-xs rounded-full px-2.5 py-0.5 bg-[#EFE8D8] text-[#5C4A1E] border border-[#DDD5C4] shrink-0">
+        <span key={tag} className="inline-flex items-center gap-1 text-xs rounded-full px-2.5 py-0.5 bg-[#E2E8F0] text-[#5C4A1E] border border-[#E2E8F0] shrink-0">
           {tag}
           <button
             type="button"
@@ -41,7 +41,7 @@ export function TagChipInput({ tags, onChange, placeholder }: {
         }}
         onBlur={() => commit(input)}
         placeholder={tags.length ? "Add another tag…" : (placeholder ?? "e.g. billing, onboarding, support")}
-        className="flex-1 min-w-[8rem] border-0 bg-transparent text-xs outline-none placeholder:text-[#B0A898] py-0.5"
+        className="flex-1 min-w-[8rem] border-0 bg-transparent text-xs outline-none placeholder:text-[#94A3B8] py-0.5"
       />
     </div>
   );
@@ -93,7 +93,7 @@ export function PackagePickerWithTags({
           <button
             type="button"
             onClick={() => setTagFilter([])}
-            className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${tagFilter.length === 0 ? "bg-[#0F1C3F] border-[#0F1C3F] text-white font-medium" : "bg-[#F8F6F0] border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#4A5568]"}`}
+            className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${tagFilter.length === 0 ? "bg-[#0F1C3F] border-[#0F1C3F] text-white font-medium" : "bg-[#F8FAFC] border-[#E2E8F0] text-[#6B7A99] hover:border-[#1B4FD8]/60 hover:text-[#4A5568]"}`}
           >All</button>
           {allTags.map((tag) => {
             const active = tagFilter.includes(tag);
@@ -102,7 +102,7 @@ export function PackagePickerWithTags({
                 key={tag}
                 type="button"
                 onClick={() => setTagFilter((prev) => active ? prev.filter((t) => t !== tag) : [...prev, tag])}
-                className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${active ? "bg-[#C49A38] border-[#C49A38] text-white font-medium" : "bg-[#F8F6F0] border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#4A5568]"}`}
+                className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${active ? "bg-[#1B4FD8] border-[#1B4FD8] text-white font-medium" : "bg-[#F8FAFC] border-[#E2E8F0] text-[#6B7A99] hover:border-[#1B4FD8]/60 hover:text-[#4A5568]"}`}
               >{tag}</button>
             );
           })}
@@ -113,7 +113,7 @@ export function PackagePickerWithTags({
           type="button"
           onClick={() => setOpen((v) => !v)}
           disabled={packages.length === 0}
-          className="w-full border border-[#D4C9B5] rounded-lg px-3 py-2 text-sm bg-white text-[#0F1C3F] text-left flex items-center justify-between gap-2 disabled:opacity-60"
+          className="w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm bg-white text-[#0F1C3F] text-left flex items-center justify-between gap-2 disabled:opacity-60"
         >
           <span className="truncate">
             {selectedPkg
@@ -123,10 +123,10 @@ export function PackagePickerWithTags({
           <svg className={`w-3.5 h-3.5 shrink-0 text-[#8A9BB8] transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
         </button>
         {open && (
-          <div className="absolute top-full mt-1 left-0 w-full min-w-[260px] bg-white border border-[#DDD5C4] rounded-lg shadow-lg z-50 overflow-y-auto max-h-72">
+          <div className="absolute top-full mt-1 left-0 w-full min-w-[260px] bg-white border border-[#E2E8F0] rounded-lg shadow-lg z-50 overflow-y-auto max-h-72">
             <button
               type="button"
-              className="w-full text-left px-3 py-2 text-xs text-[#8A9BB8] hover:bg-[#F8F6F0]"
+              className="w-full text-left px-3 py-2 text-xs text-[#8A9BB8] hover:bg-[#F8FAFC]"
               onClick={() => { onChange(""); setOpen(false); }}
             >{placeholder}</button>
             {visiblePackages.length === 0 && (
@@ -136,7 +136,7 @@ export function PackagePickerWithTags({
               <button
                 key={pkg.id}
                 type="button"
-                className={`w-full text-left px-3 py-2 border-t border-[#F0EBE0] transition-colors hover:bg-[#F8F6F0] ${String(pkg.id) === value ? "bg-[#FBF7EE]" : ""}`}
+                className={`w-full text-left px-3 py-2 border-t border-[#F0EBE0] transition-colors hover:bg-[#F8FAFC] ${String(pkg.id) === value ? "bg-[#EFF6FF]" : ""}`}
                 onClick={() => { onChange(String(pkg.id)); setOpen(false); }}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -148,7 +148,7 @@ export function PackagePickerWithTags({
                 {pkg.tags?.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1">
                     {pkg.tags.map((tag) => (
-                      <span key={tag} className="text-[10px] rounded-full px-1.5 py-px bg-[#EFE8D8] text-[#5C4A1E] border border-[#DDD5C4]">{tag}</span>
+                      <span key={tag} className="text-[10px] rounded-full px-1.5 py-px bg-[#E2E8F0] text-[#5C4A1E] border border-[#E2E8F0]">{tag}</span>
                     ))}
                   </div>
                 )}

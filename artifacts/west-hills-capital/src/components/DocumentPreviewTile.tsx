@@ -124,7 +124,7 @@ export const DocumentPreviewTile = memo(function DocumentPreviewTile({
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onSelect();
       }}
-      className={`relative w-full ${previewHeight} overflow-hidden rounded border bg-[#F8F6F0] text-left focus:outline-none focus:ring-2 focus:ring-[#C49A38]/40 ${selected ? "border-[#C49A38]" : "border-[#DDD5C4]"}`}
+      className={`relative w-full ${previewHeight} overflow-hidden rounded border bg-[#F8FAFC] text-left focus:outline-none focus:ring-2 focus:ring-[#1B4FD8]/40 ${selected ? "border-[#1B4FD8]" : "border-[#E2E8F0]"}`}
     >
       {previewUrl && !failed ? (
         <canvas
@@ -139,8 +139,8 @@ export const DocumentPreviewTile = memo(function DocumentPreviewTile({
           <div>{failed ? "Preview unavailable" : doc.pdfStored ? "Loading preview" : "No PDF"}</div>
         </div>
       )}
-      <div className="absolute left-1.5 top-1.5 rounded bg-white/90 border border-[#DDD5C4] px-1.5 py-0.5 text-[10px] font-semibold text-[#0F1C3F] shadow-sm">{order}</div>
-      <div className="absolute bottom-0 left-0 right-0 bg-white/90 border-t border-[#DDD5C4] px-2 py-1 text-[10px] text-[#6B7A99]">
+      <div className="absolute left-1.5 top-1.5 rounded bg-white/90 border border-[#E2E8F0] px-1.5 py-0.5 text-[10px] font-semibold text-[#0F1C3F] shadow-sm">{order}</div>
+      <div className="absolute bottom-0 left-0 right-0 bg-white/90 border-t border-[#E2E8F0] px-2 py-1 text-[10px] text-[#6B7A99]">
         {doc.pages} page{doc.pages === 1 ? "" : "s"} · {doc.pdfStored ? "PDF preview" : "No PDF"}
       </div>
     </div>

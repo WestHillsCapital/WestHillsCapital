@@ -74,20 +74,20 @@ function GroupPicker({
         <button
           type="button"
           onClick={() => { setOpen(!open); setSearch(""); setPreviewId(null); }}
-          className="text-[11px] text-[#C49A38]"
+          className="text-[11px] text-[#1B4FD8]"
         >
           {open ? "Close" : "Browse groups"}
         </button>
       </div>
       {open && (
-        <div className="rounded border border-[#D4C9B5] bg-white overflow-hidden">
+        <div className="rounded border border-[#E2E8F0] bg-white overflow-hidden">
           <input
             autoFocus
             type="text"
             placeholder="Search groups by name…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full px-2 py-1.5 text-xs border-b border-[#EFE8D8] focus:outline-none"
+            className="w-full px-2 py-1.5 text-xs border-b border-[#E2E8F0] focus:outline-none"
           />
           <div className="max-h-56 overflow-y-auto">
             {filteredGroups.length === 0 ? (
@@ -101,7 +101,7 @@ function GroupPicker({
                 .filter((f): f is FieldLibraryItem => Boolean(f));
               const isPreview = previewId === g.id;
               return (
-                <div key={g.id} className={`border-b border-[#F0EBE1] last:border-0 ${isPreview ? "bg-[#FFFBF3]" : ""}`}>
+                <div key={g.id} className={`border-b border-[#F1F5F9] last:border-0 ${isPreview ? "bg-[#F8FAFC]" : ""}`}>
                   <div className="flex items-center justify-between px-2 py-1.5 gap-2">
                     <div className="min-w-0">
                       <div className="text-[11px] font-medium text-[#0F1C3F] truncate">{g.name}</div>
@@ -122,7 +122,7 @@ function GroupPicker({
                       <button
                         type="button"
                         onClick={() => { onUse(g); setOpen(false); setSearch(""); setPreviewId(null); }}
-                        className="text-[11px] font-medium text-[#C49A38] hover:text-[#B8882E]"
+                        className="text-[11px] font-medium text-[#1B4FD8] hover:text-[#1640B0]"
                       >
                         Add
                       </button>
@@ -130,10 +130,10 @@ function GroupPicker({
                   </div>
                   {isPreview && newFields.length > 0 && (
                     <div className="px-2 pb-2">
-                      <div className="rounded bg-[#F8F6F0] border border-[#EFE8D8] px-2 py-1.5 space-y-0.5">
+                      <div className="rounded bg-[#F8FAFC] border border-[#E2E8F0] px-2 py-1.5 space-y-0.5">
                         {newFields.map((f, i) => (
                           <div key={f.id} className="text-[10px] text-[#4A5568] flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[#C49A38] font-mono font-semibold shrink-0">{i + 1}.</span>
+                            <span className="text-[#1B4FD8] font-mono font-semibold shrink-0">{i + 1}.</span>
                             <span className="font-medium">{f.label}</span>
                             <span className="text-[#8A9BB8]">· {f.type}{f.sensitive ? " · masked" : ""}{f.required ? " · required" : ""}</span>
                           </div>
@@ -214,15 +214,15 @@ function LibraryFieldPicker({
       <button
         type="button"
         onClick={() => { setOpen((v) => !v); setSearch(""); }}
-        className="w-full flex items-center justify-between border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white text-[#6B7A99] hover:border-[#C49A38] transition-colors"
+        className="w-full flex items-center justify-between border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white text-[#6B7A99] hover:border-[#1B4FD8] transition-colors"
       >
         <span>Select reusable field</span>
         <svg className={`w-3.5 h-3.5 text-[#8A9BB8] transition-transform ${open ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
       </button>
 
       {open && (
-        <div className="absolute z-50 left-0 right-0 top-full mt-1 rounded border border-[#D4C9B5] bg-white shadow-lg max-h-72 flex flex-col overflow-hidden">
-          <div className="px-2 py-1.5 border-b border-[#EFE8D8] flex-shrink-0">
+        <div className="absolute z-50 left-0 right-0 top-full mt-1 rounded border border-[#E2E8F0] bg-white shadow-lg max-h-72 flex flex-col overflow-hidden">
+          <div className="px-2 py-1.5 border-b border-[#E2E8F0] flex-shrink-0">
             <input
               autoFocus
               type="text"
@@ -242,7 +242,7 @@ function LibraryFieldPicker({
             {/* Ungrouped shared fields */}
             {ungrouped.length > 0 && (
               <div>
-                <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#8A9BB8] bg-[#F8F6F0]">
+                <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#8A9BB8] bg-[#F8FAFC]">
                   Shared Library
                 </div>
                 {ungrouped.map((item) => (
@@ -250,7 +250,7 @@ function LibraryFieldPicker({
                     key={item.id}
                     type="button"
                     onClick={() => handleSelect(item.id)}
-                    className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#FDF8EE] transition-colors"
+                    className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#F1F5F9] transition-colors"
                   >
                     <span className="font-medium text-[#0F1C3F]">{item.label}</span>
                     <span className="ml-1.5 text-[#8A9BB8]">· {item.category}</span>
@@ -267,7 +267,7 @@ function LibraryFieldPicker({
                   <button
                     type="button"
                     onClick={() => toggleGroup(group.id)}
-                    className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#8A9BB8] bg-[#F8F6F0] hover:bg-[#F0EBE1] transition-colors"
+                    className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#8A9BB8] bg-[#F8FAFC] hover:bg-[#F1F5F9] transition-colors"
                   >
                     <span>{group.name}</span>
                     <span className="flex items-center gap-1 normal-case font-normal text-[#B0BCCF]">
@@ -280,7 +280,7 @@ function LibraryFieldPicker({
                       key={item.id}
                       type="button"
                       onClick={() => handleSelect(item.id)}
-                      className="w-full text-left pl-5 pr-3 py-1.5 text-[11px] hover:bg-[#FDF8EE] transition-colors"
+                      className="w-full text-left pl-5 pr-3 py-1.5 text-[11px] hover:bg-[#F1F5F9] transition-colors"
                     >
                       <span className="font-medium text-[#0F1C3F]">{item.label}</span>
                       <span className="ml-1.5 text-[#8A9BB8]">· {item.category}</span>
@@ -293,7 +293,7 @@ function LibraryFieldPicker({
             {/* Inherited fields */}
             {inheritedFiltered.length > 0 && (
               <div>
-                <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#8A9BB8] bg-[#F8F6F0]">
+                <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#8A9BB8] bg-[#F8FAFC]">
                   Inherited Library (read-only)
                 </div>
                 {inheritedFiltered.map((item) => (
@@ -301,7 +301,7 @@ function LibraryFieldPicker({
                     key={item.id}
                     type="button"
                     onClick={() => handleSelect(item.id)}
-                    className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#FDF8EE] transition-colors"
+                    className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#F1F5F9] transition-colors"
                   >
                     <span className="font-medium text-[#0F1C3F]">{item.label}</span>
                     <span className="ml-1.5 text-[#8A9BB8]">· {item.category}</span>
@@ -313,7 +313,7 @@ function LibraryFieldPicker({
             {/* E-Sign fields */}
             {esignFiltered.length > 0 && (
               <div>
-                <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#8A9BB8] bg-[#F8F6F0]">
+                <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#8A9BB8] bg-[#F8FAFC]">
                   E-Sign Fields
                 </div>
                 {esignFiltered.map((sf) => (
@@ -321,7 +321,7 @@ function LibraryFieldPicker({
                     key={sf.id}
                     type="button"
                     onClick={() => handleSelect(sf.id)}
-                    className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#FDF8EE] transition-colors"
+                    className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#F1F5F9] transition-colors"
                   >
                     <span className="font-medium text-[#0F1C3F]">{sf.name}</span>
                   </button>
@@ -683,7 +683,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
         return (
           <div className="fixed inset-x-0 top-14 z-[999] flex justify-center pointer-events-none" style={{ paddingTop: 4 }}>
             <div className="flex items-center gap-3 px-4 py-2 rounded-lg shadow-xl border text-sm pointer-events-auto" style={{ background: "#0F1C3F", color: "white", borderColor: "#253762" }}>
-              <Crosshair className="w-4 h-4 shrink-0" style={{ color: "#C49A38" }} />
+              <Crosshair className="w-4 h-4 shrink-0" style={{ color: "#1B4FD8" }} />
               <span>Click on the document to place <strong className="font-semibold">{activePlaceField?.name ?? "field"}</strong></span>
               <button type="button" onClick={() => setClickToPlaceFieldId(null)} className="ml-2 text-xs opacity-60 hover:opacity-100 underline underline-offset-2">Cancel</button>
               <span className="opacity-30 text-xs">· Esc</span>
@@ -692,13 +692,13 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
         );
       })()}
       {/* ── Left sidebar: recipients + documents ── */}
-      <section className="bg-white border border-[#DDD5C4] rounded-lg flex flex-col h-full overflow-hidden" style={{ transition: 'width 150ms ease' }}>
+      <section className="bg-white border border-[#E2E8F0] rounded-lg flex flex-col h-full overflow-hidden" style={{ transition: 'width 150ms ease' }}>
         {/* Collapsed strip */}
         {!leftPanelOpen && (
           <button
             type="button"
             onClick={() => setLeftPanelOpen(true)}
-            className="relative flex flex-col items-center w-full h-full pb-3 cursor-pointer hover:bg-[#F8F5F0] transition-colors rounded-lg overflow-hidden"
+            className="relative flex flex-col items-center w-full h-full pb-3 cursor-pointer hover:bg-[#F8FAFC] transition-colors rounded-lg overflow-hidden"
             title="Expand panel"
           >
             {/* Zone 1: chevron row — same height as p-4 of adjacent panels */}
@@ -709,18 +709,18 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
             <div className="flex flex-col items-center gap-2.5">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="text-[#C4B99A]">
+                  <span className="text-[#CBD5E1]">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" /></svg>
                   </span>
                 </TooltipTrigger>
                 <TooltipContent side="right">Recipients ({storeRecipientList.length})</TooltipContent>
               </Tooltip>
-              <div className="w-full border-t border-[#EFE8D8]" />
+              <div className="w-full border-t border-[#E2E8F0]" />
               {selectedPackage.documents.map((doc) => (
                 <Tooltip key={doc.id}>
                   <TooltipTrigger asChild>
-                    <span className={`relative flex items-center justify-center ${selectedDocument?.id === doc.id ? "text-[#C49A38]" : "text-[#C4B99A]"}`}>
-                      {selectedDocument?.id === doc.id && <span className="absolute -left-2 top-0 bottom-0 w-0.5 bg-[#C49A38] rounded-full" />}
+                    <span className={`relative flex items-center justify-center ${selectedDocument?.id === doc.id ? "text-[#1B4FD8]" : "text-[#CBD5E1]"}`}>
+                      {selectedDocument?.id === doc.id && <span className="absolute -left-2 top-0 bottom-0 w-0.5 bg-[#1B4FD8] rounded-full" />}
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
                     </span>
                   </TooltipTrigger>
@@ -730,7 +730,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
               {selectedPackage.documents.length === 0 && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="text-[#DDD5C4]">
+                    <span className="text-[#E2E8F0]">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
                     </span>
                   </TooltipTrigger>
@@ -744,12 +744,12 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
         {leftPanelOpen && <div className="p-4 flex flex-col gap-3 h-full overflow-hidden">
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <button type="button" onClick={() => setRecipientsExpanded((v) => !v)} className="flex items-center gap-1 text-sm font-semibold text-[#0F1C3F] hover:text-[#C49A38] transition-colors">
+            <button type="button" onClick={() => setRecipientsExpanded((v) => !v)} className="flex items-center gap-1 text-sm font-semibold text-[#0F1C3F] hover:text-[#1B4FD8] transition-colors">
               <svg className={`w-3 h-3 transition-transform ${recipientsExpanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               Recipients
             </button>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => setRecipientPickerOpen(true)} className="text-xs text-[#C49A38] hover:underline">Add</button>
+              <button type="button" onClick={() => setRecipientPickerOpen(true)} className="text-xs text-[#1B4FD8] hover:underline">Add</button>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button type="button" onClick={() => setLeftPanelOpen(false)} className="text-[#B0BAD0] hover:text-[#8A9BB8] transition-colors" title="Collapse panel">
@@ -766,7 +766,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                 <p className="text-[11px] text-[#8A9BB8] italic px-1">No recipients yet.</p>
               ) : (
                 storeRecipientList.map((r) => (
-                  <div key={r.id} className="rounded border border-[#EFE8D8] bg-[#F8F6F0] overflow-hidden">
+                  <div key={r.id} className="rounded border border-[#E2E8F0] bg-[#F8FAFC] overflow-hidden">
                     <div className="flex items-center gap-1.5 px-1.5 py-1">
                       <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
                       <span className="text-[11px] text-[#0F1C3F] font-medium truncate flex-1">{r.label}</span>
@@ -775,13 +775,13 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
                     </div>
-                    <div className="border-t border-[#EFE8D8] px-1.5 py-1">
+                    <div className="border-t border-[#E2E8F0] px-1.5 py-1">
                       <input
                         type="email"
                         value={r.email ?? ""}
                         onChange={(e) => updateRecipient(r.id, { email: e.target.value })}
                         placeholder="Email address"
-                        className="w-full bg-transparent text-[11px] text-[#0F1C3F] placeholder-[#B0BAD0] outline-none focus:placeholder-[#D4C9B5]"
+                        className="w-full bg-transparent text-[11px] text-[#0F1C3F] placeholder-[#B0BAD0] outline-none focus:placeholder-[#E2E8F0]"
                       />
                     </div>
                   </div>
@@ -790,11 +790,11 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
             </div>
           )}
         </div>
-        <div className="border-t border-[#EFE8D8]" />
+        <div className="border-t border-[#E2E8F0]" />
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <h2 className="text-sm font-semibold">Documents</h2>
-            <label className={`text-xs ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#C49A38] cursor-pointer"}`}>
+            <label className={`text-xs ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#1B4FD8] cursor-pointer"}`}>
               {isUploadingDocument ? "Uploading…" : "Add"}
               <input
                 type="file"
@@ -833,7 +833,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                       ref={wrapperRef}
                       style={wrapperStyle}
                       {...handleProps}
-                      className={`border rounded p-2 transition-shadow cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-40 shadow-lg" : ""} ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4]"}`}
+                      className={`border rounded p-2 transition-shadow cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-40 shadow-lg" : ""} ${selectedDocument?.id === doc.id ? "border-[#1B4FD8] bg-[#1B4FD8]/10" : "border-[#E2E8F0]"}`}
                     >
                       <DocumentPreviewTile
                         packageId={selectedPackage.id}
@@ -849,7 +849,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                       <Input value={doc.title} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, documents: pkg.documents.map((d) => d.id === doc.id ? { ...d, title: e.target.value } : d) }))} className="mt-2 h-8 text-xs" />
                       <div className="mt-1 text-[10px] text-[#8A9BB8] truncate">{doc.fileName ?? "Metadata only"}</div>
                       <div className="flex gap-1 mt-1 items-center">
-                        <label className={`text-[11px] ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#C49A38] cursor-pointer"}`}>
+                        <label className={`text-[11px] ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#1B4FD8] cursor-pointer"}`}>
                           {isUploadingDocument ? "Uploading…" : "Replace"}
                           <input type="file" accept="application/pdf" disabled={isUploadingDocument} className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadDocument(file, doc.id); e.target.value = ""; }} />
                         </label>
@@ -866,7 +866,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
       </section>
 
       {/* ── Center: toolbar + canvas ── */}
-      <section ref={setMapperContainerEl} className="bg-white border border-[#DDD5C4] rounded-lg p-4 overflow-y-auto flex flex-col h-full">
+      <section ref={setMapperContainerEl} className="bg-white border border-[#E2E8F0] rounded-lg p-4 overflow-y-auto flex flex-col h-full">
         <div className="mb-2">
           <h2 className="text-sm font-semibold font-sans">Assign Package Fields and Rules</h2>
           <p className="text-xs text-[#8A9BB8]">Place fields on PDFs, then decide which are required, fixed/defaulted, validated, or omitted from the generated interview.</p>
@@ -874,46 +874,46 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
 
         {/* Toolbar */}
         <div className="sticky top-0 z-20 flex items-center bg-white border border-[#E0D8CC] rounded-lg px-2.5 py-1.5 mb-3 shadow-sm">
-          <div className="shrink-0 flex items-center border border-[#DDD5C4] rounded-md overflow-hidden">
-            <button type="button" title="Prev page [←]" onClick={() => setSelectedPage((p) => Math.max(1, p - 1))} disabled={!selectedDocument || selectedPage <= 1} className={`w-7 h-[26px] flex items-center justify-center text-[#6B7A8A] bg-white hover:bg-[#F8F5F0] transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${mapperScrollMode ? "invisible" : ""}`}>
+          <div className="shrink-0 flex items-center border border-[#E2E8F0] rounded-md overflow-hidden">
+            <button type="button" title="Prev page [←]" onClick={() => setSelectedPage((p) => Math.max(1, p - 1))} disabled={!selectedDocument || selectedPage <= 1} className={`w-7 h-[26px] flex items-center justify-center text-[#6B7A8A] bg-white hover:bg-[#F8FAFC] transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${mapperScrollMode ? "invisible" : ""}`}>
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
-            <span className="text-[11px] font-medium text-[#4A5B6A] tabular-nums whitespace-nowrap select-none min-w-[3.2rem] text-center px-1 border-x border-[#DDD5C4] h-[26px] flex items-center justify-center">{selectedPage} / {Math.max(selectedDocument?.pages ?? 1, 1)}</span>
-            <button type="button" title="Next page [→]" onClick={() => setSelectedPage((p) => Math.min(Math.max(selectedDocument?.pages ?? 1, 1), p + 1))} disabled={!selectedDocument || selectedPage >= Math.max(selectedDocument?.pages ?? 1, 1)} className={`w-7 h-[26px] flex items-center justify-center text-[#6B7A8A] bg-white hover:bg-[#F8F5F0] transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${mapperScrollMode ? "invisible" : ""}`}>
+            <span className="text-[11px] font-medium text-[#4A5B6A] tabular-nums whitespace-nowrap select-none min-w-[3.2rem] text-center px-1 border-x border-[#E2E8F0] h-[26px] flex items-center justify-center">{selectedPage} / {Math.max(selectedDocument?.pages ?? 1, 1)}</span>
+            <button type="button" title="Next page [→]" onClick={() => setSelectedPage((p) => Math.min(Math.max(selectedDocument?.pages ?? 1, 1), p + 1))} disabled={!selectedDocument || selectedPage >= Math.max(selectedDocument?.pages ?? 1, 1)} className={`w-7 h-[26px] flex items-center justify-center text-[#6B7A8A] bg-white hover:bg-[#F8FAFC] transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${mapperScrollMode ? "invisible" : ""}`}>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
           <div className="flex-1 flex items-center justify-center gap-2 flex-wrap">
-            <div className="flex items-center border border-[#DDD5C4] rounded-md overflow-hidden shrink-0 text-[11px] font-medium" title="Toggle between viewing one page at a time or all pages stacked">
-              <button type="button" onClick={() => setMapperScrollMode(false)} className={`flex items-center gap-1 px-2.5 h-[26px] leading-none transition-all ${!mapperScrollMode ? "bg-white text-[#1C2B4A] font-medium shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>
+            <div className="flex items-center border border-[#E2E8F0] rounded-md overflow-hidden shrink-0 text-[11px] font-medium" title="Toggle between viewing one page at a time or all pages stacked">
+              <button type="button" onClick={() => setMapperScrollMode(false)} className={`flex items-center gap-1 px-2.5 h-[26px] leading-none transition-all ${!mapperScrollMode ? "bg-white text-[#1C2B4A] font-medium shadow-[inset_0_-2px_0_#1B4FD8]" : "bg-white text-[#8A9BB8] hover:bg-[#F8FAFC] hover:text-[#3A4A5A]"}`}>
                 <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={1.5}><rect x="2" y="2" width="12" height="12" rx="1.5" /></svg>
                 Single
               </button>
-              <div className="w-px h-full bg-[#DDD5C4] shrink-0" />
-              <button type="button" onClick={() => setMapperScrollMode(true)} className={`flex items-center gap-1 px-2.5 h-[26px] leading-none transition-all ${mapperScrollMode ? "bg-white text-[#1C2B4A] font-medium shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>
+              <div className="w-px h-full bg-[#E2E8F0] shrink-0" />
+              <button type="button" onClick={() => setMapperScrollMode(true)} className={`flex items-center gap-1 px-2.5 h-[26px] leading-none transition-all ${mapperScrollMode ? "bg-white text-[#1C2B4A] font-medium shadow-[inset_0_-2px_0_#1B4FD8]" : "bg-white text-[#8A9BB8] hover:bg-[#F8FAFC] hover:text-[#3A4A5A]"}`}>
                 <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={1.5}><rect x="2" y="1" width="12" height="5" rx="1" /><rect x="2" y="10" width="12" height="5" rx="1" /></svg>
                 Scroll
               </button>
             </div>
 
-            <div className="flex items-center border border-[#DDD5C4] rounded-md overflow-hidden shrink-0 text-[11px] font-medium">
-              <button type="button" onClick={() => setUserZoom((z) => Math.max(0.25, parseFloat((z - 0.25).toFixed(2))))} className="w-7 h-[26px] flex items-center justify-center text-[#6B7A8A] bg-white hover:bg-[#F8F5F0] transition-colors" title="Zoom out [−]">−</button>
-              <button type="button" onClick={() => setUserZoom(1)} className="px-1.5 h-[26px] flex items-center justify-center text-[#4A5B6A] bg-white hover:bg-[#F8F5F0] transition-colors tabular-nums min-w-[2.6rem] text-center border-x border-[#DDD5C4]" title="Reset zoom">{Math.round(userZoom * 100)}%</button>
-              <button type="button" onClick={() => setUserZoom((z) => Math.min(4, parseFloat((z + 0.25).toFixed(2))))} className="w-7 h-[26px] flex items-center justify-center text-[#6B7A8A] bg-white hover:bg-[#F8F5F0] transition-colors" title="Zoom in [+]">+</button>
+            <div className="flex items-center border border-[#E2E8F0] rounded-md overflow-hidden shrink-0 text-[11px] font-medium">
+              <button type="button" onClick={() => setUserZoom((z) => Math.max(0.25, parseFloat((z - 0.25).toFixed(2))))} className="w-7 h-[26px] flex items-center justify-center text-[#6B7A8A] bg-white hover:bg-[#F8FAFC] transition-colors" title="Zoom out [−]">−</button>
+              <button type="button" onClick={() => setUserZoom(1)} className="px-1.5 h-[26px] flex items-center justify-center text-[#4A5B6A] bg-white hover:bg-[#F8FAFC] transition-colors tabular-nums min-w-[2.6rem] text-center border-x border-[#E2E8F0]" title="Reset zoom">{Math.round(userZoom * 100)}%</button>
+              <button type="button" onClick={() => setUserZoom((z) => Math.min(4, parseFloat((z + 0.25).toFixed(2))))} className="w-7 h-[26px] flex items-center justify-center text-[#6B7A8A] bg-white hover:bg-[#F8FAFC] transition-colors" title="Zoom in [+]">+</button>
             </div>
 
-            <div className="flex items-center border border-[#DDD5C4] rounded-md overflow-hidden shrink-0 text-[11px] font-medium">
-              <button type="button" onClick={() => setMapperTextMode(true)} className={`px-2.5 h-[26px] leading-none transition-all ${mapperTextMode ? "bg-white text-[#1C2B4A] font-medium shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>Text</button>
-              <div className="w-px h-full bg-[#DDD5C4] shrink-0" />
-              <button type="button" onClick={() => setMapperTextMode(false)} className={`px-2.5 h-[26px] leading-none transition-all ${!mapperTextMode ? "bg-white text-[#1C2B4A] font-medium shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>Labels</button>
+            <div className="flex items-center border border-[#E2E8F0] rounded-md overflow-hidden shrink-0 text-[11px] font-medium">
+              <button type="button" onClick={() => setMapperTextMode(true)} className={`px-2.5 h-[26px] leading-none transition-all ${mapperTextMode ? "bg-white text-[#1C2B4A] font-medium shadow-[inset_0_-2px_0_#1B4FD8]" : "bg-white text-[#8A9BB8] hover:bg-[#F8FAFC] hover:text-[#3A4A5A]"}`}>Text</button>
+              <div className="w-px h-full bg-[#E2E8F0] shrink-0" />
+              <button type="button" onClick={() => setMapperTextMode(false)} className={`px-2.5 h-[26px] leading-none transition-all ${!mapperTextMode ? "bg-white text-[#1C2B4A] font-medium shadow-[inset_0_-2px_0_#1B4FD8]" : "bg-white text-[#8A9BB8] hover:bg-[#F8FAFC] hover:text-[#3A4A5A]"}`}>Labels</button>
             </div>
 
             <button
               type="button"
               title={snapGrid ? "Snap to grid on — click to turn off [S]" : "Snap to grid off — click to turn on (4 pt grid) [S]"}
               onClick={() => setSnapGrid((v) => !v)}
-              className={`flex items-center gap-1.5 text-[11px] font-medium border border-[#DDD5C4] rounded-md px-2.5 h-[26px] leading-none transition-all shrink-0 ${snapGrid ? "bg-white text-[#1C2B4A] shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}
+              className={`flex items-center gap-1.5 text-[11px] font-medium border border-[#E2E8F0] rounded-md px-2.5 h-[26px] leading-none transition-all shrink-0 ${snapGrid ? "bg-white text-[#1C2B4A] shadow-[inset_0_-2px_0_#1B4FD8]" : "bg-white text-[#8A9BB8] hover:bg-[#F8FAFC] hover:text-[#3A4A5A]"}`}
             >
               <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
                 <line x1="4" y1="0" x2="4" y2="16"/><line x1="8" y1="0" x2="8" y2="16"/><line x1="12" y1="0" x2="12" y2="16"/>
@@ -924,7 +924,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
 
             {documentPreviewUrl && acroAnnotations.length > 0 && (
               <>
-                <button type="button" onClick={() => setShowAcroLayer((v) => !v)} className={`text-[11px] font-medium border border-[#DDD5C4] rounded-md px-2.5 h-[26px] leading-none transition-all shrink-0 ${showAcroLayer ? "bg-white text-[#1C2B4A] shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>
+                <button type="button" onClick={() => setShowAcroLayer((v) => !v)} className={`text-[11px] font-medium border border-[#E2E8F0] rounded-md px-2.5 h-[26px] leading-none transition-all shrink-0 ${showAcroLayer ? "bg-white text-[#1C2B4A] shadow-[inset_0_-2px_0_#1B4FD8]" : "bg-white text-[#8A9BB8] hover:bg-[#F8FAFC] hover:text-[#3A4A5A]"}`}>
                   PDF Fields
                 </button>
                 {selectedDocument && (mappingStartedDocIds.has(selectedDocument.id) || (selectedPackage.fields.length ?? 0) > 0) && (
@@ -954,7 +954,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                 localStorage.setItem("docuplete-inspector-mode", next);
                 setPlacementModal(null);
               }}
-              className="flex items-center gap-1.5 text-[11px] font-medium border border-[#DDD5C4] rounded-md px-2.5 h-[26px] leading-none bg-white text-[#6B7A8A] hover:bg-[#F8F5F0] hover:text-[#3A4A5A] transition-colors"
+              className="flex items-center gap-1.5 text-[11px] font-medium border border-[#E2E8F0] rounded-md px-2.5 h-[26px] leading-none bg-white text-[#6B7A8A] hover:bg-[#F8FAFC] hover:text-[#3A4A5A] transition-colors"
             >
               {inspectorMode === "panel" ? (
                 <><svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M15 3v18" /></svg><span>Panel</span></>
@@ -968,12 +968,12 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                 type="button"
                 title="Keyboard shortcuts"
                 onClick={() => setShowShortcutsPopover((v) => !v)}
-                className={`w-[26px] h-[26px] flex items-center justify-center rounded-md text-[11px] font-semibold border border-[#DDD5C4] transition-all ${showShortcutsPopover ? "bg-white text-[#1C2B4A] shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}
+                className={`w-[26px] h-[26px] flex items-center justify-center rounded-md text-[11px] font-semibold border border-[#E2E8F0] transition-all ${showShortcutsPopover ? "bg-white text-[#1C2B4A] shadow-[inset_0_-2px_0_#1B4FD8]" : "bg-white text-[#8A9BB8] hover:bg-[#F8FAFC] hover:text-[#3A4A5A]"}`}
               >
                 ?
               </button>
               {showShortcutsPopover && (
-                <div className="absolute right-0 top-full mt-2 z-50 w-64 bg-white border border-[#DDD5C4] rounded-xl shadow-lg p-3 text-[11px]">
+                <div className="absolute right-0 top-full mt-2 z-50 w-64 bg-white border border-[#E2E8F0] rounded-xl shadow-lg p-3 text-[11px]">
                   <div className="font-semibold text-[#3A2E1A] mb-2 pb-1.5 border-b border-[#EAE3D8]">Keyboard Shortcuts</div>
                   <div className="flex flex-col gap-1.5">
                     {[
@@ -987,7 +987,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                         <span className="text-[#6B7A99]">{label}</span>
                         <div className="flex items-center gap-1 shrink-0">
                           {keys.map((k) => (
-                            <kbd key={k} className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded bg-[#F0EDE6] border border-[#DDD5C4] text-[#3A2E1A] font-mono text-[10px] leading-none">{k}</kbd>
+                            <kbd key={k} className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded bg-[#F0EDE6] border border-[#E2E8F0] text-[#3A2E1A] font-mono text-[10px] leading-none">{k}</kbd>
                           ))}
                         </div>
                       </div>
@@ -1004,7 +1004,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
         {mapperScrollMode && (
           <div
             ref={scrollContainerRef}
-            className="bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner overflow-y-auto"
+            className="bg-[#F8FAFC] border border-[#E2E8F0] shadow-inner overflow-y-auto"
             style={{ width: mapperViewW, height: mapperViewH }}
             onScroll={(e) => {
               if (selectedPackage.documents.length === 0) return;
@@ -1049,13 +1049,13 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                         paddingLeft: 4,
                         paddingRight: 4,
                         marginBottom: MDSCROLL_PAGE_GAP,
-                        borderBottom: `2px solid ${isSelectedDoc ? "#C49A38" : "#DDD5C4"}`,
+                        borderBottom: `2px solid ${isSelectedDoc ? "#1B4FD8" : "#E2E8F0"}`,
                       }}>
                         <span style={{
                           fontSize: 10,
                           fontWeight: 700,
                           lineHeight: 1,
-                          backgroundColor: isSelectedDoc ? "#C49A38" : "#DDD5C4",
+                          backgroundColor: isSelectedDoc ? "#1B4FD8" : "#E2E8F0",
                           color: isSelectedDoc ? "#FFF" : "#8A9BB8",
                           borderRadius: 3,
                           padding: "2px 5px",
@@ -1080,12 +1080,12 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                       </div>
                       {/* Pages for this document */}
                       {!doc.pdfStored ? (
-                        <div style={{ width: scaledW, height: scaledH, display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed #DDD5C4", backgroundColor: "#FFF", marginBottom: MDSCROLL_PAGE_GAP }}>
+                        <div style={{ width: scaledW, height: scaledH, display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed #E2E8F0", backgroundColor: "#FFF", marginBottom: MDSCROLL_PAGE_GAP }}>
                           <span style={{ fontSize: 11, color: "#8A9BB8", fontStyle: "italic" }}>Upload a PDF to preview</span>
                         </div>
                       ) : !pdfDoc ? (
-                        <div style={{ width: scaledW, height: scaledH, display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed #DDD5C4", backgroundColor: "#FFF", marginBottom: MDSCROLL_PAGE_GAP }}>
-                          <div className="w-5 h-5 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />
+                        <div style={{ width: scaledW, height: scaledH, display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed #E2E8F0", backgroundColor: "#FFF", marginBottom: MDSCROLL_PAGE_GAP }}>
+                          <div className="w-5 h-5 border-2 border-[#1B4FD8] border-t-transparent rounded-full animate-spin" />
                         </div>
                       ) : (
                         Array.from({ length: Math.max(doc.pages ?? 1, 1) }, (_, i) => i + 1).map((pageNum) => {
@@ -1108,14 +1108,14 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                                   setSelectedPage(pageNum);
                                   setPlacementModal(null);
                                 }}
-                                className="absolute top-0 left-0 bg-white border border-[#D4C9B5] shadow-sm overflow-hidden"
+                                className="absolute top-0 left-0 bg-white border border-[#E2E8F0] shadow-sm overflow-hidden"
                                 style={{ cursor: clickToPlaceFieldId ? "crosshair" : undefined, width: nativePageW, height: nativePageH, transform: `scale(${effectiveScale})`, transformOrigin: "top left" }}
                               >
                                 <ScrollPageCanvas pageNum={pageNum} pdfDoc={pdfDoc} nativeW={nativePageW} nativeH={nativePageH} />
                                 {pageMs.map((m) => {
                                   const field = selectedPackage.fields.find((f) => f.id === m.fieldId);
                                   const recipient = m.recipientId ? storeRecipientList.find((r) => r.id === m.recipientId) : undefined;
-                                  const fieldColor = recipient?.color ?? (isSystemEsignFieldId(m.fieldId) ? "#9CA3AF" : (field?.color ?? "#C49A38"));
+                                  const fieldColor = recipient?.color ?? (isSystemEsignFieldId(m.fieldId) ? "#9CA3AF" : (field?.color ?? "#1B4FD8"));
                                   return (
                                     <MappingButton
                                       key={m.id}
@@ -1196,7 +1196,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
             )}
           </div>
         )}
-        {!mapperScrollMode && <div className="relative bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner overflow-auto" style={{ width: mapperViewW, height: mapperViewH }}>
+        {!mapperScrollMode && <div className="relative bg-[#F8FAFC] border border-[#E2E8F0] shadow-inner overflow-auto" style={{ width: mapperViewW, height: mapperViewH }}>
           <div style={{ width: Math.round(nativePageW * effectiveScale), height: Math.round(nativePageH * effectiveScale), position: "relative", flexShrink: 0 }}>
           <div
             ref={pageFrameRef}
@@ -1210,7 +1210,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
               }
               setPlacementModal(null);
             }}
-            className="absolute top-0 left-0 bg-white border border-[#D4C9B5] shadow-sm overflow-hidden"
+            className="absolute top-0 left-0 bg-white border border-[#E2E8F0] shadow-sm overflow-hidden"
             style={{ cursor: clickToPlaceFieldId ? "crosshair" : undefined, width: nativePageW, height: nativePageH, transform: `scale(${effectiveScale})`, transformOrigin: "top left" }}
           >
             {documentPreviewUrl ? (
@@ -1218,7 +1218,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                 <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" style={{ width: nativePageW, height: nativePageH }} />
                 {isPdfRendering && (
                   <div className="absolute inset-0 bg-white/60 flex items-center justify-center pointer-events-none">
-                    <div className="w-6 h-6 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />
+                    <div className="w-6 h-6 border-2 border-[#1B4FD8] border-t-transparent rounded-full animate-spin" />
                   </div>
                 )}
                 {pdfRenderError && !isPdfRendering && (
@@ -1232,9 +1232,9 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
               <div className="absolute inset-0 p-6 text-xs text-[#6B7A99]">
                 <div className="font-semibold text-[#0F1C3F] mb-3">{selectedDocument?.title ?? "No document selected"}</div>
                 {selectedDocument ? (
-                  <div className="rounded border border-dashed border-[#D4C9B5] p-5 text-center">Upload or replace this package document with a PDF to show a true page preview.</div>
+                  <div className="rounded border border-dashed border-[#E2E8F0] p-5 text-center">Upload or replace this package document with a PDF to show a true page preview.</div>
                 ) : (
-                  Array.from({ length: 18 }).map((_, i) => <div key={i} className="h-2 bg-[#EFE8D8] rounded mb-3" style={{ width: `${70 + (i % 4) * 7}%` }} />)
+                  Array.from({ length: 18 }).map((_, i) => <div key={i} className="h-2 bg-[#E2E8F0] rounded mb-3" style={{ width: `${70 + (i % 4) * 7}%` }} />)
                 )}
               </div>
             )}
@@ -1269,7 +1269,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
               if (!meta) return null;
               const field = selectedPackage.fields.find((f) => f.id === meta.fieldId);
               const recipient = meta.recipientId ? storeRecipientList.find((r) => r.id === meta.recipientId) : undefined;
-              const fieldColor = recipient?.color ?? (isSystemEsignFieldId(meta.fieldId) ? "#9CA3AF" : (field?.color ?? "#C49A38"));
+              const fieldColor = recipient?.color ?? (isSystemEsignFieldId(meta.fieldId) ? "#9CA3AF" : (field?.color ?? "#1B4FD8"));
               const isFullyDefined = Boolean(field?.name && !field.name.match(/^Field \d+$/i) && (field.libraryFieldId || field.interviewMode));
               return (
                 <MappingButton
@@ -1340,7 +1340,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
       </section>
 
       {/* ── Right sidebar: inspector + field list ── */}
-      <section className="bg-white border border-[#DDD5C4] rounded-lg flex flex-col min-h-0 overflow-hidden">
+      <section className="bg-white border border-[#E2E8F0] rounded-lg flex flex-col min-h-0 overflow-hidden">
         {inspectorMode === "panel" && placementModal && (() => {
           const mapping = storeMappings.find((item) => item.id === placementModal.mappingId);
           if (!mapping) return null;
@@ -1364,7 +1364,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
         <div className="p-4 flex flex-col min-h-0 flex-1">
           <div className="flex items-center justify-between mb-1.5 flex-shrink-0">
             <h2 className="text-sm font-semibold font-sans">Fields</h2>
-            <button onClick={openFieldEditorForAdd} className="text-xs text-[#C49A38]">Add</button>
+            <button onClick={openFieldEditorForAdd} className="text-xs text-[#1B4FD8]">Add</button>
           </div>
           {/* Orphaned mapping warning */}
           {orphanedMappings.length > 0 && (
@@ -1419,16 +1419,16 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
           )}
           {/* Filter / sort controls */}
           <div className="flex items-center gap-1.5 mb-2 flex-shrink-0 flex-wrap">
-            <div className="flex items-center gap-3 text-[11px] font-medium border-b border-[#EFE8D8]">
+            <div className="flex items-center gap-3 text-[11px] font-medium border-b border-[#E2E8F0]">
               <button
                 type="button"
                 onClick={() => { setShowUnplacedOnly(false); try { localStorage.setItem("docuplete-field-filter-unplaced", ""); } catch {} }}
-                className={`pb-1 transition-colors border-b-2 -mb-px ${!showUnplacedOnly ? "border-[#C49A38] text-[#0F1C3F]" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+                className={`pb-1 transition-colors border-b-2 -mb-px ${!showUnplacedOnly ? "border-[#1B4FD8] text-[#0F1C3F]" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
               >All</button>
               <button
                 type="button"
                 onClick={() => { setShowUnplacedOnly(true); try { localStorage.setItem("docuplete-field-filter-unplaced", "1"); } catch {} }}
-                className={`pb-1 transition-colors border-b-2 -mb-px ${showUnplacedOnly ? "border-[#C49A38] text-[#0F1C3F]" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+                className={`pb-1 transition-colors border-b-2 -mb-px ${showUnplacedOnly ? "border-[#1B4FD8] text-[#0F1C3F]" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
               >Unplaced{unplacedCount > 0 ? <span className="ml-0.5 opacity-60">({unplacedCount})</span> : null}</button>
             </div>
             <select
@@ -1438,7 +1438,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                 setFieldSort(v);
                 try { localStorage.setItem("docuplete-field-sort", v); } catch {}
               }}
-              className="text-[10px] border border-[#DDD5C4] rounded bg-white text-[#6B7A99] h-[22px] px-1.5 leading-none cursor-pointer"
+              className="text-[10px] border border-[#E2E8F0] rounded bg-white text-[#6B7A99] h-[22px] px-1.5 leading-none cursor-pointer"
             >
               <option value="default">Order: default</option>
               <option value="alpha">Order: A–Z</option>
@@ -1497,13 +1497,13 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                 <div ref={fieldListScrollRef} className="space-y-2 overflow-y-auto flex-1 min-h-0">
                   {selectedPackage.fields.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-8 px-3 text-center gap-2">
-                      <svg className="w-6 h-6 text-[#C49A38]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                      <p className="text-xs text-[#8A9BB8] leading-snug italic">No fields yet. Click <strong className="not-italic font-semibold text-[#C49A38]">Add</strong> above to create your first field, then drag it onto the document to place it.</p>
+                      <svg className="w-6 h-6 text-[#1B4FD8]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                      <p className="text-xs text-[#8A9BB8] leading-snug italic">No fields yet. Click <strong className="not-italic font-semibold text-[#1B4FD8]">Add</strong> above to create your first field, then drag it onto the document to place it.</p>
                     </div>
                   )}
                   {displayFields.length === 0 && selectedPackage.fields.length > 0 && (
                     <div className="flex flex-col items-center justify-center py-8 px-3 text-center gap-2">
-                      <svg className="w-6 h-6 text-[#C49A38]/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      <svg className="w-6 h-6 text-[#1B4FD8]/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                       <p className="text-xs text-[#8A9BB8] leading-snug italic">All fields are placed.</p>
                     </div>
                   )}
@@ -1517,8 +1517,8 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                             data-field-id={field.id}
                             onDragStart={(e) => { e.dataTransfer.setData("text/field", field.id); }}
                             onDoubleClick={() => openFieldEditorForEdit(field.id)}
-                            style={{ borderColor: isActivePlacing ? "#C49A38" : field.color, outline: selectedField?.id === field.id ? `4px solid ${field.color}` : undefined, outlineOffset: "2px" }}
-                            className={`w-full text-left border-2 rounded px-3 py-2 bg-white transition-shadow cursor-alias ${isActivePlacing ? "ring-2 ring-[#C49A38]/40 shadow-md" : ""}`}
+                            style={{ borderColor: isActivePlacing ? "#1B4FD8" : field.color, outline: selectedField?.id === field.id ? `4px solid ${field.color}` : undefined, outlineOffset: "2px" }}
+                            className={`w-full text-left border-2 rounded px-3 py-2 bg-white transition-shadow cursor-alias ${isActivePlacing ? "ring-2 ring-[#1B4FD8]/40 shadow-md" : ""}`}
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-start gap-2 flex-1 min-w-0">
@@ -1530,7 +1530,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                                       const libField = fieldLibrary.find((lf) => lf.id === field.libraryFieldId);
                                       return libField?.inherited
                                         ? <span className="text-[10px] uppercase tracking-wide rounded bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5" title={`Inherited from ${libField.inheritedFrom ?? "parent account"}`}>Inherited</span>
-                                        : <span className="text-[10px] uppercase tracking-wide rounded bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8] px-1.5 py-0.5">Shared</span>;
+                                        : <span className="text-[10px] uppercase tracking-wide rounded bg-[#F8FAFC] text-[#6B7A99] border border-[#E2E8F0] px-1.5 py-0.5">Shared</span>;
                                     })()}
                                     {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
                                     {(field.condition?.fieldId || field.condition2?.fieldId) && <span className="text-[10px] uppercase tracking-wide rounded bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5">Conditional</span>}
@@ -1561,7 +1561,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                                     <button
                                       type="button"
                                       onClick={(e) => { e.stopPropagation(); setClickToPlaceFieldId(isActivePlacing ? null : field.id); }}
-                                      className={`rounded border px-1.5 py-0.5 text-[10px] flex items-center gap-1 transition-colors ${isActivePlacing ? "border-[#C49A38] bg-[#C49A38] text-white" : "border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38] hover:text-[#C49A38]"}`}
+                                      className={`rounded border px-1.5 py-0.5 text-[10px] flex items-center gap-1 transition-colors ${isActivePlacing ? "border-[#1B4FD8] bg-[#1B4FD8] text-white" : "border-[#E2E8F0] text-[#6B7A99] hover:border-[#1B4FD8] hover:text-[#1B4FD8]"}`}
                                       title="Click to place on document"
                                     ><Crosshair className="w-3 h-3" /></button>
                                   </TooltipTrigger>
@@ -1586,14 +1586,14 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                               <div
                                 ref={wrapperRef}
                                 data-field-id={field.id}
-                                style={{ ...wrapperStyle, borderColor: isActivePlacing ? "#C49A38" : field.color, outline: selectedField?.id === field.id ? `4px solid ${field.color}` : undefined, outlineOffset: "2px" }}
+                                style={{ ...wrapperStyle, borderColor: isActivePlacing ? "#1B4FD8" : field.color, outline: selectedField?.id === field.id ? `4px solid ${field.color}` : undefined, outlineOffset: "2px" }}
                                 draggable
                                 onDragStart={(e) => {
                                   if (fieldDragFromHandle.current) { e.preventDefault(); return; }
                                   e.dataTransfer.setData("text/field", field.id);
                                 }}
                                 onDoubleClick={() => openFieldEditorForEdit(field.id)}
-                                className={`w-full text-left border-2 rounded px-3 py-2 bg-white transition-shadow cursor-alias ${isDragging ? "opacity-40 shadow-lg" : ""} ${isActivePlacing ? "ring-2 ring-[#C49A38]/40 shadow-md" : ""}`}
+                                className={`w-full text-left border-2 rounded px-3 py-2 bg-white transition-shadow cursor-alias ${isDragging ? "opacity-40 shadow-lg" : ""} ${isActivePlacing ? "ring-2 ring-[#1B4FD8]/40 shadow-md" : ""}`}
                               >
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="flex items-start gap-2 flex-1 min-w-0">
@@ -1622,7 +1622,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                                           const libField = fieldLibrary.find((lf) => lf.id === field.libraryFieldId);
                                           return libField?.inherited
                                             ? <span className="text-[10px] uppercase tracking-wide rounded bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5" title={`Inherited from ${libField.inheritedFrom ?? "parent account"}`}>Inherited</span>
-                                            : <span className="text-[10px] uppercase tracking-wide rounded bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8] px-1.5 py-0.5">Shared</span>;
+                                            : <span className="text-[10px] uppercase tracking-wide rounded bg-[#F8FAFC] text-[#6B7A99] border border-[#E2E8F0] px-1.5 py-0.5">Shared</span>;
                                         })()}
                                         {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
                                         {(field.condition?.fieldId || field.condition2?.fieldId) && <span className="text-[10px] uppercase tracking-wide rounded bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5">Conditional</span>}
@@ -1653,7 +1653,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                                         <button
                                           type="button"
                                           onClick={(e) => { e.stopPropagation(); setClickToPlaceFieldId(isActivePlacing ? null : field.id); }}
-                                          className={`rounded border px-1.5 py-0.5 text-[10px] flex items-center gap-1 transition-colors ${isActivePlacing ? "border-[#C49A38] bg-[#C49A38] text-white" : "border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38] hover:text-[#C49A38]"}`}
+                                          className={`rounded border px-1.5 py-0.5 text-[10px] flex items-center gap-1 transition-colors ${isActivePlacing ? "border-[#1B4FD8] bg-[#1B4FD8] text-white" : "border-[#E2E8F0] text-[#6B7A99] hover:border-[#1B4FD8] hover:text-[#1B4FD8]"}`}
                                           title="Click to place on document"
                                         ><Crosshair className="w-3 h-3" /></button>
                                       </TooltipTrigger>

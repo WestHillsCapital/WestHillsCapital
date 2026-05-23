@@ -88,7 +88,7 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
   const selectedPkg = packages.find((p) => p.id === selectedPackageId);
 
   return (
-    <div className="mb-5 rounded-xl border border-[#DDD5C4] bg-white p-3 space-y-3">
+    <div className="mb-5 rounded-xl border border-[#E2E8F0] bg-white p-3 space-y-3">
       {/* Tag filter row — only shown when packages have tags */}
       {allTags.length > 0 && (() => {
         const isAll = tagFilter.length === 0;
@@ -98,7 +98,7 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
             <button
               type="button"
               onClick={() => setTagFilter([])}
-              className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${isAll ? "bg-[#0F1C3F] border-[#0F1C3F] text-white font-medium" : "bg-[#F8F6F0] border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#4A5568]"}`}
+              className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${isAll ? "bg-[#0F1C3F] border-[#0F1C3F] text-white font-medium" : "bg-[#F8FAFC] border-[#E2E8F0] text-[#6B7A99] hover:border-[#1B4FD8]/60 hover:text-[#4A5568]"}`}
             >All</button>
             {allTags.map((tag) => {
               const active = tagFilter.includes(tag);
@@ -107,7 +107,7 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
                   key={tag}
                   type="button"
                   onClick={() => setTagFilter((prev) => active ? prev.filter((t) => t !== tag) : [...prev, tag])}
-                  className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${active ? "bg-[#C49A38] border-[#C49A38] text-white font-medium" : "bg-[#F8F6F0] border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#4A5568]"}`}
+                  className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${active ? "bg-[#1B4FD8] border-[#1B4FD8] text-white font-medium" : "bg-[#F8FAFC] border-[#E2E8F0] text-[#6B7A99] hover:border-[#1B4FD8]/60 hover:text-[#4A5568]"}`}
                 >{tag}</button>
               );
             })}
@@ -120,7 +120,7 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
         <span className="text-xs font-medium text-[#6B7A99] shrink-0">Package</span>
         <div ref={pkgDropdownRef} className="relative flex-1 min-w-0 max-w-xs">
           {selectedPkg ? (
-            <div className="flex items-center w-full border border-[#D4C9B5] rounded-lg bg-white overflow-hidden">
+            <div className="flex items-center w-full border border-[#E2E8F0] rounded-lg bg-white overflow-hidden">
               <input
                 type="text"
                 value={renameValue ?? selectedPkg.name}
@@ -142,7 +142,7 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
               <button
                 type="button"
                 onClick={() => setPkgDropdownOpen((v) => !v)}
-                className={`px-2 py-1.5 border-l border-[#D4C9B5] text-[#8A9BB8] hover:text-[#0F1C3F] transition-colors ${pkgDropdownOpen ? "bg-[#F8F6F0]" : ""}`}
+                className={`px-2 py-1.5 border-l border-[#E2E8F0] text-[#8A9BB8] hover:text-[#0F1C3F] transition-colors ${pkgDropdownOpen ? "bg-[#F8FAFC]" : ""}`}
               >
                 <svg className={`w-3.5 h-3.5 shrink-0 transition-transform ${pkgDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
               </button>
@@ -152,17 +152,17 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
               type="button"
               onClick={() => setPkgDropdownOpen((v) => !v)}
               disabled={packages.length === 0}
-              className="w-full border border-[#D4C9B5] rounded-lg px-3 py-1.5 text-sm bg-white font-medium text-[#0F1C3F] text-left flex items-center justify-between gap-2 disabled:opacity-60"
+              className="w-full border border-[#E2E8F0] rounded-lg px-3 py-1.5 text-sm bg-white font-medium text-[#0F1C3F] text-left flex items-center justify-between gap-2 disabled:opacity-60"
             >
               <span className="truncate">{packages.length === 0 ? "No packages yet" : "Select a package…"}</span>
               <svg className={`w-3.5 h-3.5 shrink-0 text-[#8A9BB8] transition-transform ${pkgDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
             </button>
           )}
           {pkgDropdownOpen && (
-            <div className="absolute top-full mt-1 left-0 w-full min-w-[260px] bg-white border border-[#DDD5C4] rounded-lg shadow-lg z-50 overflow-y-auto max-h-72">
+            <div className="absolute top-full mt-1 left-0 w-full min-w-[260px] bg-white border border-[#E2E8F0] rounded-lg shadow-lg z-50 overflow-y-auto max-h-72">
               <button
                 type="button"
-                className="w-full text-left px-3 py-2 text-xs text-[#8A9BB8] hover:bg-[#F8F6F0]"
+                className="w-full text-left px-3 py-2 text-xs text-[#8A9BB8] hover:bg-[#F8FAFC]"
                 onClick={() => { setSelectedPackageId(null); setAddingPackage(false); setPkgDropdownOpen(false); }}
               >Select a package…</button>
               {visiblePackages.length === 0 && (
@@ -174,7 +174,7 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
                   <button
                     key={pkg.id}
                     type="button"
-                    className={`w-full text-left px-3 py-2 border-t border-[#F0EBE0] transition-colors hover:bg-[#F8F6F0] ${selectedPackageId === pkg.id ? "bg-[#FBF7EE]" : ""}`}
+                    className={`w-full text-left px-3 py-2 border-t border-[#F0EBE0] transition-colors hover:bg-[#F8FAFC] ${selectedPackageId === pkg.id ? "bg-[#EFF6FF]" : ""}`}
                     onClick={() => { setSelectedPackageId(pkg.id); setAddingPackage(false); setPkgDropdownOpen(false); }}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -189,7 +189,7 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
                     {pkg.tags?.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {pkg.tags.map((tag) => (
-                          <span key={tag} className="text-[10px] rounded-full px-1.5 py-px bg-[#EFE8D8] text-[#5C4A1E] border border-[#DDD5C4]">{tag}</span>
+                          <span key={tag} className="text-[10px] rounded-full px-1.5 py-px bg-[#E2E8F0] text-[#5C4A1E] border border-[#E2E8F0]">{tag}</span>
                         ))}
                       </div>
                     )}
@@ -204,7 +204,7 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
           <button
             type="button"
             onClick={() => { setAddingPackage((v) => !v); setSelectedPackageId(null); }}
-            className={`shrink-0 text-xs border rounded-lg px-3 py-1.5 transition-colors ${addingPackage ? "border-[#C49A38] bg-[#C49A38]/10 text-[#8A6A20]" : "border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#0F1C3F]"}`}
+            className={`shrink-0 text-xs border rounded-lg px-3 py-1.5 transition-colors ${addingPackage ? "border-[#1B4FD8] bg-[#1B4FD8]/10 text-[#1E40AF]" : "border-[#E2E8F0] text-[#6B7A99] hover:border-[#1B4FD8]/60 hover:text-[#0F1C3F]"}`}
           >
             + New Package
           </button>
@@ -215,7 +215,7 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
                 <button
                   type="button"
                   disabled
-                  className="shrink-0 text-xs border rounded-lg px-3 py-1.5 border-[#DDD5C4] text-[#6B7A99] opacity-40 cursor-not-allowed"
+                  className="shrink-0 text-xs border rounded-lg px-3 py-1.5 border-[#E2E8F0] text-[#6B7A99] opacity-40 cursor-not-allowed"
                 >
                   + New Package
                 </button>
@@ -236,10 +236,10 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
               className={`shrink-0 flex items-center gap-1.5 text-xs rounded-full px-2.5 py-1 border font-medium transition-colors ${
                 selectedPackage.status === "active"
                   ? "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100"
-                  : "bg-[#F8F6F0] border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/50 hover:text-[#4A5568]"
+                  : "bg-[#F8FAFC] border-[#E2E8F0] text-[#6B7A99] hover:border-[#1B4FD8]/50 hover:text-[#4A5568]"
               }`}
             >
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${selectedPackage.status === "active" ? "bg-emerald-500" : "bg-[#C4B99A]"}`} />
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${selectedPackage.status === "active" ? "bg-emerald-500" : "bg-[#CBD5E1]"}`} />
               {selectedPackage.status === "active" ? "Active" : "Inactive"}
             </button>
             <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} variant="outline" className="shrink-0 text-xs h-8 px-3">{isSaving ? "Saving…" : "Save"}</Button>
@@ -249,7 +249,7 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
 
       {/* Inline add-package form */}
       {addingPackage && (
-        <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-3 space-y-3">
+        <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 space-y-3">
           <div className="text-sm font-semibold text-[#0F1C3F]">New package</div>
           <label className="block text-xs text-[#6B7A99]">
             Package name
@@ -282,7 +282,7 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
                 onClick={() => goBuilderStep(step.value)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isActive ? "bg-[#0F1C3F] text-white" : isPast ? "bg-[#EAF0FB] text-[#0F1C3F]" : "text-[#8A9BB8] hover:text-[#0F1C3F]"}`}
               >
-                <span className={`w-4 h-4 rounded-full text-[10px] flex items-center justify-center shrink-0 ${isActive ? "bg-white/20 text-white" : isPast ? "bg-[#0F1C3F] text-white" : "bg-[#DDD5C4] text-[#6B7A99]"}`}>
+                <span className={`w-4 h-4 rounded-full text-[10px] flex items-center justify-center shrink-0 ${isActive ? "bg-white/20 text-white" : isPast ? "bg-[#0F1C3F] text-white" : "bg-[#E2E8F0] text-[#6B7A99]"}`}>
                   {isPast ? "✓" : idx + 1}
                 </span>
                 <span className="hidden sm:inline">{["Documents", "Map Fields", "Finalize"][idx]}</span>
