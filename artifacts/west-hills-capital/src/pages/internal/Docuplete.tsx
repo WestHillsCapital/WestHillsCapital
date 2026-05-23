@@ -11,6 +11,7 @@ import { useInternalAuth } from "@/hooks/useInternalAuth";
 import { useUpgradeModal } from "@/hooks/useUpgradeModal";
 import { useDocupleteConfig } from "@/hooks/useDocupleteConfig";
 import { getCachedOrg } from "@/hooks/useOrgSettings";
+import { getCachedProductOrg } from "@/hooks/useProductOrgSettings";
 import { formatOrgTime } from "@/lib/orgDateFormat";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -288,8 +289,9 @@ function isSensitiveValidationType(validationType: string | undefined | null): b
 
 function pickFieldColor(usedColors: string[], sensitive: boolean): string {
   if (sensitive) return "#DC2626";
-  const available = FIELD_COLOR_PALETTE.filter((c) => !usedColors.includes(c));
-  const pool = available.length > 0 ? available : FIELD_COLOR_PALETTE;
+  const palette = getCachedProductOrg()?.field_palette ?? FIELD_COLOR_PALETTE;
+  const available = palette.filter((c) => !usedColors.includes(c));
+  const pool = available.length > 0 ? available : palette;
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
@@ -5072,7 +5074,7 @@ export default function Docuplete() {
         onSave={saveFieldFromModal}
         onRemove={(fieldId) => { removeField(fieldId); setFieldEditorModal(null); }}
         packageFields={selectedPackage?.fields ?? []}
-        colorPalette={FIELD_COLOR_PALETTE}
+        colorPalette={getCachedProductOrg()?.field_palette ?? FIELD_COLOR_PALETTE}
       />
 
       {deleteGuard && selectedPackage && (

@@ -20,6 +20,8 @@ export type ProductOrgSettings = {
   pkg_default_notify_staff:  boolean;
   pkg_default_notify_client: boolean;
   pkg_default_esign:         boolean;
+  // Custom field color palette. null means "use application default".
+  field_palette: string[] | null;
 };
 
 let cachedProductOrg: ProductOrgSettings | null = null;

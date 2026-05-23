@@ -2123,6 +2123,11 @@ export async function initDb(): Promise<void> {
   // wall before they can create a single real package of their own.
   await db.query(`ALTER TABLE docuplete_packages ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
 
+  // ── Per-account field color palette ────────────────────────────────────────
+  // Stored as a JSON text array of hex strings (e.g. '["#C4A06B","#7A9E82"]').
+  // NULL means "use the application default palette".
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS field_palette TEXT`);
+
   // ── Status page incidents ──────────────────────────────────────────────────
   await db.query(`
     CREATE TABLE IF NOT EXISTS status_incidents (

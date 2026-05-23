@@ -125,6 +125,15 @@ function buildLogoServingUrl(accountId: number): string {
   return `/api/storage/org-logo/${accountId}`;
 }
 
+function parseFieldPalette(raw: unknown): string[] | null {
+  if (!raw) return null;
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (Array.isArray(parsed) && parsed.every((c: unknown) => typeof c === "string")) return parsed as string[];
+    return null;
+  } catch { return null; }
+}
+
 function buildFormLogoServingUrl(accountId: number): string {
   return `/api/storage/org-form-logo/${accountId}`;
 }
@@ -217,7 +226,8 @@ router.get("/org", async (req, res) => {
     const { rows } = await db.query(
       `SELECT id, name, slug, logo_url, form_logo_url, brand_color, logo_on_white, timezone, date_format,
               pkg_default_interview, pkg_default_csv, pkg_default_customer_link,
-              pkg_default_notify_staff, pkg_default_notify_client, pkg_default_esign
+              pkg_default_notify_staff, pkg_default_notify_client, pkg_default_esign,
+              field_palette
          FROM accounts WHERE id = $1`,
       [accountId],
     );
@@ -243,6 +253,7 @@ router.get("/org", async (req, res) => {
         pkg_default_notify_staff:   row.pkg_default_notify_staff   !== false,
         pkg_default_notify_client:  row.pkg_default_notify_client  === true,
         pkg_default_esign:          row.pkg_default_esign          === true,
+        field_palette: parseFieldPalette(row.field_palette),
       },
     });
   } catch (err) {
@@ -350,7 +361,8 @@ router.patch("/org", requireAdminRole, async (req, res) => {
     const { rows: existing } = await db.query(
       `SELECT id, name, logo_url, form_logo_url, brand_color, logo_on_white, timezone, date_format,
               pkg_default_interview, pkg_default_csv, pkg_default_customer_link,
-              pkg_default_notify_staff, pkg_default_notify_client, pkg_default_esign
+              pkg_default_notify_staff, pkg_default_notify_client, pkg_default_esign,
+              field_palette
          FROM accounts WHERE id = $1`,
       [accountId],
     );
@@ -387,19 +399,31 @@ router.patch("/org", requireAdminRole, async (req, res) => {
     const pkgDefaultEsign         = "pkgDefaultEsign"        in body ? body.pkgDefaultEsign        === true  : (current.pkg_default_esign         === true);
     const logoOnWhite             = "logoOnWhite"             in body ? body.logoOnWhite            !== false : (current.logo_on_white              !== false);
 
+    let fieldPaletteVal: string | null = (current.field_palette as string | null) ?? null;
+    if ("fieldPalette" in body) {
+      if (body.fieldPalette === null || body.fieldPalette === undefined) {
+        fieldPaletteVal = null;
+      } else if (Array.isArray(body.fieldPalette)) {
+        const HEX_RE = /^#[0-9a-fA-F]{6}$/;
+        const valid = (body.fieldPalette as string[]).filter((c) => HEX_RE.test(c));
+        fieldPaletteVal = valid.length > 0 ? JSON.stringify(valid) : null;
+      }
+    }
+
     const { rows } = await db.query(
       `UPDATE accounts
           SET name=$1, logo_url=$2, brand_color=$3, form_logo_url=$11,
               pkg_default_interview=$5, pkg_default_csv=$6,
               pkg_default_customer_link=$7, pkg_default_notify_staff=$8, pkg_default_notify_client=$9,
-              pkg_default_esign=$10, logo_on_white=$12
+              pkg_default_esign=$10, logo_on_white=$12, field_palette=$13
         WHERE id=$4
         RETURNING id, name, slug, logo_url, form_logo_url, brand_color, logo_on_white, timezone, date_format,
                   pkg_default_interview, pkg_default_csv, pkg_default_customer_link,
-                  pkg_default_notify_staff, pkg_default_notify_client, pkg_default_esign`,
+                  pkg_default_notify_staff, pkg_default_notify_client, pkg_default_esign,
+                  field_palette`,
       [name, rawLogoPath, brandColor, accountId,
        pkgDefaultInterview, pkgDefaultCsv, pkgDefaultCustomerLink, pkgDefaultNotifyStaff, pkgDefaultNotifyClient,
-       pkgDefaultEsign, rawFormLogoPath, logoOnWhite],
+       pkgDefaultEsign, rawFormLogoPath, logoOnWhite, fieldPaletteVal],
     );
     const row = rows[0] as Record<string, unknown>;
 
@@ -436,6 +460,7 @@ router.patch("/org", requireAdminRole, async (req, res) => {
         pkg_default_notify_staff:   row.pkg_default_notify_staff   !== false,
         pkg_default_notify_client:  row.pkg_default_notify_client  === true,
         pkg_default_esign:          row.pkg_default_esign          === true,
+        field_palette: parseFieldPalette(row.field_palette),
       },
     });
   } catch (err) {

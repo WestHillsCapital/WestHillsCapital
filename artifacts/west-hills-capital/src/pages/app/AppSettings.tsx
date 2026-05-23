@@ -21,6 +21,7 @@ import { DataPrivacySection }         from "./settings/DataPrivacySection";
 import { SecuritySection }            from "./settings/SecuritySection";
 import { ProfileSection }             from "./settings/ProfileSection";
 import { SourceKeyMappingSection }    from "./settings/SourceKeyMappingSection";
+import { FieldColorsSection }         from "./settings/FieldColorsSection";
 
 // ── Settings page navigation ──────────────────────────────────────────────────
 // Add entries here whenever a new section is added. Items with adminOnly=true
@@ -40,6 +41,7 @@ const ALL_SETTINGS_NAV: Array<{ id: string; label: string; adminOnly?: boolean; 
   // Docuplete — how the interview product behaves
   { id: "interview-defaults-section", label: "Interview",      group: "Docuplete" },
   { id: "email-section",              label: "Email" },
+  { id: "field-colors-section",       label: "Field colors",   adminOnly: true },
   // Connect — external tools and developer APIs
   { id: "integrations-section",       label: "Integrations",   group: "Connect" },
   { id: "developer-section",          label: "Developer" },
@@ -952,6 +954,19 @@ export default function AppSettings() {
       {/* Email customization section — admin writes, all can view */}
       <div id="email-section">
         <EmailCustomizationSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
+      </div>
+
+      {/* Field color palette section — admin only */}
+      <div id="field-colors-section">
+        <FieldColorsSection
+          getAuthHeaders={getAuthHeaders}
+          isAdmin={isAdmin}
+          currentPalette={org?.field_palette ?? null}
+          onPaletteChange={(palette) => {
+            setOrg((prev) => prev ? { ...prev, field_palette: palette } : prev);
+            if (org) updateProductOrgCache({ ...org, field_palette: palette });
+          }}
+        />
       </div>
 
       {/* Integrations section */}
