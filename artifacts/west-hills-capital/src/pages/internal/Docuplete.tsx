@@ -651,7 +651,7 @@ export default function Docuplete() {
     document.addEventListener("touchcancel", onEnd);
     fieldEditorDragCleanupRef.current = cleanup;
   }, [fieldEditorPos.x, fieldEditorPos.y]);
-  const [fieldEditorDraft, setFieldEditorDraft] = useState<FieldEditorDraft>({ name: "", color: "#1B4FD8", type: "text", options: [], interviewMode: "optional", hasDefault: false, defaultValue: "", validationType: "none", validationPattern: "", validationMessage: "", packageOnly: false, condition: null, condition2: null, conditionOperator: "and", sumGroup: "", copyFrom: null });
+  const [fieldEditorDraft, setFieldEditorDraft] = useState<FieldEditorDraft>({ name: "", color: "#C49A38", type: "text", options: [], interviewMode: "optional", hasDefault: false, defaultValue: "", validationType: "none", validationPattern: "", validationMessage: "", packageOnly: false, condition: null, condition2: null, conditionOperator: "and", sumGroup: "", copyFrom: null });
   const sortSensors = useSensors(useSensor(SmartPointerSensor, { activationConstraint: { distance: 6 } }));
   const [session, setSession] = useState<Session | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -4278,21 +4278,21 @@ export default function Docuplete() {
         {!isPublicSession && <div className="flex items-stretch">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button onClick={() => goBuilderStep(builderStep)} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "packages" || tab === "mapper" ? "border-[#1B4FD8] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Packages</button>
+              <button onClick={() => goBuilderStep(builderStep)} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "packages" || tab === "mapper" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Packages</button>
             </TooltipTrigger>
             <TooltipContent side="bottom">A Package bundles multiple PDF forms into one guided interview session. Configure documents, fields, and automation here.</TooltipContent>
           </Tooltip>
           <div className="w-px self-stretch my-1 bg-[#E2E8F0]" />
           <Tooltip>
             <TooltipTrigger asChild>
-              <button onClick={() => setTab("sessions")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "sessions" ? "border-[#1B4FD8] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Sessions</button>
+              <button onClick={() => setTab("sessions")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "sessions" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Sessions</button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Launch a single interview session for one package at a time — staff-guided or via a customer self-service link.</TooltipContent>
           </Tooltip>
           <div className="w-px self-stretch my-1 bg-[#E2E8F0]" />
           <Tooltip>
             <TooltipTrigger asChild>
-              <button onClick={() => setTab("batch")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "batch" ? "border-[#1B4FD8] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Batch</button>
+              <button onClick={() => setTab("batch")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "batch" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Batch</button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Upload a CSV to create many sessions at once — one row per client.</TooltipContent>
           </Tooltip>
@@ -4301,7 +4301,7 @@ export default function Docuplete() {
             <TooltipTrigger asChild>
               <button
                 onClick={() => { setTab("library"); window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior }); }}
-                className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "library" ? "border-[#1B4FD8] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+                className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "library" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
               >
                 Library
               </button>
@@ -4313,7 +4313,7 @@ export default function Docuplete() {
             <TooltipTrigger asChild>
               <button
                 onClick={() => setTab("help")}
-                className={`px-4 py-2 text-sm border-b-2 transition-colors flex items-center gap-1.5 ${tab === "help" ? "border-[#1B4FD8] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+                className={`px-4 py-2 text-sm border-b-2 transition-colors flex items-center gap-1.5 ${tab === "help" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -4875,7 +4875,7 @@ export default function Docuplete() {
                         const a = document.createElement("a"); a.href = url; a.download = "compliance-audit.csv"; a.click();
                         URL.revokeObjectURL(url);
                       }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-gray-200 bg-white text-[#0F1C3F] hover:border-[#1B4FD8] hover:shadow-sm transition-all"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-gray-200 bg-white text-[#0F1C3F] hover:border-[#C49A38] hover:shadow-sm transition-all"
                     >
                       <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                       Export CSV
@@ -4900,7 +4900,7 @@ export default function Docuplete() {
                     <div key={row.packageId} className={`rounded border ${row.hasGap ? "border-amber-200 bg-amber-50/25" : "border-green-200 bg-green-50/20"} p-4`}>
                       <div className="flex items-center gap-2 mb-3">
                         <span className="font-semibold text-sm text-[#0F1C3F]">{row.packageName}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#EBF0FB] text-[#1B4FD8] font-medium">{row.status}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#EBF0FB] text-[#C49A38] font-medium">{row.status}</span>
                         {row.hasGap ? (
                           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300 font-semibold">
                             ⚠️ Non-Compliant · {row.requiredMissingCount} missing
@@ -5102,7 +5102,7 @@ export default function Docuplete() {
               <select
                 value={deleteGuard.replacementFieldId}
                 onChange={(e) => setDeleteGuard((g) => g ? { ...g, replacementFieldId: e.target.value } : null)}
-                className="w-full border border-[#E2E8F0] rounded-md h-9 px-2.5 text-sm bg-white text-[#0F1C3F] focus:outline-none focus:border-[#1B4FD8]"
+                className="w-full border border-[#E2E8F0] rounded-md h-9 px-2.5 text-sm bg-white text-[#0F1C3F] focus:outline-none focus:border-[#C49A38]"
               >
                 <option value="">— none, mark for repair later —</option>
                 {selectedPackage.fields
@@ -5115,7 +5115,7 @@ export default function Docuplete() {
               <button
                 type="button"
                 onClick={() => setDeleteGuard(null)}
-                className="px-4 py-2 text-sm rounded-md border border-[#E2E8F0] text-[#6B7A99] hover:border-[#1B4FD8] hover:text-[#0F1C3F] transition-colors"
+                className="px-4 py-2 text-sm rounded-md border border-[#E2E8F0] text-[#6B7A99] hover:border-[#C49A38] hover:text-[#0F1C3F] transition-colors"
               >Cancel</button>
               <button
                 type="button"

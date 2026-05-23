@@ -98,7 +98,7 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
             <button
               type="button"
               onClick={() => setTagFilter([])}
-              className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${isAll ? "bg-[#0F1C3F] border-[#0F1C3F] text-white font-medium" : "bg-[#F8FAFC] border-[#E2E8F0] text-[#6B7A99] hover:border-[#1B4FD8]/60 hover:text-[#4A5568]"}`}
+              className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${isAll ? "bg-[#0F1C3F] border-[#0F1C3F] text-white font-medium" : "bg-[#F8FAFC] border-[#E2E8F0] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#4A5568]"}`}
             >All</button>
             {allTags.map((tag) => {
               const active = tagFilter.includes(tag);
@@ -107,7 +107,7 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
                   key={tag}
                   type="button"
                   onClick={() => setTagFilter((prev) => active ? prev.filter((t) => t !== tag) : [...prev, tag])}
-                  className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${active ? "bg-[#1B4FD8] border-[#1B4FD8] text-white font-medium" : "bg-[#F8FAFC] border-[#E2E8F0] text-[#6B7A99] hover:border-[#1B4FD8]/60 hover:text-[#4A5568]"}`}
+                  className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${active ? "bg-[#C49A38] border-[#C49A38] text-white font-medium" : "bg-[#F8FAFC] border-[#E2E8F0] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#4A5568]"}`}
                 >{tag}</button>
               );
             })}
@@ -204,7 +204,7 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
           <button
             type="button"
             onClick={() => { setAddingPackage((v) => !v); setSelectedPackageId(null); }}
-            className={`shrink-0 text-xs border rounded-lg px-3 py-1.5 transition-colors ${addingPackage ? "border-[#1B4FD8] bg-[#1B4FD8]/10 text-[#1E40AF]" : "border-[#E2E8F0] text-[#6B7A99] hover:border-[#1B4FD8]/60 hover:text-[#0F1C3F]"}`}
+            className={`shrink-0 text-xs border rounded-lg px-3 py-1.5 transition-colors ${addingPackage ? "border-[#C49A38] bg-[#C49A38]/10 text-[#1E40AF]" : "border-[#E2E8F0] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#0F1C3F]"}`}
           >
             + New Package
           </button>
@@ -236,7 +236,7 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
               className={`shrink-0 flex items-center gap-1.5 text-xs rounded-full px-2.5 py-1 border font-medium transition-colors ${
                 selectedPackage.status === "active"
                   ? "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100"
-                  : "bg-[#F8FAFC] border-[#E2E8F0] text-[#6B7A99] hover:border-[#1B4FD8]/50 hover:text-[#4A5568]"
+                  : "bg-[#F8FAFC] border-[#E2E8F0] text-[#6B7A99] hover:border-[#C49A38]/50 hover:text-[#4A5568]"
               }`}
             >
               <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${selectedPackage.status === "active" ? "bg-emerald-500" : "bg-[#CBD5E1]"}`} />

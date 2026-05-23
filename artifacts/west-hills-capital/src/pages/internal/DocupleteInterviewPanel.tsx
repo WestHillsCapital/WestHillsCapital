@@ -550,7 +550,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                                   </td>
                                   <td className="px-4 py-2">
                                     {isCompleted ? (
-                                      <a href={pdfUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 text-xs text-[#0F1C3F] underline underline-offset-2 hover:text-[#1B4FD8]">
+                                      <a href={pdfUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 text-xs text-[#0F1C3F] underline underline-offset-2 hover:text-[#C49A38]">
                                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                         PDF
                                       </a>
@@ -806,11 +806,11 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
             <Button onClick={generatePacket} disabled={isSaving || missingRequiredFields.length > 0 || Object.keys(fieldErrors).length > 0} className="disabled:opacity-60">{isSaving ? "Generating…" : "Generate Packet"}</Button>
             <Button onClick={handleDownloadInterviewCsv} variant="outline" className="text-[#6B7A99] border-[#E2E8F0]">Download CSV</Button>
             {generatedUrl && (
-              <button type="button" onClick={downloadGeneratedPacket} disabled={isDownloading} className="text-sm text-[#1B4FD8] underline disabled:opacity-60">
+              <button type="button" onClick={downloadGeneratedPacket} disabled={isDownloading} className="text-sm text-[#C49A38] underline disabled:opacity-60">
                 {isDownloading ? "Downloading…" : "Download packet PDF"}
               </button>
             )}
-            {driveUrl && <a href={driveUrl} target="_blank" rel="noreferrer" className="text-sm text-[#1B4FD8] underline">Open saved Drive packet</a>}
+            {driveUrl && <a href={driveUrl} target="_blank" rel="noreferrer" className="text-sm text-[#C49A38] underline">Open saved Drive packet</a>}
           </div>
           {driveWarnings.length > 0 && <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{driveWarnings.join(" ")}</div>}
 
@@ -859,7 +859,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                     <button
                       type="button"
                       onClick={copySigLink}
-                      className={`shrink-0 rounded border px-3 py-1.5 text-xs font-medium transition-colors ${sigLinkCopied ? "bg-green-50 border-green-300 text-green-700" : "bg-white border-[#E2E8F0] text-[#334155] hover:border-[#1B4FD8] hover:text-[#1B4FD8]"}`}
+                      className={`shrink-0 rounded border px-3 py-1.5 text-xs font-medium transition-colors ${sigLinkCopied ? "bg-green-50 border-green-300 text-green-700" : "bg-white border-[#E2E8F0] text-[#334155] hover:border-[#C49A38] hover:text-[#C49A38]"}`}
                     >
                       {sigLinkCopied ? "Copied!" : "Copy"}
                     </button>
@@ -874,7 +874,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                     <button
                       type="button"
                       onClick={() => setShowSigSendForm(true)}
-                      className="block text-xs text-[#1B4FD8] underline hover:text-[#A07B2E]"
+                      className="block text-xs text-[#C49A38] underline hover:text-[#A07B2E]"
                     >
                       Send by email instead
                     </button>
@@ -886,21 +886,21 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                         placeholder="Client email *"
                         value={sigSendEmail}
                         onChange={(e) => setSigSendEmail(e.target.value)}
-                        className="w-full rounded border border-[#E2E8F0] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4FD8]/30"
+                        className="w-full rounded border border-[#E2E8F0] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C49A38]/30"
                       />
                       <input
                         type="text"
                         placeholder="Client name (optional)"
                         value={sigSendName}
                         onChange={(e) => setSigSendName(e.target.value)}
-                        className="w-full rounded border border-[#E2E8F0] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4FD8]/30"
+                        className="w-full rounded border border-[#E2E8F0] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C49A38]/30"
                       />
                       <textarea
                         placeholder="Add a personal message (optional)"
                         value={sigSendMessage}
                         onChange={(e) => setSigSendMessage(e.target.value)}
                         rows={2}
-                        className="w-full rounded border border-[#E2E8F0] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4FD8]/30 resize-none"
+                        className="w-full rounded border border-[#E2E8F0] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C49A38]/30 resize-none"
                       />
                       <div className="flex items-center gap-2">
                         <Button

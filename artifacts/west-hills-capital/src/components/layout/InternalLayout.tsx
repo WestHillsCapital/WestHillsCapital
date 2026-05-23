@@ -39,11 +39,11 @@ export function InternalLayout({ children }: InternalLayoutProps) {
                 className="h-6 w-auto max-w-[80px] object-contain"
               />
             ) : (
-              <span className="font-serif text-base font-semibold tracking-widest text-[#1B4FD8] uppercase leading-none">
+              <span className="font-serif text-base font-semibold tracking-widest text-[#C49A38] uppercase leading-none">
                 {org ? org.name.split(/\s+/).map((w) => w[0]).join("").slice(0, 4) : "WHC"}
               </span>
             )}
-            <span className="w-px h-4 bg-[#1B4FD8]/25 hidden sm:block" />
+            <span className="w-px h-4 bg-[#C49A38]/25 hidden sm:block" />
             <span className="text-xs text-[#4A5B7A] font-medium tracking-wide uppercase hidden sm:block">Internal</span>
           </Link>
 
@@ -57,7 +57,7 @@ export function InternalLayout({ children }: InternalLayoutProps) {
                   className={[
                     "px-2.5 sm:px-3 py-1.5 rounded text-xs sm:text-sm font-medium transition-colors whitespace-nowrap",
                     active
-                      ? "bg-[#1B4FD8]/15 text-[#1B4FD8]"
+                      ? "bg-[#C49A38]/15 text-[#C49A38]"
                       : "text-[#4A5B7A] hover:text-[#0F1C3F] hover:bg-white",
                   ].join(" ")}
                 >
@@ -85,7 +85,7 @@ export function InternalLayout({ children }: InternalLayoutProps) {
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <div className="w-7 h-7 rounded-full bg-[#1B4FD8]/20 border border-[#1B4FD8]/30 flex items-center justify-center text-[#1B4FD8] text-xs font-semibold shrink-0">
+                  <div className="w-7 h-7 rounded-full bg-[#C49A38]/20 border border-[#C49A38]/30 flex items-center justify-center text-[#C49A38] text-xs font-semibold shrink-0">
                     {user.name.charAt(0).toUpperCase()}
                   </div>
                 )}

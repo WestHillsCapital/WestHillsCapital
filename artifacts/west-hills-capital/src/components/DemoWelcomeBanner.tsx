@@ -8,7 +8,7 @@ type DemoWelcomeBannerProps = {
 export function DemoWelcomeBanner({ demoUiState, demoSessionLoading, onDismiss, onOpenInterview }: DemoWelcomeBannerProps) {
   return (
     <div className="space-y-4">
-      <div className="relative rounded-xl border border-[#1B4FD8]/40 bg-gradient-to-br from-[#0F1C3F] to-[#1C2B4A] p-7 overflow-hidden">
+      <div className="relative rounded-xl border border-[#C49A38]/40 bg-gradient-to-br from-[#0F1C3F] to-[#1C2B4A] p-7 overflow-hidden">
         <button
           type="button"
           onClick={onDismiss}
@@ -23,8 +23,8 @@ export function DemoWelcomeBanner({ demoUiState, demoSessionLoading, onDismiss, 
         {demoUiState === "try" ? (
           <>
             <div className="flex items-start gap-4 mb-6">
-              <div className="w-11 h-11 rounded-xl bg-[#1B4FD8]/20 border border-[#1B4FD8]/30 flex items-center justify-center shrink-0 mt-0.5">
-                <svg className="w-6 h-6 text-[#1B4FD8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <div className="w-11 h-11 rounded-xl bg-[#C49A38]/20 border border-[#C49A38]/30 flex items-center justify-center shrink-0 mt-0.5">
+                <svg className="w-6 h-6 text-[#C49A38]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                 </svg>
               </div>
@@ -43,8 +43,8 @@ export function DemoWelcomeBanner({ demoUiState, demoSessionLoading, onDismiss, 
                 { n: "3", icon: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z", label: "Get signed PDF" },
               ].map((step) => (
                 <div key={step.n} className="bg-white/5 border border-white/10 rounded-lg p-3 flex flex-col items-center text-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-[#1B4FD8]/20 border border-[#1B4FD8]/40 flex items-center justify-center shrink-0">
-                    <span className="text-xs font-bold text-[#1B4FD8]">{step.n}</span>
+                  <div className="w-7 h-7 rounded-full bg-[#C49A38]/20 border border-[#C49A38]/40 flex items-center justify-center shrink-0">
+                    <span className="text-xs font-bold text-[#C49A38]">{step.n}</span>
                   </div>
                   <svg className="w-5 h-5 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d={step.icon} />
@@ -59,7 +59,7 @@ export function DemoWelcomeBanner({ demoUiState, demoSessionLoading, onDismiss, 
                 type="button"
                 onClick={onOpenInterview}
                 disabled={demoSessionLoading}
-                className="flex items-center gap-2 bg-[#1B4FD8] hover:bg-[#1640B0] disabled:opacity-60 text-white text-sm font-semibold rounded-lg px-6 py-2.5 transition-colors shadow-lg shadow-[#1B4FD8]/20"
+                className="flex items-center gap-2 bg-[#C49A38] hover:bg-[#A8832E] disabled:opacity-60 text-white text-sm font-semibold rounded-lg px-6 py-2.5 transition-colors shadow-lg shadow-[#C49A38]/20"
               >
                 {demoSessionLoading ? (
                   <>

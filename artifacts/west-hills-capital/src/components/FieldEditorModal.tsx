@@ -162,7 +162,7 @@ export function FieldEditorModal({
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-medium text-[#6B7A99]">Options</label>
-                <button type="button" onClick={() => setDraft((d) => ({ ...d, options: [...d.options, ""] }))} className="text-xs text-[#1B4FD8] hover:underline">+ Add option</button>
+                <button type="button" onClick={() => setDraft((d) => ({ ...d, options: [...d.options, ""] }))} className="text-xs text-[#C49A38] hover:underline">+ Add option</button>
               </div>
               <div className="space-y-1.5">
                 {draft.options.map((opt, i) => (
@@ -643,7 +643,7 @@ export function FieldEditorModal({
           )}
           <div className="flex gap-2 ml-auto">
             <button type="button" onClick={onClose} className="text-sm px-4 py-2 rounded border border-[#E2E8F0] text-[#6B7A99] hover:bg-[#F8FAFC]">Cancel</button>
-            <button type="button" onClick={onSave} disabled={saving} className="text-sm px-4 py-2 rounded bg-[#1B4FD8] hover:bg-[#b58c31] text-black font-medium disabled:opacity-50">
+            <button type="button" onClick={onSave} disabled={saving} className="text-sm px-4 py-2 rounded bg-[#C49A38] hover:bg-[#b58c31] text-black font-medium disabled:opacity-50">
               {saving ? "Saving…" : modal.mode === "add" ? "Add Field" : "Save Changes"}
             </button>
           </div>

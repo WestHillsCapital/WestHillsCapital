@@ -80,7 +80,7 @@ export const MappingButton = memo(function MappingButton({
         mapperTextMode
           ? isSelected ? "ring-2 shadow" : "hover:ring-1"
           : "shadow"
-      } ${isSelected ? "ring-[#1B4FD8]/70" : "ring-[#1B4FD8]/30"}`}
+      } ${isSelected ? "ring-[#C49A38]/70" : "ring-[#C49A38]/30"}`}
       style={{
         left: `${m.x}%`,
         top: `${m.y}%`,
@@ -155,7 +155,7 @@ export const MappingButton = memo(function MappingButton({
       {isSelected && (
         <span
           onPointerDown={(e) => onResizeStart(e)}
-          className="absolute bottom-0 right-0 h-3 w-3 translate-x-1 translate-y-1 rounded-sm border border-[#0F1C3F] bg-[#1B4FD8] cursor-nwse-resize"
+          className="absolute bottom-0 right-0 h-3 w-3 translate-x-1 translate-y-1 rounded-sm border border-[#0F1C3F] bg-[#C49A38] cursor-nwse-resize"
         />
       )}
     </button>

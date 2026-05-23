@@ -205,7 +205,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                   type="button"
                   onClick={handleSeedDemo}
                   disabled={seedingDemo}
-                  className="flex items-center gap-2 bg-[#1B4FD8] hover:bg-[#1640B0] disabled:opacity-60 text-white text-sm font-medium rounded-lg px-5 py-2.5 transition-colors"
+                  className="flex items-center gap-2 bg-[#C49A38] hover:bg-[#A8832E] disabled:opacity-60 text-white text-sm font-medium rounded-lg px-5 py-2.5 transition-colors"
                 >
                   {seedingDemo ? (
                     <><svg className="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Loading sample…</>
@@ -216,7 +216,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                 <button
                   type="button"
                   onClick={() => setAddingPackage(true)}
-                  className="flex items-center gap-2 bg-white border border-[#E2E8F0] hover:border-[#1B4FD8] hover:text-[#0F1C3F] text-[#6B7A99] text-sm font-medium rounded-lg px-5 py-2.5 transition-colors"
+                  className="flex items-center gap-2 bg-white border border-[#E2E8F0] hover:border-[#C49A38] hover:text-[#0F1C3F] text-[#6B7A99] text-sm font-medium rounded-lg px-5 py-2.5 transition-colors"
                 >
                   <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
                   New Package
@@ -253,7 +253,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Groups</span>
                       {groups.length > 0 && !inlineAddGroupOpen && (
-                        <button type="button" onClick={() => { setInlineAddGroupOpen(true); setInlineAddGroupName(""); setInlineAddGroupError(null); }} className="text-xs text-[#1B4FD8] hover:underline">+ Add group</button>
+                        <button type="button" onClick={() => { setInlineAddGroupOpen(true); setInlineAddGroupName(""); setInlineAddGroupError(null); }} className="text-xs text-[#C49A38] hover:underline">+ Add group</button>
                       )}
                     </div>
                     {inlineAddGroupOpen && (
@@ -282,7 +282,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                               setInlineAddGroupOpen(false);
                             }
                           }}
-                          className="flex-1 border border-[#E2E8F0] rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#1B4FD8]"
+                          className="flex-1 border border-[#E2E8F0] rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#C49A38]"
                         />
                         <button
                           type="button"
@@ -300,7 +300,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                               setInlineAddGroupName("");
                             }
                           }}
-                          className="text-xs bg-[#1B4FD8] text-white rounded px-2 py-1.5 disabled:opacity-40"
+                          className="text-xs bg-[#C49A38] text-white rounded px-2 py-1.5 disabled:opacity-40"
                         >{inlineAddGroupLoading ? "Adding…" : "Add"}</button>
                         <button type="button" onClick={() => setInlineAddGroupOpen(false)} className="text-xs text-[#8A9BB8] hover:text-[#4A5568]">Cancel</button>
                       </div>
@@ -341,7 +341,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Type <span className="text-gray-400 normal-case font-normal tracking-normal">(optional)</span></span>
                       {!inlineAddTypeOpen && (
-                        <button type="button" onClick={() => { setInlineAddTypeOpen(true); setInlineAddTypeName(""); setInlineAddTypeError(null); }} className="text-xs text-[#1B4FD8] hover:underline">+ Add type</button>
+                        <button type="button" onClick={() => { setInlineAddTypeOpen(true); setInlineAddTypeName(""); setInlineAddTypeError(null); }} className="text-xs text-[#C49A38] hover:underline">+ Add type</button>
                       )}
                     </div>
                     <select value={selectedPackage.transaction_scope ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: e.target.value }))} className="w-full border border-[#E2E8F0] rounded px-3 py-2 text-sm">
@@ -374,7 +374,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                               setInlineAddTypeOpen(false);
                             }
                           }}
-                          className="flex-1 border border-[#E2E8F0] rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#1B4FD8]"
+                          className="flex-1 border border-[#E2E8F0] rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#C49A38]"
                         />
                         <button
                           type="button"
@@ -392,7 +392,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                               setInlineAddTypeName("");
                             }
                           }}
-                          className="text-xs bg-[#1B4FD8] text-white rounded px-2 py-1.5 disabled:opacity-40"
+                          className="text-xs bg-[#C49A38] text-white rounded px-2 py-1.5 disabled:opacity-40"
                         >{inlineAddTypeLoading ? "Adding…" : "Add"}</button>
                         <button type="button" onClick={() => setInlineAddTypeOpen(false)} className="text-xs text-[#8A9BB8] hover:text-[#4A5568]">Cancel</button>
                       </div>
@@ -417,7 +417,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    <div className="min-h-[36px] max-h-28 flex flex-wrap gap-1.5 content-start p-2 border border-[#E2E8F0] rounded overflow-y-auto cursor-text focus-within:border-[#1B4FD8] transition-colors">
+                    <div className="min-h-[36px] max-h-28 flex flex-wrap gap-1.5 content-start p-2 border border-[#E2E8F0] rounded overflow-y-auto cursor-text focus-within:border-[#C49A38] transition-colors">
                       <TagChipInput
                         tags={selectedPackage.tags ?? []}
                         onChange={(tags) => updateSelectedPackage((pkg) => ({ ...pkg, tags }))}
@@ -463,7 +463,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                     <button
                       type="button"
                       onClick={addDocument}
-                      className="rounded-lg border-2 border-dashed border-[#E2E8F0] bg-white hover:border-[#1B4FD8] hover:bg-[#EFF6FF] transition flex flex-col items-center justify-center gap-2 min-h-[160px] text-[#8A9BB8] hover:text-[#1B4FD8] cursor-pointer"
+                      className="rounded-lg border-2 border-dashed border-[#E2E8F0] bg-white hover:border-[#C49A38] hover:bg-[#EFF6FF] transition flex flex-col items-center justify-center gap-2 min-h-[160px] text-[#8A9BB8] hover:text-[#C49A38] cursor-pointer"
                     >
                       <span className="text-2xl font-light leading-none">+</span>
                       <span className="text-[11px] font-medium">Add Placeholder</span>
@@ -500,7 +500,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                                 ref={wrapperRef}
                                 style={wrapperStyle}
                                 {...handleProps}
-                                className={`relative rounded-lg border bg-white flex flex-col transition-shadow cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-40 shadow-2xl scale-95" : "hover:shadow-md"} ${selectedDocument?.id === doc.id ? "border-[#1B4FD8] ring-2 ring-[#1B4FD8]/20" : "border-[#E2E8F0]"}`}
+                                className={`relative rounded-lg border bg-white flex flex-col transition-shadow cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-40 shadow-2xl scale-95" : "hover:shadow-md"} ${selectedDocument?.id === doc.id ? "border-[#C49A38] ring-2 ring-[#C49A38]/20" : "border-[#E2E8F0]"}`}
                               >
                                 {/* Drag handle grip indicator */}
                                 <div className="absolute top-1.5 right-1.5 text-gray-300 pointer-events-none select-none z-10">
@@ -531,7 +531,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                                   />
                                   <div className="text-[10px] text-[#8A9BB8] truncate">{doc.pages} page{doc.pages === 1 ? "" : "s"}{doc.fileName ? ` · ${doc.fileName}` : ""}</div>
                                   <div className="flex gap-2 items-center">
-                                    <label className={`text-[10px] ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#1B4FD8] cursor-pointer hover:underline"}`}>
+                                    <label className={`text-[10px] ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#C49A38] cursor-pointer hover:underline"}`}>
                                       {isUploadingDocument ? "Uploading…" : "Replace"}
                                       <input type="file" accept="application/pdf" disabled={isUploadingDocument} className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadDocument(file, doc.id); e.target.value = ""; }} />
                                     </label>
@@ -546,7 +546,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                       <button
                         type="button"
                         onClick={addDocument}
-                        className="rounded-lg border-2 border-dashed border-[#E2E8F0] bg-white hover:border-[#1B4FD8] hover:bg-[#EFF6FF] transition flex flex-col items-center justify-center gap-2 min-h-[120px] text-[#8A9BB8] hover:text-[#1B4FD8] cursor-pointer"
+                        className="rounded-lg border-2 border-dashed border-[#E2E8F0] bg-white hover:border-[#C49A38] hover:bg-[#EFF6FF] transition flex flex-col items-center justify-center gap-2 min-h-[120px] text-[#8A9BB8] hover:text-[#C49A38] cursor-pointer"
                       >
                         <span className="text-2xl font-light leading-none">+</span>
                         <span className="text-[11px] font-medium">Add Placeholder</span>
@@ -589,7 +589,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                       <div className="flex items-center justify-between">
                         <h2 className="text-sm font-semibold">Interview order</h2>
                         {packageInterviewFields.length > 1 && (
-                          <button type="button" onClick={() => goBuilderStep("interview", { autoSort: true })} className="text-xs text-[#6B7A99] border border-[#E2E8F0] rounded px-2 py-1 hover:border-[#1B4FD8] hover:text-[#1B4FD8] transition-colors bg-[#ffffff]">Sort by PDF order</button>
+                          <button type="button" onClick={() => goBuilderStep("interview", { autoSort: true })} className="text-xs text-[#6B7A99] border border-[#E2E8F0] rounded px-2 py-1 hover:border-[#C49A38] hover:text-[#C49A38] transition-colors bg-[#ffffff]">Sort by PDF order</button>
                         )}
                       </div>
                       <p className="text-xs text-[#8A9BB8] mt-0.5 opacity-70">Questions staff will be asked, top to bottom. Drag to reorder — the preview updates live.</p>
@@ -621,7 +621,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                                 ref={wrapperRef}
                                 style={wrapperStyle}
                                 {...handleProps}
-                                className={`rounded-xl border p-3 flex flex-col gap-1.5 transition-shadow cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-40 shadow-lg border-[#1B4FD8] bg-[#F1F5F9]" : "border-gray-200 bg-white shadow-sm"}`}
+                                className={`rounded-xl border p-3 flex flex-col gap-1.5 transition-shadow cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-40 shadow-lg border-[#C49A38] bg-[#F1F5F9]" : "border-gray-200 bg-white shadow-sm"}`}
                               >
                                 <div className="flex items-start gap-2">
                                   <div className="flex-1 min-w-0">

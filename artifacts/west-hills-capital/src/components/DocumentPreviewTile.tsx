@@ -124,7 +124,7 @@ export const DocumentPreviewTile = memo(function DocumentPreviewTile({
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onSelect();
       }}
-      className={`relative w-full ${previewHeight} overflow-hidden rounded border bg-[#F8FAFC] text-left focus:outline-none focus:ring-2 focus:ring-[#1B4FD8]/40 ${selected ? "border-[#1B4FD8]" : "border-[#E2E8F0]"}`}
+      className={`relative w-full ${previewHeight} overflow-hidden rounded border bg-[#F8FAFC] text-left focus:outline-none focus:ring-2 focus:ring-[#C49A38]/40 ${selected ? "border-[#C49A38]" : "border-[#E2E8F0]"}`}
     >
       {previewUrl && !failed ? (
         <canvas

@@ -63,7 +63,7 @@ export function FieldCard({
             <button
               type="button"
               onClick={() => onOpenFieldEditor(field.id)}
-              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-[#1B4FD8] border border-[#1B4FD8]/40 hover:bg-[#FEF3C7] transition-colors"
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-[#C49A38] border border-[#C49A38]/40 hover:bg-[#FEF3C7] transition-colors"
               title="Edit field definition"
             >
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" /></svg>
@@ -87,7 +87,7 @@ export function FieldCard({
               value={field.name}
               onChange={(e) => { if (!isSystemEsignFieldId(field.id)) onUpdateField(field.id, { name: e.target.value }); }}
               readOnly={isSystemEsignFieldId(field.id)}
-              className={`w-full border border-[#E2E8F0] rounded px-2.5 py-1.5 text-xs text-[#0F1C3F] focus:outline-none ${isSystemEsignFieldId(field.id) ? "bg-[#F8FAFC] text-[#6B7A99] cursor-default" : "focus:ring-1 focus:ring-[#1B4FD8] focus:border-[#1B4FD8]"}`}
+              className={`w-full border border-[#E2E8F0] rounded px-2.5 py-1.5 text-xs text-[#0F1C3F] focus:outline-none ${isSystemEsignFieldId(field.id) ? "bg-[#F8FAFC] text-[#6B7A99] cursor-default" : "focus:ring-1 focus:ring-[#C49A38] focus:border-[#C49A38]"}`}
               placeholder="Field name"
             />
           </div>
@@ -154,11 +154,11 @@ export function FieldCard({
         {field && (
           <div className="flex gap-4">
             <label className="flex items-center gap-1.5 cursor-pointer select-none">
-              <input type="checkbox" checked={isMasked} onChange={() => onUpdateField(field.id, { sensitive: !isMasked })} className="w-3 h-3 accent-[#1B4FD8] cursor-pointer" />
+              <input type="checkbox" checked={isMasked} onChange={() => onUpdateField(field.id, { sensitive: !isMasked })} className="w-3 h-3 accent-[#C49A38] cursor-pointer" />
               <span className="text-xs text-[#334155]">Mask</span>
             </label>
             <label className="flex items-center gap-1.5 cursor-pointer select-none">
-              <input type="checkbox" checked={isMultiLine} onChange={() => onUpdateMapping({ multiLine: !isMultiLine })} className="w-3 h-3 accent-[#1B4FD8] cursor-pointer" />
+              <input type="checkbox" checked={isMultiLine} onChange={() => onUpdateMapping({ multiLine: !isMultiLine })} className="w-3 h-3 accent-[#C49A38] cursor-pointer" />
               <span className="text-xs text-[#334155]">Multi-line</span>
             </label>
           </div>

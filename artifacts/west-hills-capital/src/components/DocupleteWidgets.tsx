@@ -93,7 +93,7 @@ export function PackagePickerWithTags({
           <button
             type="button"
             onClick={() => setTagFilter([])}
-            className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${tagFilter.length === 0 ? "bg-[#0F1C3F] border-[#0F1C3F] text-white font-medium" : "bg-[#F8FAFC] border-[#E2E8F0] text-[#6B7A99] hover:border-[#1B4FD8]/60 hover:text-[#4A5568]"}`}
+            className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${tagFilter.length === 0 ? "bg-[#0F1C3F] border-[#0F1C3F] text-white font-medium" : "bg-[#F8FAFC] border-[#E2E8F0] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#4A5568]"}`}
           >All</button>
           {allTags.map((tag) => {
             const active = tagFilter.includes(tag);
@@ -102,7 +102,7 @@ export function PackagePickerWithTags({
                 key={tag}
                 type="button"
                 onClick={() => setTagFilter((prev) => active ? prev.filter((t) => t !== tag) : [...prev, tag])}
-                className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${active ? "bg-[#1B4FD8] border-[#1B4FD8] text-white font-medium" : "bg-[#F8FAFC] border-[#E2E8F0] text-[#6B7A99] hover:border-[#1B4FD8]/60 hover:text-[#4A5568]"}`}
+                className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${active ? "bg-[#C49A38] border-[#C49A38] text-white font-medium" : "bg-[#F8FAFC] border-[#E2E8F0] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#4A5568]"}`}
               >{tag}</button>
             );
           })}
