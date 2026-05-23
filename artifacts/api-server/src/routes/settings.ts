@@ -588,7 +588,7 @@ router.post(
         return;
       }
       const { rows } = await db.query(
-        `UPDATE accounts SET logo_url=$1 WHERE id=$2 RETURNING id, name, slug, logo_url, brand_color, logo_on_white, timezone, date_format`,
+        `UPDATE accounts SET logo_url=$1 WHERE id=$2 RETURNING id, name, slug, logo_url, form_logo_url, brand_color, logo_on_white, timezone, date_format`,
         [rawLogoPath, accountId],
       );
       if (!rows[0]) {
@@ -610,6 +610,7 @@ router.post(
           name: row.name,
           slug: row.slug,
           logo_url: buildLogoServingUrl(accountId),
+          form_logo_url: row.form_logo_url ? buildFormLogoServingUrl(accountId) : null,
           brand_color: row.brand_color ?? "#C49A38",
           logo_on_white: row.logo_on_white !== false,
           timezone:    (row.timezone    as string) || "America/New_York",
