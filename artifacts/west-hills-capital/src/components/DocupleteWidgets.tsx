@@ -208,7 +208,7 @@ export function EmbedSnippetPanel({ embedKey, apiBase }: { embedKey: string | nu
 
   if (!embedKey) {
     return (
-      <div className="mt-3 rounded-lg bg-[#F8F6F0] border border-[#EFE8D8] px-4 py-3 text-xs text-[#6B7A99]">
+      <div className="mt-3 rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 text-xs text-[#6B7A99]">
         Save the package to generate your embed key.
       </div>
     );
