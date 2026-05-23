@@ -633,15 +633,27 @@ export function FieldColorsSection({
                         <div className="flex items-center gap-2 px-1">
                           <input
                             type="color"
-                            value={customTypeHex[opt.value] ?? "#7490C4"}
-                            onChange={e => setCustomTypeHex(p => ({ ...p, [opt.value]: e.target.value }))}
+                            value={customTypeHex[opt.value] ?? (assigned ?? "#7490C4")}
+                            onChange={e => {
+                              const v = e.target.value;
+                              setCustomTypeHex(p => ({ ...p, [opt.value]: v }));
+                              setTypeColors(p => ({ ...p, [opt.value]: v.toUpperCase() }));
+                              setIsDirty(true);
+                            }}
                             className="h-8 w-9 rounded border border-gray-200 p-0.5 cursor-pointer flex-shrink-0"
                           />
                           <input
                             type="text"
-                            value={customTypeHex[opt.value] ?? ""}
+                            value={customTypeHex[opt.value] ?? (assigned ?? "")}
                             maxLength={7}
-                            onChange={e => setCustomTypeHex(p => ({ ...p, [opt.value]: e.target.value }))}
+                            onChange={e => {
+                              const v = e.target.value;
+                              setCustomTypeHex(p => ({ ...p, [opt.value]: v }));
+                              if (isValidHex(v)) {
+                                setTypeColors(p => ({ ...p, [opt.value]: v.toUpperCase() }));
+                                setIsDirty(true);
+                              }
+                            }}
                             onKeyDown={e => {
                               if (e.key === "Enter") {
                                 const v = customTypeHex[opt.value] ?? "";
