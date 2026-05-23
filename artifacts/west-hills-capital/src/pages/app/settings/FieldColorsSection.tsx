@@ -158,9 +158,13 @@ const TYPE_OPTIONS = [
   { value: "date",     label: "Date",          hint: "MM/DD/YYYY" },
   { value: "number",   label: "Number",        hint: "Numeric value" },
   { value: "currency", label: "Currency",      hint: "Dollar amount" },
+  { value: "percent",  label: "Percent",       hint: "0–100 range" },
   { value: "zip",      label: "ZIP Code",      hint: "5-digit ZIP" },
-  { value: "name",     label: "Name",          hint: "Name format" },
+  { value: "zip4",     label: "ZIP+4",         hint: "12345-6789 format" },
   { value: "state",    label: "State",         hint: "US state code" },
+  { value: "name",     label: "Name",          hint: "Name format" },
+  { value: "time",     label: "Time",          hint: "HH:MM format" },
+  { value: "custom",   label: "Custom",        hint: "Custom regex pattern" },
 ];
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
@@ -194,6 +198,7 @@ export function FieldColorsSection({
   const [dirId,      setDirId]      = useState<string>(init.dirId);
   const [saving,     setSaving]     = useState(false);
   const [saved,      setSaved]      = useState(false);
+  const [isDirty,    setIsDirty]    = useState(false);
   const [error,      setError]      = useState<string | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seq        = useRef(0);
@@ -258,6 +263,7 @@ export function FieldColorsSection({
       if (id !== seq.current) return;
       if (!res.ok) { setError(data.error ?? "Failed to save"); return; }
       onConfigChange(sendNull ? null : (data.org?.field_palette ?? body));
+      setIsDirty(false);
       setSaved(true);
       if (savedTimer.current) clearTimeout(savedTimer.current);
       savedTimer.current = setTimeout(() => setSaved(false), 3000);
@@ -272,10 +278,9 @@ export function FieldColorsSection({
   function applyDirection(newId: string) {
     const dir = PALETTE_DIRECTIONS.find(d => d.id === newId);
     if (!dir) return;
-    const next = [...dir.defaultActive];
-    setPalette(next);
+    setPalette([...dir.defaultActive]);
     setDirId(newId);
-    void doSave(next, typeColors, newId);
+    setIsDirty(true);
   }
 
   function toggleMaster(color: string) {
@@ -283,26 +288,25 @@ export function FieldColorsSection({
     const next   = active ? palette.filter(c => !caseEq(c, color)) : [...palette, color];
     if (next.length === 0) return;
     setPalette(next);
-    void doSave(next, typeColors, dirId);
+    setIsDirty(true);
   }
 
   function removeCustom(color: string) {
     const next = palette.filter(c => !caseEq(c, color));
     if (next.length === 0) return;
     setPalette(next);
-    void doSave(next, typeColors, dirId);
+    setIsDirty(true);
   }
 
   function handleAddColor() {
     const hex = addHex.trim().toUpperCase();
     if (!isValidHex(hex)) { setError("Enter a valid 6-digit hex (e.g. #3B6CB7)."); return; }
     if (palette.some(c => caseEq(c, hex))) { setError("That color is already in your palette."); return; }
-    const next = [...palette, hex];
-    setPalette(next);
+    setPalette(prev => [...prev, hex]);
     setAddHex("#");
     setShowAdd(false);
     setError(null);
-    void doSave(next, typeColors, dirId);
+    setIsDirty(true);
   }
 
   function setTypeOverride(type: string, color: string | null) {
@@ -310,7 +314,7 @@ export function FieldColorsSection({
     if (color === null) delete next[type]; else next[type] = color.toUpperCase();
     setTypeColors(next);
     setOpenType(null);
-    void doSave(palette, next, dirId);
+    setIsDirty(true);
   }
 
   function resetToDefaults() {
@@ -318,6 +322,7 @@ export function FieldColorsSection({
     setPalette([...dir.defaultActive]);
     setTypeColors(DEFAULT_TYPE_COLORS);
     setDirId(dir.id);
+    setIsDirty(false);
     void doSave([...dir.defaultActive], DEFAULT_TYPE_COLORS, dir.id, true);
   }
 
@@ -547,6 +552,11 @@ export function FieldColorsSection({
                           <span className="w-3.5 h-3.5 rounded flex-shrink-0 ring-1 ring-black/10" style={{ backgroundColor: assigned }} />
                           <span className="font-mono text-gray-700">{assigned.toUpperCase()}</span>
                         </>
+                      ) : DEFAULT_TYPE_COLORS[opt.value] ? (
+                        <>
+                          <span className="w-3.5 h-3.5 rounded flex-shrink-0 ring-1 ring-black/10 opacity-60" style={{ backgroundColor: DEFAULT_TYPE_COLORS[opt.value] }} />
+                          <span className="text-gray-400">Default</span>
+                        </>
                       ) : (
                         <>
                           <span className="w-3.5 h-3.5 rounded flex-shrink-0 border-2 border-dashed border-gray-300" />
@@ -566,8 +576,16 @@ export function FieldColorsSection({
                           onClick={() => setTypeOverride(opt.value, null)}
                           className="flex items-center gap-2 w-full px-2 py-2 rounded-lg hover:bg-gray-50 mb-2 text-xs text-left"
                         >
-                          <span className="w-4 h-4 rounded border-2 border-dashed border-gray-300 flex-shrink-0" />
-                          <span className="font-medium text-gray-700">Auto — random from palette</span>
+                          {DEFAULT_TYPE_COLORS[opt.value] ? (
+                            <span className="w-4 h-4 rounded flex-shrink-0 ring-1 ring-black/10 opacity-60" style={{ backgroundColor: DEFAULT_TYPE_COLORS[opt.value] }} />
+                          ) : (
+                            <span className="w-4 h-4 rounded border-2 border-dashed border-gray-300 flex-shrink-0" />
+                          )}
+                          <span className="font-medium text-gray-700">
+                            {DEFAULT_TYPE_COLORS[opt.value]
+                              ? `Default (${DEFAULT_TYPE_COLORS[opt.value].toUpperCase()})`
+                              : "Auto — random from palette"}
+                          </span>
                           {!assigned && (
                             <svg viewBox="0 0 12 12" className="w-3 h-3 ml-auto text-green-500 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
                               <path d="M2 6l3 3 5-5" />
@@ -646,7 +664,7 @@ export function FieldColorsSection({
       {/* Footer */}
       <div className="px-6 py-3.5 bg-gray-50/50 rounded-b-xl flex items-center justify-between min-h-[52px]">
         <div className="flex items-center gap-3">
-          {!isDefault && (
+          {!isDefault && !isDirty && (
             <button
               type="button"
               disabled={saving}
@@ -665,8 +683,19 @@ export function FieldColorsSection({
               <span className="text-xs text-gray-400">Saving…</span>
             </div>
           )}
-          {saved && !saving && (
+          {saved && !saving && !isDirty && (
             <span className="text-xs text-green-600 font-medium">✓ Saved</span>
+          )}
+          {isDirty && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void doSave(palette, typeColors, dirId)}
+              className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white transition-opacity disabled:opacity-60"
+              style={{ backgroundColor: bc }}
+            >
+              Save
+            </button>
           )}
         </div>
       </div>
