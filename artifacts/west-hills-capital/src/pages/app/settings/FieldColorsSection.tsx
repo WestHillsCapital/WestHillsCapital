@@ -317,7 +317,7 @@ export function FieldColorsSection({
     if (color === null) delete next[type]; else next[type] = color.toUpperCase();
     setTypeColors(next);
     setOpenType(null);
-    setIsDirty(true);
+    void doSave(palette, next, dirId);
   }
 
   function resetToDefaults() {
