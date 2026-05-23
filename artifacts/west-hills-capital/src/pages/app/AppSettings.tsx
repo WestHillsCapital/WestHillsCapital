@@ -654,8 +654,24 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                   )}
                 </p>
                 <p className="text-xs text-blue-600 mt-0.5">
-                  No charge until your trial ends. Add a payment method at any time to continue without interruption.
+                  No charge until your trial ends. Add a payment method to continue without interruption after your trial.
                 </p>
+                <button
+                  onClick={() => {
+                    if (billing.has_stripe_customer) {
+                      void handlePortal();
+                    } else {
+                      void handleUpgrade();
+                    }
+                  }}
+                  disabled={isUpgrading || isPortaling}
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-white border border-blue-300 rounded-lg px-3 py-1.5 hover:bg-blue-50 disabled:opacity-50 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 21Z" />
+                  </svg>
+                  {isUpgrading || isPortaling ? "Opening…" : "Add payment method"}
+                </button>
               </div>
             </div>
           )}
