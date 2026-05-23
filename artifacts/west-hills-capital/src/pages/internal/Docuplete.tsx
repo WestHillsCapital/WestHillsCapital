@@ -287,11 +287,15 @@ function isSensitiveValidationType(validationType: string | undefined | null): b
   return validationType === "ssn" || validationType === "dob";
 }
 
-function pickFieldColor(usedColors: string[], sensitive: boolean, validationType?: string): string {
+function pickFieldColor(usedColors: string[], sensitive: boolean, validationType?: string, fieldType?: string): string {
   const config = getCachedProductOrg()?.field_palette;
-  // Type override takes highest priority (works for any type, including sensitive ones)
+  // validationType override takes highest priority
   if (validationType && validationType !== "none" && config?.typeColors?.[validationType]) {
     return config.typeColors[validationType];
+  }
+  // Field type override (radio, checkbox, dropdown, etc.)
+  if (fieldType && config?.typeColors?.[fieldType]) {
+    return config.typeColors[fieldType];
   }
   // Sensitive without a type override → default red
   if (sensitive) return "#DC2626";
@@ -2504,7 +2508,7 @@ export default function Docuplete() {
       const usedColors = pkg.fields.map((f) => f.color);
       const newFields = toAdd.map((lf): FieldItem => {
         const sensitive = lf.sensitive || isSensitiveValidationType(lf.validationType);
-        const color = pickFieldColor(usedColors, sensitive, lf.validationType);
+        const color = pickFieldColor(usedColors, sensitive, lf.validationType, lf.type);
         usedColors.push(color);
         return {
           id: newId("field"),
@@ -2563,7 +2567,7 @@ export default function Docuplete() {
         id: newId("field"),
         libraryFieldId: libraryField.id,
         name: libraryField.label,
-        color: pickFieldColor(pkg.fields.map((f) => f.color), libSensitive, libraryField.validationType),
+        color: pickFieldColor(pkg.fields.map((f) => f.color), libSensitive, libraryField.validationType, libraryField.type),
         type: libraryField.type,
         optionsMode: "inherit",
         interviewMode: libraryField.required ? "required" : "optional",
@@ -2654,6 +2658,7 @@ export default function Docuplete() {
             [...existingFields.map((f) => f.color), ...newFields.map((f) => f.color)],
             bestLib.sensitive,
             bestLib.validationType,
+            bestLib.type,
           ),
           type: bestLib.type,
           optionsMode: "inherit",
@@ -3233,7 +3238,7 @@ export default function Docuplete() {
           id: fieldId,
           libraryFieldId: lib.id,
           name: lib.label,
-          color: pickFieldColor(usedColors, lib.sensitive, lib.validationType),
+          color: pickFieldColor(usedColors, lib.sensitive, lib.validationType, lib.type),
           type: lib.type,
           optionsMode: "inherit",
           interviewMode: lib.required ? "required" : "optional",
@@ -3571,7 +3576,7 @@ export default function Docuplete() {
         id: newId("field"),
         libraryFieldId: "",
         name: `${source.name} (copy)`,
-        color: pickFieldColor(pkg.fields.map((f) => f.color), source.sensitive),
+        color: pickFieldColor(pkg.fields.map((f) => f.color), source.sensitive, source.validationType, source.type),
         interviewMode: "optional",
         defaultValue: "",
       };
@@ -3614,7 +3619,7 @@ export default function Docuplete() {
         id: newId("field"),
         libraryFieldId: "",
         name: `${srcField.name} (copy)`,
-        color: pickFieldColor(pkg.fields.map((f) => f.color), srcField.sensitive),
+        color: pickFieldColor(pkg.fields.map((f) => f.color), srcField.sensitive, srcField.validationType, srcField.type),
       } : undefined;
       const newMapping: MappingItem = {
         ...srcMap,

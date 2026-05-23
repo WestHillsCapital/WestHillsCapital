@@ -165,6 +165,9 @@ const TYPE_OPTIONS = [
   { value: "zip4",     label: "ZIP+4",         hint: "12345-6789 format" },
   { value: "time",     label: "Time",          hint: "HH:MM format" },
   { value: "custom",   label: "Custom",        hint: "Custom regex pattern" },
+  { value: "radio",    label: "Radio button",  hint: "Radio choice field" },
+  { value: "checkbox", label: "Checkbox",      hint: "Checkbox field" },
+  { value: "dropdown", label: "Dropdown",      hint: "Dropdown / select field" },
 ];
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;

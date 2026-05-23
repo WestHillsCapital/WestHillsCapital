@@ -1466,7 +1466,7 @@ export function FieldLibraryPanel({
                       <div className="relative pt-1">
                         {showHints && <HL>Validation rule</HL>}
                         <div className="flex flex-wrap gap-1">
-                          {(["none", "name", "email", "phone", "ssn", "number", "currency", "date", "custom"] as const).map((v) => (
+                          {(["none", "name", "email", "phone", "ssn", "number", "currency", "date", "time", "zip", "zip4", "percent", "string", "custom"] as const).map((v) => (
                             <button key={v} type="button" onClick={() => onChange(item.id, { validationType: v as FieldLibraryItem["validationType"] })} className={`px-2 py-0.5 text-[10px] rounded border capitalize transition-colors ${(item.validationType ?? "none") === v ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#E2E8F0] hover:border-[#0F1C3F]"}`}>{v}</button>
                           ))}
                         </div>
