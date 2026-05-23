@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -7,6 +8,14 @@ import type {
   FieldInterviewMode,
   FieldCondition,
 } from "@/lib/docuplete-types";
+
+const TYPE_KEY_LABELS: Record<string, string> = {
+  name: "Name", email: "Email", phone: "Phone", date: "Date",
+  ssn: "SSN", dob: "Date of Birth", currency: "Currency", number: "Number",
+  state: "State", zip: "ZIP Code", percent: "Percent", zip4: "ZIP+4",
+  time: "Time", custom: "Custom", string: "String",
+  radio: "Radio button", checkbox: "Checkbox", dropdown: "Dropdown",
+};
 
 export type FieldEditorDraft = {
   name: string;
@@ -42,6 +51,8 @@ interface FieldEditorModalProps {
   onRemove: (fieldId: string) => void;
   packageFields: FieldItem[];
   colorPalette: string[];
+  typeColors?: Record<string, string>;
+  onUpdateTypeColor?: (typeKey: string, color: string) => void;
 }
 
 export function FieldEditorModal({
@@ -59,7 +70,20 @@ export function FieldEditorModal({
   onRemove,
   packageFields,
   colorPalette,
+  typeColors,
+  onUpdateTypeColor,
 }: FieldEditorModalProps) {
+  const [pendingColor, setPendingColor] = useState<string | null>(null);
+
+  const activeTypeKey: string | null = (() => {
+    const vt = draft.validationType;
+    if (vt && vt !== "none") return vt as string;
+    const ft = draft.type;
+    if (ft === "radio" || ft === "checkbox" || ft === "dropdown") return ft;
+    return null;
+  })();
+  const typeOverrideColor: string | null = (activeTypeKey && typeColors?.[activeTypeKey]) ?? null;
+
   if (!modal) return null;
 
   return (
@@ -101,34 +125,88 @@ export function FieldEditorModal({
           {/* Field Color */}
           <div>
             <label className="block text-xs font-medium text-[#6B7A99] mb-1.5">Field Color</label>
-            <div className="grid grid-cols-5 gap-1 mb-2">
-              {colorPalette.map((color) => (
+            {typeOverrideColor && pendingColor === null ? (
+              <div className="flex items-center gap-2 py-0.5">
+                <span className="w-8 h-5 rounded-sm border border-black/10 flex-shrink-0" style={{ backgroundColor: draft.color }} />
+                <span className="flex-1 text-xs text-[#6B7A99]">
+                  {TYPE_KEY_LABELS[activeTypeKey!] ?? activeTypeKey} color (from Field Colors)
+                </span>
                 <button
-                  key={color}
                   type="button"
-                  title={color}
-                  onClick={() => setDraft((d) => ({ ...d, color }))}
-                  className="w-full h-5 rounded-sm"
-                  style={{
-                    backgroundColor: color,
-                    outline: draft.color.toUpperCase() === color.toUpperCase() ? `2px solid ${color}` : "none",
-                    outlineOffset: "2px",
-                    boxShadow: draft.color.toUpperCase() === color.toUpperCase() ? "0 0 0 1px white inset" : "none",
-                  }}
-                />
-              ))}
-            </div>
-            <div className="flex items-center gap-4 px-1 mt-1">
-              <input
-                type="color"
-                value={draft.color}
-                onChange={(e) => setDraft((d) => ({ ...d, color: e.target.value }))}
-                className="h-8 w-10 rounded cursor-pointer border border-[#D1D5DB] p-0.5 flex-shrink-0"
-                title="Custom color"
-              />
-              <span className="flex-1 text-xs text-[#6B7A99] font-mono tracking-wider">{draft.color.toUpperCase()}</span>
-              <span className="text-[10px] text-[#B0BAD0]">custom</span>
-            </div>
+                  onClick={() => setPendingColor(draft.color)}
+                  className="text-xs text-[#C49A38] hover:underline flex-shrink-0"
+                >
+                  Change
+                </button>
+              </div>
+            ) : typeOverrideColor && pendingColor !== null ? (
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={pendingColor}
+                    onChange={(e) => setPendingColor(e.target.value)}
+                    className="h-8 w-10 rounded cursor-pointer border border-[#D1D5DB] p-0.5 flex-shrink-0"
+                  />
+                  <span className="flex-1 text-xs text-[#6B7A99] font-mono tracking-wider">{pendingColor.toUpperCase()}</span>
+                  <button type="button" onClick={() => setPendingColor(null)} className="text-xs text-[#8A9BB8] hover:text-[#0F1C3F]">Cancel</button>
+                </div>
+                <div>
+                  <p className="text-[11px] text-[#6B7A99] mb-1.5">Apply color to:</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setDraft((d) => ({ ...d, color: pendingColor })); setPendingColor(null); }}
+                      className="px-3 py-1.5 text-xs rounded border border-[#E2E8F0] text-[#0F1C3F] hover:border-[#0F1C3F] transition-colors"
+                    >
+                      Just this field
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDraft((d) => ({ ...d, color: pendingColor }));
+                        onUpdateTypeColor?.(activeTypeKey!, pendingColor);
+                        setPendingColor(null);
+                      }}
+                      className="px-3 py-1.5 text-xs rounded bg-[#0F1C3F] text-white hover:bg-[#1a2d5a] transition-colors"
+                    >
+                      All {TYPE_KEY_LABELS[activeTypeKey!] ?? activeTypeKey} fields
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-5 gap-1 mb-2">
+                  {colorPalette.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      title={color}
+                      onClick={() => setDraft((d) => ({ ...d, color }))}
+                      className="w-full h-5 rounded-sm"
+                      style={{
+                        backgroundColor: color,
+                        outline: draft.color.toUpperCase() === color.toUpperCase() ? `2px solid ${color}` : "none",
+                        outlineOffset: "2px",
+                        boxShadow: draft.color.toUpperCase() === color.toUpperCase() ? "0 0 0 1px white inset" : "none",
+                      }}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-4 px-1 mt-1">
+                  <input
+                    type="color"
+                    value={draft.color}
+                    onChange={(e) => setDraft((d) => ({ ...d, color: e.target.value }))}
+                    className="h-8 w-10 rounded cursor-pointer border border-[#D1D5DB] p-0.5 flex-shrink-0"
+                    title="Custom color"
+                  />
+                  <span className="flex-1 text-xs text-[#6B7A99] font-mono tracking-wider">{draft.color.toUpperCase()}</span>
+                  <span className="text-[10px] text-[#B0BAD0]">custom</span>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Field Type */}

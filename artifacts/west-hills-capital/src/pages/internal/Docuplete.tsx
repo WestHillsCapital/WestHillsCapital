@@ -11,7 +11,7 @@ import { useInternalAuth } from "@/hooks/useInternalAuth";
 import { useUpgradeModal } from "@/hooks/useUpgradeModal";
 import { useDocupleteConfig } from "@/hooks/useDocupleteConfig";
 import { getCachedOrg } from "@/hooks/useOrgSettings";
-import { getCachedProductOrg } from "@/hooks/useProductOrgSettings";
+import { getCachedProductOrg, updateProductOrgCache } from "@/hooks/useProductOrgSettings";
 import { formatOrgTime } from "@/lib/orgDateFormat";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -3486,6 +3486,30 @@ export default function Docuplete() {
     setFieldEditorModal(null);
   }
 
+  async function handleUpdateTypeColor(typeKey: string, color: string) {
+    const current = getCachedProductOrg();
+    if (!current) return;
+    const existingPalette = current.field_palette;
+    const newTypeColors = { ...(existingPalette?.typeColors ?? {}), [typeKey]: color };
+    const newPalette = {
+      palette: existingPalette?.palette ?? FIELD_COLOR_PALETTE,
+      typeColors: newTypeColors,
+      direction: existingPalette?.direction ?? "random",
+    };
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/product/settings/org`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ fieldPalette: newPalette }),
+      });
+      if (res.ok) {
+        const data = await res.json() as { org?: typeof current };
+        if (data.org) updateProductOrgCache(data.org);
+        else updateProductOrgCache({ ...current, field_palette: newPalette });
+      }
+    } catch { /* ignore — color stays on this field even if the PATCH fails */ }
+  }
+
   function updateSelectedField(patch: Partial<FieldItem>) {
     if (!selectedField) return;
     updateSelectedPackage((pkg) => ({
@@ -5088,6 +5112,8 @@ export default function Docuplete() {
         onRemove={(fieldId) => { removeField(fieldId); setFieldEditorModal(null); }}
         packageFields={selectedPackage?.fields ?? []}
         colorPalette={getCachedProductOrg()?.field_palette?.palette ?? FIELD_COLOR_PALETTE}
+        typeColors={getCachedProductOrg()?.field_palette?.typeColors}
+        onUpdateTypeColor={handleUpdateTypeColor}
       />
 
       {deleteGuard && selectedPackage && (
