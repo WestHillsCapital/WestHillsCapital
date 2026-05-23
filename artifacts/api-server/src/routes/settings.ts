@@ -462,6 +462,34 @@ router.patch("/org", requireAdminRole, async (req, res) => {
     );
     const row = rows[0] as Record<string, unknown>;
 
+    if ("fieldPalette" in body && fieldPaletteVal) {
+      try {
+        const parsed = JSON.parse(fieldPaletteVal) as { typeColors?: Record<string, string> };
+        const typeColors = parsed.typeColors ?? {};
+        if (Object.keys(typeColors).length > 0) {
+          void db.query(
+            `UPDATE docuplete_packages
+               SET fields = (
+                 SELECT COALESCE(jsonb_agg(
+                   CASE
+                     WHEN (f->>'validationType') IS NOT NULL
+                          AND (f->>'validationType') <> 'none'
+                          AND ($2::jsonb) ? (f->>'validationType')
+                     THEN jsonb_set(f, '{color}', to_jsonb(($2::jsonb)->>(f->>'validationType')))
+                     ELSE f
+                   END
+                 ), '[]'::jsonb)
+                 FROM jsonb_array_elements(fields) f
+               ),
+               updated_at = NOW()
+             WHERE account_id = $1
+               AND jsonb_typeof(fields) = 'array'`,
+            [accountId, JSON.stringify(typeColors)],
+          );
+        }
+      } catch { /* non-fatal — recolor is best-effort */ }
+    }
+
     const clerkUserId = getAuth(req)?.userId ?? null;
     const actorEmail = await getActorEmail(accountId, clerkUserId);
     const auditBase = { accountId, actorEmail, actorUserId: clerkUserId };

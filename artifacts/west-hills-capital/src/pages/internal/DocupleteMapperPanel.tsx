@@ -253,7 +253,6 @@ function LibraryFieldPicker({
                     className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#F1F5F9] transition-colors"
                   >
                     <span className="font-medium text-[#0F1C3F]">{item.label}</span>
-                    <span className="ml-1.5 text-[#8A9BB8]">· {item.category}</span>
                   </button>
                 ))}
               </div>
@@ -283,7 +282,6 @@ function LibraryFieldPicker({
                       className="w-full text-left pl-5 pr-3 py-1.5 text-[11px] hover:bg-[#F1F5F9] transition-colors"
                     >
                       <span className="font-medium text-[#0F1C3F]">{item.label}</span>
-                      <span className="ml-1.5 text-[#8A9BB8]">· {item.category}</span>
                     </button>
                   ))}
                 </div>
@@ -304,7 +302,6 @@ function LibraryFieldPicker({
                     className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#F1F5F9] transition-colors"
                   >
                     <span className="font-medium text-[#0F1C3F]">{item.label}</span>
-                    <span className="ml-1.5 text-[#8A9BB8]">· {item.category}</span>
                   </button>
                 ))}
               </div>
