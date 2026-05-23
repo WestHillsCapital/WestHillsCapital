@@ -264,7 +264,7 @@ function formatDate(iso: string | null): string {
 
 function useBrandColor(): string {
   const org = useProductOrgSettings();
-  return org?.brand_color ?? "#C49A38";
+  return org?.brand_color ?? "#1B4FD8";
 }
 
 function getTextForBg(hex: string): string {
@@ -1572,7 +1572,7 @@ function DeveloperSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersIni
             </p>
             <div className="flex items-center gap-2 mt-auto pt-1">
               <a
-                href="https://github.com/WestHillsCapital/WestHillsCapital/tree/main/packages/sdk#readme"
+                href="https://docs.docuplete.com/sdk"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
@@ -3857,7 +3857,7 @@ function EmailCustomizationSection({ getAuthHeaders, isAdmin }: { getAuthHeaders
   const [senderName, setSenderName] = useState("");
   const [replyTo, setReplyTo] = useState("");
   const [footer, setFooter] = useState("");
-  const [senderEmail, setSenderEmail] = useState("noreply@westhillscapital.com");
+  const [senderEmail, setSenderEmail] = useState("noreply@docuplete.com");
   const [baseSenderName, setBaseSenderName] = useState("");
   const [baseReplyTo, setBaseReplyTo] = useState("");
   const [baseFooter, setBaseFooter] = useState("");
@@ -6784,7 +6784,7 @@ export default function AppSettings() {
 
   const [org, setOrg] = useState<ProductOrgSettings | null>(null);
   const [name, setName] = useState("");
-  const [brandColor, setBrandColor] = useState("#C49A38");
+  const [brandColor, setBrandColor] = useState("#1B4FD8");
   const [displayLogoUrl, setDisplayLogoUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
@@ -7179,7 +7179,7 @@ export default function AppSettings() {
                     {showHeader && (
                       <p
                         className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-wider first:pt-1"
-                        style={{ color: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38" }}
+                        style={{ color: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#1B4FD8" }}
                       >
                         {item.group}
                       </p>
@@ -7194,7 +7194,7 @@ export default function AppSettings() {
                           : "text-gray-500 hover:text-gray-900 hover:bg-gray-100",
                       ].join(" ")}
                       style={activeSection === item.id ? {
-                        backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38",
+                        backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#1B4FD8",
                         color: "white",
                       } : undefined}
                     >
@@ -7233,7 +7233,7 @@ export default function AppSettings() {
                         : "text-gray-500 hover:text-gray-900 hover:bg-gray-100",
                     ].join(" ")}
                     style={activeSection === item.id ? {
-                      backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38",
+                      backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#1B4FD8",
                       color: "white",
                     } : undefined}
                   >
@@ -7284,7 +7284,7 @@ export default function AppSettings() {
       </div>
 
       {/* Org branding setup prompt — shown until logo or custom color is set */}
-      {org && !org.logo_url && org.brand_color === "#C49A38" && (
+      {org && !org.logo_url && org.brand_color === "#1B4FD8" && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 flex items-start gap-3">
           <svg className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
@@ -7528,7 +7528,7 @@ export default function AppSettings() {
                 isAdmin ? "" : "cursor-not-allowed",
               ].join(" ")}
               style={logoOnWhite
-                ? { backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38", borderColor: "transparent" }
+                ? { backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#1B4FD8", borderColor: "transparent" }
                 : { backgroundColor: "transparent", borderColor: "#0E1D4A" }
               }
             >
@@ -7588,14 +7588,14 @@ export default function AppSettings() {
           </div>
         </div>
         {/* Mocked interview page */}
-        <div className="bg-[#F8F6F0] px-6 py-6">
-          <div className="max-w-sm mx-auto overflow-hidden rounded-xl shadow-sm border border-[#DDD5C4]">
+        <div className="bg-gray-50 px-6 py-6">
+          <div className="max-w-sm mx-auto overflow-hidden rounded-xl shadow-sm border border-gray-200">
             {/* Form header — matches the actual customer interview header exactly */}
-            <header className="bg-white border-b border-[#DDD5C4] px-4 py-4">
+            <header className="bg-white border-b border-gray-200 px-4 py-4">
               <div className="flex items-center gap-3">
                 {(() => {
                   const previewLogoUrl = displayFormLogoUrl || displayLogoUrl;
-                  const bc = /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38";
+                  const bc = /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#1B4FD8";
                   const bgColor = previewLogoUrl && logoOnWhite ? "#ffffff" : bc;
                   const textColor = getTextForBg(bgColor);
                   return (
@@ -7618,23 +7618,23 @@ export default function AppSettings() {
               </div>
             </header>
             {/* Form body */}
-            <div className="bg-[#F8F6F0] px-4 py-6 space-y-5">
+            <div className="bg-gray-50 px-4 py-6 space-y-5">
               {/* Package title */}
               <div>
                 <h2 className="text-lg font-semibold text-[#0F1C3F]">Client Intake Form</h2>
                 <p className="text-xs text-[#6B7A99] mt-1">Please complete the form below. Your answers are saved automatically as you type.</p>
               </div>
               {/* Progress bar */}
-              <div className="h-1.5 w-full bg-[#EFE8D8] rounded-full overflow-hidden">
+              <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full w-1/3"
-                  style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38" }}
+                  style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#1B4FD8" }}
                 />
               </div>
               {/* Sample field */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-medium text-[#0F1C3F]">Full name <span className="text-red-500">*</span></label>
-                <div className="rounded-lg border border-[#DDD5C4] bg-white px-3 py-2 text-sm text-[#6B7A99] italic">
+                <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-400 italic">
                   Jane Smith
                 </div>
               </div>
@@ -7642,7 +7642,7 @@ export default function AppSettings() {
               <button
                 type="button"
                 className="w-full rounded-lg py-2.5 text-sm font-semibold text-white pointer-events-none"
-                style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38" }}
+                style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#1B4FD8" }}
               >
                 Continue →
               </button>
