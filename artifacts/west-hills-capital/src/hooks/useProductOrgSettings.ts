@@ -4,8 +4,9 @@ import { useProductAuth } from "./useProductAuth";
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
 export type FieldColorConfig = {
-  palette: string[];
+  palette:    string[];
   typeColors: Record<string, string>;
+  direction?: string;
 };
 
 export type ProductOrgSettings = {

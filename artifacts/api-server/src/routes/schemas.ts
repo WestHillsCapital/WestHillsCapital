@@ -255,6 +255,7 @@ export const OrgBodySchema = z.object({
     z.object({
       palette:    z.array(z.string()),
       typeColors: z.record(z.string()),
+      direction:  z.string().optional(),
     }),
     z.null(),
   ]).optional(),

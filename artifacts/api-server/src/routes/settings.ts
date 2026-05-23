@@ -126,23 +126,26 @@ function buildLogoServingUrl(accountId: number): string {
 }
 
 const FP_HEX = /^#[0-9a-fA-F]{6}$/;
-function parseFieldPalette(raw: unknown): { palette: string[]; typeColors: Record<string, string> } | null {
+type FieldColorConfig = { palette: string[]; typeColors: Record<string, string>; direction?: string };
+function parseFieldPalette(raw: unknown): FieldColorConfig | null {
   if (!raw) return null;
   try {
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-    // New structured format: { palette: [...], typeColors: {...} }
+    // Structured format: { palette, typeColors, direction? }
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      const palette = Array.isArray((parsed as Record<string, unknown>).palette)
-        ? ((parsed as Record<string, unknown>).palette as unknown[]).filter((c): c is string => typeof c === "string" && FP_HEX.test(c))
+      const p = parsed as Record<string, unknown>;
+      const palette = Array.isArray(p.palette)
+        ? (p.palette as unknown[]).filter((c): c is string => typeof c === "string" && FP_HEX.test(c))
         : [];
       const typeColors: Record<string, string> = {};
-      const tc = (parsed as Record<string, unknown>).typeColors;
-      if (tc && typeof tc === "object" && !Array.isArray(tc)) {
-        for (const [k, v] of Object.entries(tc as Record<string, unknown>)) {
+      if (p.typeColors && typeof p.typeColors === "object" && !Array.isArray(p.typeColors)) {
+        for (const [k, v] of Object.entries(p.typeColors as Record<string, unknown>)) {
           if (typeof v === "string" && FP_HEX.test(v)) typeColors[k] = v;
         }
       }
-      return palette.length > 0 || Object.keys(typeColors).length > 0 ? { palette, typeColors } : null;
+      const direction = typeof p.direction === "string" ? p.direction : undefined;
+      if (palette.length === 0 && Object.keys(typeColors).length === 0) return null;
+      return direction ? { palette, typeColors, direction } : { palette, typeColors };
     }
     // Legacy format: plain array of hex strings
     if (Array.isArray(parsed)) {
@@ -423,7 +426,7 @@ router.patch("/org", requireAdminRole, async (req, res) => {
       if (body.fieldPalette === null || body.fieldPalette === undefined) {
         fieldPaletteVal = null;
       } else {
-        const fp = body.fieldPalette as { palette?: unknown; typeColors?: unknown };
+        const fp = body.fieldPalette as { palette?: unknown; typeColors?: unknown; direction?: unknown };
         const palette = Array.isArray(fp.palette)
           ? (fp.palette as unknown[]).filter((c): c is string => typeof c === "string" && FP_HEX.test(c))
           : [];
@@ -433,8 +436,11 @@ router.patch("/org", requireAdminRole, async (req, res) => {
             if (typeof v === "string" && FP_HEX.test(v)) typeColors[k] = v;
           }
         }
+        const direction = typeof fp.direction === "string" ? fp.direction : undefined;
+        const stored: Record<string, unknown> = { palette, typeColors };
+        if (direction) stored.direction = direction;
         fieldPaletteVal = palette.length > 0 || Object.keys(typeColors).length > 0
-          ? JSON.stringify({ palette, typeColors })
+          ? JSON.stringify(stored)
           : null;
       }
     }
