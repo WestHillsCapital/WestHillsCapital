@@ -70,7 +70,7 @@ function Router() {
   const isInternal     = location.startsWith("/internal");
   const isCustomerForm = location.startsWith("/docuplete/public/");
   const isSandbox      = location === "/sandbox";
-  const isApp          = location.startsWith("/app") || location.startsWith("/sign-in") || location.startsWith("/sign-up");
+  const isApp          = !isInternal && !isCustomerForm && !isSandbox && !isVerify;
   const isVerify       = location === "/verify";
 
   useEffect(() => {
