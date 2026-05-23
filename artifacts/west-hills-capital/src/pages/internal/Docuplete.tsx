@@ -277,9 +277,9 @@ const FIELD_NAME_SCORE_THRESHOLD = 35;
 
 
 const FIELD_COLOR_PALETTE = [
-  "#EF4444", "#F97316", "#F59E0B", "#EAB308", "#84CC16",
-  "#22C55E", "#10B981", "#14B8A6", "#06B6D4", "#0EA5E9",
-  "#3B82F6", "#6366F1", "#8B5CF6", "#D946EF", "#F43F5E",
+  "#C48787", "#C4997A", "#C4A96A", "#8FAF82", "#6BAFA0",
+  "#6B9EC4", "#7680C4", "#9474C4", "#B474C4", "#C474A4",
+  "#C4A06B", "#7A9E82", "#7490C4", "#A08EC4", "#C49A38",
 ];
 
 function isSensitiveValidationType(validationType: string | undefined | null): boolean {
@@ -294,8 +294,8 @@ function pickFieldColor(usedColors: string[], sensitive: boolean): string {
 }
 
 const RECIPIENT_COLOR_PALETTE = [
-  "#3B82F6", "#10B981", "#8B5CF6", "#F59E0B",
-  "#EC4899", "#06B6D4", "#EF4444", "#84CC16",
+  "#7490C4", "#7AAF8F", "#9474C4", "#C4A06B",
+  "#C47EA8", "#6BAFA0", "#C48787", "#8FAF82",
 ];
 
 function pickRecipientColor(usedColors: string[]): string {

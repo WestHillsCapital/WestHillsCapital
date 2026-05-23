@@ -118,16 +118,16 @@ export function FieldEditorModal({
                 />
               ))}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-4 px-1 mt-1">
               <input
                 type="color"
                 value={draft.color}
                 onChange={(e) => setDraft((d) => ({ ...d, color: e.target.value }))}
-                className="h-7 w-9 rounded cursor-pointer border border-[#E2E8F0] p-0.5 flex-shrink-0"
+                className="h-8 w-10 rounded cursor-pointer border border-[#D1D5DB] p-0.5 flex-shrink-0"
                 title="Custom color"
               />
-              <span className="text-xs text-[#8A9BB8] font-mono">{draft.color.toUpperCase()}</span>
-              <span className="text-[10px] text-[#B0BAD0] ml-auto">custom</span>
+              <span className="flex-1 text-xs text-[#6B7A99] font-mono tracking-wider">{draft.color.toUpperCase()}</span>
+              <span className="text-[10px] text-[#B0BAD0]">custom</span>
             </div>
           </div>
 
@@ -248,7 +248,7 @@ export function FieldEditorModal({
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <select value={draft.interviewMode} onChange={(e) => setDraft((d) => ({ ...d, interviewMode: e.target.value as FieldInterviewMode }))} className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white">
+                <select value={draft.interviewMode} onChange={(e) => setDraft((d) => ({ ...d, interviewMode: e.target.value as FieldInterviewMode }))} className="w-full border border-[#D1D5DB] rounded px-2 py-1.5 text-xs bg-white">
                   <option value="optional">Optional — staff fills in during interview</option>
                   <option value="required">Required — must answer before generating</option>
                   <option value="readonly">Read only — shown but not editable</option>
@@ -294,7 +294,7 @@ export function FieldEditorModal({
                     <select
                       value={draft.condition.fieldId}
                       onChange={(e) => setDraft((d) => ({ ...d, condition: d.condition ? { ...d.condition, fieldId: e.target.value } : null }))}
-                      className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
+                      className="w-full border border-[#D1D5DB] rounded px-2 py-1.5 text-xs bg-white"
                     >
                       <option value="">— select a field —</option>
                       {packageFields
@@ -307,7 +307,7 @@ export function FieldEditorModal({
                     <select
                       value={draft.condition.operator}
                       onChange={(e) => setDraft((d) => ({ ...d, condition: d.condition ? { ...d.condition, operator: e.target.value as FieldCondition["operator"] } : null }))}
-                      className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
+                      className="w-full border border-[#D1D5DB] rounded px-2 py-1.5 text-xs bg-white"
                     >
                       <option value="is_answered">has any answer</option>
                       <option value="is_not_answered">has no answer</option>
@@ -326,7 +326,7 @@ export function FieldEditorModal({
                           <select
                             value={draft.condition!.value}
                             onChange={(e) => setDraft((d) => ({ ...d, condition: d.condition ? { ...d.condition, value: e.target.value } : null }))}
-                            className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
+                            className="w-full border border-[#D1D5DB] rounded px-2 py-1.5 text-xs bg-white"
                           >
                             <option value="">— select value —</option>
                             {triggerOpts.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
@@ -375,7 +375,7 @@ export function FieldEditorModal({
                         <select
                           value={draft.condition2.fieldId}
                           onChange={(e) => setDraft((d) => ({ ...d, condition2: d.condition2 ? { ...d.condition2, fieldId: e.target.value } : null }))}
-                          className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
+                          className="w-full border border-[#D1D5DB] rounded px-2 py-1.5 text-xs bg-white"
                         >
                           <option value="">— select a field —</option>
                           {packageFields
@@ -388,7 +388,7 @@ export function FieldEditorModal({
                         <select
                           value={draft.condition2.operator}
                           onChange={(e) => setDraft((d) => ({ ...d, condition2: d.condition2 ? { ...d.condition2, operator: e.target.value as FieldCondition["operator"] } : null }))}
-                          className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
+                          className="w-full border border-[#D1D5DB] rounded px-2 py-1.5 text-xs bg-white"
                         >
                           <option value="is_answered">has any answer</option>
                           <option value="is_not_answered">has no answer</option>
@@ -407,7 +407,7 @@ export function FieldEditorModal({
                               <select
                                 value={draft.condition2!.value}
                                 onChange={(e) => setDraft((d) => ({ ...d, condition2: d.condition2 ? { ...d.condition2, value: e.target.value } : null }))}
-                                className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
+                                className="w-full border border-[#D1D5DB] rounded px-2 py-1.5 text-xs bg-white"
                               >
                                 <option value="">— select value —</option>
                                 {triggerOpts2.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
@@ -466,7 +466,7 @@ export function FieldEditorModal({
                     <select
                       value={draft.copyFrom.fieldId}
                       onChange={(e) => setDraft((d) => ({ ...d, copyFrom: d.copyFrom ? { ...d.copyFrom, fieldId: e.target.value } : null }))}
-                      className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
+                      className="w-full border border-[#D1D5DB] rounded px-2 py-1.5 text-xs bg-white"
                     >
                       <option value="">— select source field —</option>
                       {packageFields
@@ -492,7 +492,7 @@ export function FieldEditorModal({
                           } : null,
                         }));
                       }}
-                      className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
+                      className="w-full border border-[#D1D5DB] rounded px-2 py-1.5 text-xs bg-white"
                     >
                       <option value="">— select trigger field —</option>
                       {packageFields
@@ -510,7 +510,7 @@ export function FieldEditorModal({
                         <select
                           value={draft.copyFrom!.whenValue}
                           onChange={(e) => setDraft((d) => ({ ...d, copyFrom: d.copyFrom ? { ...d.copyFrom, whenValue: e.target.value } : null }))}
-                          className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
+                          className="w-full border border-[#D1D5DB] rounded px-2 py-1.5 text-xs bg-white"
                         >
                           <option value="">— select value —</option>
                           {triggerOpts.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
@@ -610,7 +610,7 @@ export function FieldEditorModal({
                       value={draft.sumGroup}
                       onChange={(e) => setDraft((d) => ({ ...d, sumGroup: e.target.value }))}
                       placeholder={existingGroups.length > 0 ? "Select or type a group name…" : "e.g. primary_beneficiary (optional)"}
-                      className="w-full border border-[#E2E8F0] rounded px-2 py-1.5 text-xs bg-white"
+                      className="w-full border border-[#D1D5DB] rounded px-2 py-1.5 text-xs bg-white"
                     />
                     {existingGroups.length > 0 && (
                       <datalist id={listId}>
