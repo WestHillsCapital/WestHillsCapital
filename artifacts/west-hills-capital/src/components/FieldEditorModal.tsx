@@ -82,7 +82,11 @@ export function FieldEditorModal({
     if (ft === "radio" || ft === "checkbox" || ft === "dropdown") return ft;
     return null;
   })();
-  const typeOverrideColor: string | null = (activeTypeKey && typeColors?.[activeTypeKey]) ?? null;
+  // Show the type-managed view for ANY field with a type key — whether or not
+  // a Settings override exists yet. The displayed color is always the field's
+  // current color; the Change prompt lets the user override just this field or
+  // update the type-level color globally in Settings.
+  const isTypeLocked: boolean = activeTypeKey !== null;
 
   if (!modal) return null;
 
@@ -125,11 +129,11 @@ export function FieldEditorModal({
           {/* Field Color */}
           <div>
             <label className="block text-xs font-medium text-[#6B7A99] mb-1.5">Field Color</label>
-            {typeOverrideColor && pendingColor === null ? (
+            {isTypeLocked && pendingColor === null ? (
               <div className="flex items-center gap-2 py-0.5">
                 <span className="w-8 h-5 rounded-sm border border-black/10 flex-shrink-0" style={{ backgroundColor: draft.color }} />
                 <span className="flex-1 text-xs text-[#6B7A99]">
-                  {TYPE_KEY_LABELS[activeTypeKey!] ?? activeTypeKey} color (from Field Colors)
+                  {TYPE_KEY_LABELS[activeTypeKey!] ?? activeTypeKey} field — color managed by type
                 </span>
                 <button
                   type="button"
@@ -139,7 +143,7 @@ export function FieldEditorModal({
                   Change
                 </button>
               </div>
-            ) : typeOverrideColor && pendingColor !== null ? (
+            ) : isTypeLocked && pendingColor !== null ? (
               <div className="space-y-2.5">
                 <div className="flex items-center gap-3">
                   <input

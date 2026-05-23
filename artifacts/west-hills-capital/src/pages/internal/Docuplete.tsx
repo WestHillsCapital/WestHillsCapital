@@ -11,7 +11,7 @@ import { useInternalAuth } from "@/hooks/useInternalAuth";
 import { useUpgradeModal } from "@/hooks/useUpgradeModal";
 import { useDocupleteConfig } from "@/hooks/useDocupleteConfig";
 import { getCachedOrg } from "@/hooks/useOrgSettings";
-import { getCachedProductOrg, updateProductOrgCache } from "@/hooks/useProductOrgSettings";
+import { getCachedProductOrg, updateProductOrgCache, useProductOrgSettings } from "@/hooks/useProductOrgSettings";
 import { formatOrgTime } from "@/lib/orgDateFormat";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -452,6 +452,7 @@ export default function Docuplete() {
   const { getAuthHeaders: defaultGetAuthHeaders } = useInternalAuth();
   const { show: showUpgrade } = useUpgradeModal();
   const docupleteConfig = useDocupleteConfig();
+  const productOrg = useProductOrgSettings();
   const getAuthHeaders = docupleteConfig?.getAuthHeaders ?? defaultGetAuthHeaders;
   const getAuthHeadersRef = useRef(getAuthHeaders);
   getAuthHeadersRef.current = getAuthHeaders;
@@ -5111,8 +5112,8 @@ export default function Docuplete() {
         onSave={saveFieldFromModal}
         onRemove={(fieldId) => { removeField(fieldId); setFieldEditorModal(null); }}
         packageFields={selectedPackage?.fields ?? []}
-        colorPalette={getCachedProductOrg()?.field_palette?.palette ?? FIELD_COLOR_PALETTE}
-        typeColors={getCachedProductOrg()?.field_palette?.typeColors}
+        colorPalette={productOrg?.field_palette?.palette ?? FIELD_COLOR_PALETTE}
+        typeColors={productOrg?.field_palette?.typeColors}
         onUpdateTypeColor={handleUpdateTypeColor}
       />
 
