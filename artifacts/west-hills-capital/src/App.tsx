@@ -70,8 +70,8 @@ function Router() {
   const isInternal     = location.startsWith("/internal");
   const isCustomerForm = location.startsWith("/docuplete/public/");
   const isSandbox      = location === "/sandbox";
-  const isApp          = !isInternal && !isCustomerForm && !isSandbox && !isVerify;
   const isVerify       = location === "/verify";
+  const isApp          = !isInternal && !isCustomerForm && !isSandbox && !isVerify;
 
   useEffect(() => {
     const ref = new URLSearchParams(window.location.search).get("ref");
