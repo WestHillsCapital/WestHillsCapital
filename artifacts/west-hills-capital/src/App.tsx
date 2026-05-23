@@ -142,7 +142,7 @@ function Router() {
   const isInternal    = location.startsWith("/internal");
   const isCustomerForm = location.startsWith("/docuplete/public/");
   const isSandboxPage  = location === "/sandbox";
-  const isApp         = location.startsWith("/app");
+  const isApp         = location.startsWith("/app") || location.startsWith("/sign-in") || location.startsWith("/sign-up");
 
   // Capture referral code from ?ref= URL param and persist to localStorage
   // so it survives navigation before the user reaches the checkout flow.
@@ -202,6 +202,8 @@ function Router() {
         <ErrorBoundary label="app portal">
           <Suspense fallback={<PageSpinner />}>
             <Switch>
+              <Route path="/sign-in/*?"><Redirect to="/app/sign-in" /></Route>
+              <Route path="/sign-up/*?"><Redirect to="/app/sign-up" /></Route>
               <Route path="/app/sign-in/*?" component={AppSignIn} />
               <Route path="/app/sign-up/*?" component={AppSignUp} />
               <Route path="/app/*?"         component={AppPortal} />
