@@ -56,25 +56,28 @@ const server: Server = app.listen(port, () => {
   }
 
   // ── 3c. Storage readiness probe ───────────────────────────────────────────
-  // Non-fatal: warns immediately if PRIVATE_OBJECT_DIR or GCS credentials are
-  // absent so the issue is visible in Railway logs at deploy time rather than
-  // surfacing silently as a 500 when someone first tries to upload a logo.
-  try {
-    new ObjectStorageService().getPrivateObjectDir();
-    const hasCredentials = !!(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || process.env.REPL_ID || process.env.REPLIT_DOMAINS);
-    if (!hasCredentials) {
+  // Non-fatal: warns immediately if R2 credentials are absent so the issue
+  // is visible in Railway logs at deploy time rather than surfacing silently
+  // as a 500 when someone first tries to upload a logo.
+  {
+    const r2Missing = ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
+      .filter((k) => !process.env[k]);
+    if (r2Missing.length > 0) {
       logger.warn(
-        "Object storage: GOOGLE_SERVICE_ACCOUNT_KEY is not set and Replit sidecar is unavailable — logo uploads will fail. " +
-        "Set GOOGLE_SERVICE_ACCOUNT_KEY in Railway environment variables."
+        { missing: r2Missing },
+        "Object storage: R2 credentials not fully set — logo and file uploads will fail. " +
+        "Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME in Railway environment variables.",
       );
     } else {
-      logger.info("Object storage: PRIVATE_OBJECT_DIR and GCS credentials present");
+      logger.info("Object storage: R2 credentials present");
     }
-  } catch {
-    logger.warn(
-      "Object storage: PRIVATE_OBJECT_DIR is not set — logo and file uploads will return 503. " +
-      "Set PRIVATE_OBJECT_DIR in Railway environment variables."
-    );
+    try {
+      new ObjectStorageService().getPrivateObjectDir();
+    } catch {
+      logger.warn(
+        "Object storage: PRIVATE_OBJECT_DIR is not set — defaulting key prefix; set it explicitly for clarity.",
+      );
+    }
   }
 
   // ── 3d. Content Engine AI integration probe ───────────────────────────────

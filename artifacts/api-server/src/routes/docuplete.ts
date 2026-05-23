@@ -4747,8 +4747,7 @@ router.delete("/packages/:id/documents/:documentId", async (req, res) => {
       client.release();
     }
     if (deletedGcsKey) {
-      objectStorage.getObjectEntityFile(deletedGcsKey)
-        .then((f) => f.delete({ ignoreNotFound: true }))
+      objectStorage.deleteObject(deletedGcsKey)
         .catch((err) => logger.warn({ err, gcsKey: deletedGcsKey }, "[Docuplete] GCS cleanup failed for deleted document (non-fatal)"));
     }
     const pkg = await getPackage(packageId, getDb(), true, requestAccountId);

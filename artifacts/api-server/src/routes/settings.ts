@@ -3,7 +3,7 @@ import { randomUUID, randomBytes } from "crypto";
 import { getAuth } from "@clerk/express";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
-import { ObjectStorageService, objectStorageClient, StorageMisconfigError, assertStorageCredentials, wrapGcsError } from "../lib/objectStorage";
+import { ObjectStorageService, StorageMisconfigError, assertStorageCredentials } from "../lib/objectStorage";
 import { extractBrandColors, isSafeUrl } from "../lib/brandColorExtractor";
 import { requireAdminRole } from "../middleware/requireRole";
 import { requireWithinPlanLimits } from "../middleware/requireWithinPlanLimits";
@@ -136,10 +136,10 @@ const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9
 
 async function uploadLogoBuffer(buffer: Buffer, contentType: ImageContentType): Promise<string> {
   // Fail fast with a typed error if credentials or path are missing before
-  // attempting a GCS write that would fail with a cryptic auth error.
+  // attempting an R2 write that would fail with a cryptic auth error.
   assertStorageCredentials();
-  const privateDir = objectStorageService.getPrivateObjectDir(); // throws StorageMisconfigError if unset
-  const entityDir = privateDir.endsWith("/") ? privateDir : `${privateDir}/`;
+  objectStorageService.getPrivateObjectDir(); // throws StorageMisconfigError if unset
+
   const entityId = randomUUID();
 
   // Regression guard: catch any future refactor that might produce a
@@ -149,19 +149,7 @@ async function uploadLogoBuffer(buffer: Buffer, contentType: ImageContentType): 
       "Logo paths must use non-guessable UUIDs because the serving route is unauthenticated.");
   }
 
-  const objectEntityPath = `${entityDir}${entityId}`;
-  const withSlash = objectEntityPath.startsWith("/") ? objectEntityPath : `/${objectEntityPath}`;
-  const parts = withSlash.slice(1).split("/");
-  const bucketName = parts[0];
-  const objectName = parts.slice(1).join("/");
-  const bucket = objectStorageClient.bucket(bucketName);
-  const file = bucket.file(objectName);
-  try {
-    await file.save(buffer, { contentType, resumable: false });
-  } catch (gcsErr) {
-    wrapGcsError(gcsErr); // rethrows as StorageMisconfigError for auth/sidecar errors; otherwise rethrows as-is
-  }
-  return `/objects/${entityId}`;
+  return objectStorageService.uploadBuffer(entityId, buffer, contentType);
 }
 
 /**

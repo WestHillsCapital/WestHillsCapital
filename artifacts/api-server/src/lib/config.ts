@@ -19,9 +19,13 @@ const REQUIRED_VARS = ["PORT", "DATABASE_URL", "CLERK_WEBHOOK_SECRET"] as const;
 
 // ── Optional — absence degrades a specific feature but server still starts ────
 const OPTIONAL_VARS: Record<string, string> = {
-  PRIVATE_OBJECT_DIR:           "Logo and file uploads disabled — org logo upload will return 503",
-  PUBLIC_OBJECT_SEARCH_PATHS:   "Public file serving disabled — uploaded assets will 404",
-  GOOGLE_SERVICE_ACCOUNT_KEY:   "Google Sheets sync disabled; also required for GCS object storage in production (logo uploads will fail without it or the Replit sidecar)",
+  R2_ACCOUNT_ID:                "Logo and file uploads disabled — R2 account ID required",
+  R2_ACCESS_KEY_ID:             "Logo and file uploads disabled — R2 access key required",
+  R2_SECRET_ACCESS_KEY:         "Logo and file uploads disabled — R2 secret key required",
+  R2_BUCKET_NAME:               "Logo and file uploads disabled — R2 bucket name required",
+  PRIVATE_OBJECT_DIR:           "R2 key prefix for private uploads (defaults to 'objects' if unset)",
+  PUBLIC_OBJECT_SEARCH_PATHS:   "Public file serving disabled — set to R2 key prefix(es), e.g. 'public'",
+  GOOGLE_SERVICE_ACCOUNT_KEY:   "Google Sheets/Calendar/Drive integration disabled",
   GOOGLE_SHEETS_SPREADSHEET_ID: "Master CRM sheet sync disabled",
   GOOGLE_DEAL_BUILDER_SHEET_ID: "Deal Builder sheet write disabled (falls back to master sheet if absent)",
   GOOGLE_DEALS_OPS_SHEET_ID:    "Deals ops sheet write disabled (falls back to master sheet if absent)",
@@ -52,7 +56,7 @@ export function validateConfig(): void {
   if (missing.length > 0) {
     logger.error(
       { missing },
-      `Server cannot start — required env vars are not set: ${missing.join(", ")}`
+      `Server cannot start — required env vars are not set: ${missing.join(", ")}`,
     );
     throw new Error(`Missing required env vars: ${missing.join(", ")}`);
   }
@@ -62,11 +66,11 @@ export function validateConfig(): void {
     const u = new URL(process.env.DATABASE_URL!);
     logger.info(
       { host: u.hostname, port: u.port || "5432", database: u.pathname.replace(/^\//, "") },
-      "Database target"
+      "Database target",
     );
   } catch {
     logger.error(
-      "DATABASE_URL is set but is not a valid URL — connection will likely fail"
+      "DATABASE_URL is set but is not a valid URL — connection will likely fail",
     );
   }
 
@@ -80,7 +84,7 @@ export function validateConfig(): void {
   if (absent.length > 0) {
     logger.warn(
       { absent },
-      `Optional env vars not set — some features are disabled`
+      `Optional env vars not set — some features are disabled`,
     );
   }
 

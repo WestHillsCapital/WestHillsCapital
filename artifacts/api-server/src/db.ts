@@ -2223,9 +2223,7 @@ export async function pruneRetainedSubmissions(): Promise<void> {
     if (gcsKeys.length > 0) {
       await Promise.allSettled(
         gcsKeys.map((key) =>
-          objectStorage
-            .getObjectEntityFile(key)
-            .then((f) => f.delete({ ignoreNotFound: true }))
+          objectStorage.deleteObject(key)
             .catch((err) => logger.warn({ err, key }, "[DB] GCS cleanup for retained submission failed (non-fatal)")),
         ),
       );
@@ -2292,9 +2290,7 @@ export async function processScheduledDeletions(): Promise<void> {
         if (sessionGcsKeys.length > 0) {
           await Promise.allSettled(
             sessionGcsKeys.map((key) =>
-              objectStorage
-                .getObjectEntityFile(key)
-                .then((f) => f.delete({ ignoreNotFound: true }))
+              objectStorage.deleteObject(key)
                 .catch((err) => logger.warn({ err, key, accountId: account.id }, "[DB] GCS cleanup for deleted account session failed (non-fatal)")),
             ),
           );
@@ -2344,9 +2340,7 @@ export async function purgeExpiredTrialData(): Promise<void> {
         if (trialGcsKeys.length > 0) {
           await Promise.allSettled(
             trialGcsKeys.map((key) =>
-              objectStorage
-                .getObjectEntityFile(key)
-                .then((f) => f.delete({ ignoreNotFound: true }))
+              objectStorage.deleteObject(key)
                 .catch((err) => logger.warn({ err, key, accountId: account.id }, "[DB] GCS cleanup for lapsed trial session failed (non-fatal)")),
             ),
           );
@@ -2414,9 +2408,7 @@ export async function pruneExpiredDocupleteSessions(): Promise<void> {
     if (gcsKeys.length > 0) {
       await Promise.allSettled(
         gcsKeys.map((key) =>
-          objectStorage
-            .getObjectEntityFile(key)
-            .then((f) => f.delete({ ignoreNotFound: true }))
+          objectStorage.deleteObject(key)
             .catch((err) => logger.warn({ err, key }, "[DB] GCS cleanup for expired draft session failed (non-fatal)")),
         ),
       );
