@@ -54,7 +54,7 @@ const ALL_SETTINGS_NAV: Array<{ id: string; label: string; adminOnly?: boolean; 
 ];
 
 export default function AppSettings() {
-  const { getAuthHeaders } = useProductAuth();
+  const { getAuthHeaders, token } = useProductAuth();
   const { isAdmin, role } = useProductRole(getAuthHeaders);
 
   const [org, setOrg] = useState<ProductOrgSettings | null>(null);
@@ -540,22 +540,22 @@ export default function AppSettings() {
 
       {/* Profile section — per-user settings, visible to all roles */}
       <div id="profile-section">
-        <ProfileSection getAuthHeaders={getAuthHeaders} />
+        {!!token && <ProfileSection getAuthHeaders={getAuthHeaders} />}
       </div>
 
       {/* Security section — per-user 2FA, sessions, and login history */}
       <div id="security-section">
-        <SecuritySection getAuthHeaders={getAuthHeaders} />
+        {!!token && <SecuritySection getAuthHeaders={getAuthHeaders} />}
       </div>
 
       {/* Notifications section — per-user email prefs */}
       <div id="notifications-section">
-        <NotificationsSection getAuthHeaders={getAuthHeaders} />
+        {!!token && <NotificationsSection getAuthHeaders={getAuthHeaders} />}
       </div>
 
       {/* Timezone & Locale section */}
       <div id="timezone-locale-section">
-        <TimezoneLocaleSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
+        {!!token && <TimezoneLocaleSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />}
       </div>
 
       {/* Org branding setup prompt — shown until logo or custom color is set */}
@@ -940,59 +940,59 @@ export default function AppSettings() {
 
       {/* Billing section */}
       <div id="billing-section">
-        <BillingSection getAuthHeaders={getAuthHeaders} />
+        {!!token && <BillingSection getAuthHeaders={getAuthHeaders} />}
       </div>
 
       {/* Submission bank section */}
       <div id="submission-bank-section">
-        <SubmissionBankSection getAuthHeaders={getAuthHeaders} />
+        {!!token && <SubmissionBankSection getAuthHeaders={getAuthHeaders} />}
       </div>
 
       {/* Custom domain section */}
       <div id="custom-domain-section">
-        <CustomDomainSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
+        {!!token && <CustomDomainSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />}
       </div>
 
       {/* Team section */}
       <div id="team-section">
-        <TeamSection getAuthHeaders={getAuthHeaders} />
+        {!!token && <TeamSection getAuthHeaders={getAuthHeaders} />}
       </div>
 
       {/* Interview defaults section — admin writes, all can view */}
       <div id="interview-defaults-section">
-        <InterviewDefaultsSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
+        {!!token && <InterviewDefaultsSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />}
       </div>
 
       {/* Email customization section — admin writes, all can view */}
       <div id="email-section">
-        <EmailCustomizationSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
+        {!!token && <EmailCustomizationSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />}
       </div>
 
       {/* Integrations section */}
       <div id="integrations-section">
-        <IntegrationsSection getAuthHeaders={getAuthHeaders} />
+        {!!token && <IntegrationsSection getAuthHeaders={getAuthHeaders} />}
       </div>
 
       {/* Developer section — SDK, Zapier, API Keys */}
       <div id="developer-section" className="flex flex-col gap-6">
-        <DeveloperSection getAuthHeaders={getAuthHeaders} />
+        {!!token && <DeveloperSection getAuthHeaders={getAuthHeaders} />}
         <div id="api-keys-section">
-          <ApiKeysSection getAuthHeaders={getAuthHeaders} />
+          {!!token && <ApiKeysSection getAuthHeaders={getAuthHeaders} />}
         </div>
       </div>
 
       {/* Source Key Mapping section */}
       <div id="source-key-section">
-        <SourceKeyMappingSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
+        {!!token && <SourceKeyMappingSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />}
       </div>
 
       {/* Data & Privacy section */}
       <div id="data-privacy-section">
-        <DataPrivacySection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} orgName={name} />
+        {!!token && <DataPrivacySection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} orgName={name} />}
       </div>
 
           {/* Audit log section — admin only */}
-          {isAdmin && (
+          {isAdmin && !!token && (
             <div id="audit-log-section">
               <AuditLogSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
             </div>
@@ -1000,7 +1000,7 @@ export default function AppSettings() {
 
       {/* Feedback section */}
       <div id="feedback-section">
-        <FeedbackSection getAuthHeaders={getAuthHeaders} />
+        {!!token && <FeedbackSection getAuthHeaders={getAuthHeaders} />}
       </div>
 
         </div>{/* end content column */}
