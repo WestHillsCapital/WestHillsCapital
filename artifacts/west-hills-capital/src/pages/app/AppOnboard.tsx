@@ -203,10 +203,10 @@ export default function AppOnboard({ user, token, onComplete }: Props) {
                       {opt.icon}
                     </span>
                     <div>
-                      <p className={`text-sm font-medium leading-snug ${selected ? "text-white" : "text-gray-900"}`}>
+                      <p className={`text-sm font-medium leading-snug whitespace-normal ${selected ? "text-white" : "text-gray-900"}`}>
                         {opt.label}
                       </p>
-                      <p className={`text-xs mt-0.5 leading-snug ${selected ? "text-gray-300" : "text-gray-500"}`}>
+                      <p className={`text-xs mt-0.5 leading-snug whitespace-normal ${selected ? "text-gray-300" : "text-gray-500"}`}>
                         {opt.description}
                       </p>
                     </div>
