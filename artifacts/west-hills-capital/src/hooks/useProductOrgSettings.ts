@@ -54,9 +54,19 @@ export function useProductOrgSettings(): ProductOrgSettings | null {
   useEffect(() => {
     // Wait until signed in AND token is available to avoid a no-auth fetch
     if (!isSignedIn || !token) return;
-    if (cachedProductOrg) { setOrg(cachedProductOrg); return; }
+
+    // Always subscribe so future cache updates (e.g. from handleUpdateTypeColor
+    // or the Settings page) are reflected in this component's state.
     const listener = (data: ProductOrgSettings | null) => setOrg(data);
     productOrgListeners.add(listener);
+
+    if (cachedProductOrg) {
+      // Cache already warm — no fetch needed, but keep the listener registered
+      // so the component reacts to future updateProductOrgCache() calls.
+      setOrg(cachedProductOrg);
+      return () => { productOrgListeners.delete(listener); };
+    }
+
     let cancelled = false;
     fetch(`${API_BASE}/api/v1/product/settings/org`, {
       headers: { ...getAuthHeaders() },

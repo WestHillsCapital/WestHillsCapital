@@ -3488,7 +3488,7 @@ export default function Docuplete() {
   }
 
   async function handleUpdateTypeColor(typeKey: string, color: string) {
-    const current = getCachedProductOrg();
+    const current = productOrg ?? getCachedProductOrg();
     if (!current) return;
     const existingPalette = current.field_palette;
     const newTypeColors = { ...(existingPalette?.typeColors ?? {}), [typeKey]: color };
