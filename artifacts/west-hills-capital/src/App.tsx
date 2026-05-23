@@ -126,20 +126,11 @@ function Router() {
           <Switch>
             <Route path="/sign-in/*?" component={AppSignIn} />
             <Route path="/sign-up/*?" component={AppSignUp} />
-            <Route path="/app/*?"     component={AppPortal} />
+            <Route path="/*?"         component={AppPortal} />
           </Switch>
         </Suspense>
       </ErrorBoundary>
     </div>
-  );
-
-  return (
-    <Suspense fallback={<PageSpinner />}>
-      <Switch>
-        <Route path="/"><Redirect to="/app" /></Route>
-        <Route component={NotFound} />
-      </Switch>
-    </Suspense>
   );
 }
 

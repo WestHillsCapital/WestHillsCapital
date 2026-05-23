@@ -105,7 +105,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   const handleSignOut = () => {
     setDropdownOpen(false);
-    signOut({ redirectUrl: `${basePath}/sign-in` });
+    signOut({ redirectUrl: `${basePath}/app/sign-in` });
   };
 
   useEffect(() => {
@@ -131,11 +131,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <svg width="28" height="28" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect width="180" height="180" rx="38" fill="#0E1D4A" />
                 <path d="M38 28h74l30 30v94H38V28z" fill="white" opacity="0.95" />
-                <path d="M112 28l30 30h-30V28z" fill="#1B4FD8" />
+                <path d="M112 28l30 30h-30V28z" fill="#C49A38" />
                 <rect x="54" y="78" width="48" height="7" rx="3.5" fill="#0E1D4A" opacity="0.25" />
                 <rect x="54" y="94" width="66" height="7" rx="3.5" fill="#0E1D4A" opacity="0.25" />
                 <rect x="54" y="110" width="38" height="7" rx="3.5" fill="#0E1D4A" opacity="0.25" />
-                <circle cx="124" cy="138" r="24" fill="#1B4FD8" />
+                <circle cx="124" cy="138" r="24" fill="#C49A38" />
                 <path d="M113 138l8 8 14-14" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <span className="text-base font-bold tracking-tight text-[#0E1D4A]">{APP_NAME}</span>
