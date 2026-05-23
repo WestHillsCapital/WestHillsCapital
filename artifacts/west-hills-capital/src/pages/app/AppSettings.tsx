@@ -931,10 +931,10 @@ export default function AppSettings() {
         <FieldColorsSection
           getAuthHeaders={getAuthHeaders}
           isAdmin={isAdmin}
-          currentPalette={org?.field_palette ?? null}
-          onPaletteChange={(palette) => {
-            setOrg((prev) => prev ? { ...prev, field_palette: palette } : prev);
-            if (org) updateProductOrgCache({ ...org, field_palette: palette });
+          currentConfig={org?.field_palette ?? null}
+          onConfigChange={(config) => {
+            setOrg((prev) => prev ? { ...prev, field_palette: config } : prev);
+            if (org) updateProductOrgCache({ ...org, field_palette: config });
           }}
         />
       </div>

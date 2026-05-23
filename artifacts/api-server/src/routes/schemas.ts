@@ -251,7 +251,13 @@ export const OrgBodySchema = z.object({
   pkgDefaultNotifyClient: z.boolean().optional(),
   pkgDefaultEsign: z.boolean().optional(),
   logoOnWhite: z.boolean().optional(),
-  fieldPalette: z.array(z.string()).nullable().optional(),
+  fieldPalette: z.union([
+    z.object({
+      palette:    z.array(z.string()),
+      typeColors: z.record(z.string()),
+    }),
+    z.null(),
+  ]).optional(),
 }).passthrough();
 export type OrgBody = z.infer<typeof OrgBodySchema>;
 

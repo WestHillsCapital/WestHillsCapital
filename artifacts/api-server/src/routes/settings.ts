@@ -125,11 +125,30 @@ function buildLogoServingUrl(accountId: number): string {
   return `/api/storage/org-logo/${accountId}`;
 }
 
-function parseFieldPalette(raw: unknown): string[] | null {
+const FP_HEX = /^#[0-9a-fA-F]{6}$/;
+function parseFieldPalette(raw: unknown): { palette: string[]; typeColors: Record<string, string> } | null {
   if (!raw) return null;
   try {
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-    if (Array.isArray(parsed) && parsed.every((c: unknown) => typeof c === "string")) return parsed as string[];
+    // New structured format: { palette: [...], typeColors: {...} }
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const palette = Array.isArray((parsed as Record<string, unknown>).palette)
+        ? ((parsed as Record<string, unknown>).palette as unknown[]).filter((c): c is string => typeof c === "string" && FP_HEX.test(c))
+        : [];
+      const typeColors: Record<string, string> = {};
+      const tc = (parsed as Record<string, unknown>).typeColors;
+      if (tc && typeof tc === "object" && !Array.isArray(tc)) {
+        for (const [k, v] of Object.entries(tc as Record<string, unknown>)) {
+          if (typeof v === "string" && FP_HEX.test(v)) typeColors[k] = v;
+        }
+      }
+      return palette.length > 0 || Object.keys(typeColors).length > 0 ? { palette, typeColors } : null;
+    }
+    // Legacy format: plain array of hex strings
+    if (Array.isArray(parsed)) {
+      const palette = (parsed as unknown[]).filter((c): c is string => typeof c === "string" && FP_HEX.test(c));
+      return palette.length > 0 ? { palette, typeColors: {} } : null;
+    }
     return null;
   } catch { return null; }
 }
@@ -403,10 +422,20 @@ router.patch("/org", requireAdminRole, async (req, res) => {
     if ("fieldPalette" in body) {
       if (body.fieldPalette === null || body.fieldPalette === undefined) {
         fieldPaletteVal = null;
-      } else if (Array.isArray(body.fieldPalette)) {
-        const HEX_RE = /^#[0-9a-fA-F]{6}$/;
-        const valid = (body.fieldPalette as string[]).filter((c) => HEX_RE.test(c));
-        fieldPaletteVal = valid.length > 0 ? JSON.stringify(valid) : null;
+      } else {
+        const fp = body.fieldPalette as { palette?: unknown; typeColors?: unknown };
+        const palette = Array.isArray(fp.palette)
+          ? (fp.palette as unknown[]).filter((c): c is string => typeof c === "string" && FP_HEX.test(c))
+          : [];
+        const typeColors: Record<string, string> = {};
+        if (fp.typeColors && typeof fp.typeColors === "object" && !Array.isArray(fp.typeColors)) {
+          for (const [k, v] of Object.entries(fp.typeColors as Record<string, unknown>)) {
+            if (typeof v === "string" && FP_HEX.test(v)) typeColors[k] = v;
+          }
+        }
+        fieldPaletteVal = palette.length > 0 || Object.keys(typeColors).length > 0
+          ? JSON.stringify({ palette, typeColors })
+          : null;
       }
     }
 

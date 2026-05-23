@@ -3,6 +3,11 @@ import { useProductAuth } from "./useProductAuth";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
+export type FieldColorConfig = {
+  palette: string[];
+  typeColors: Record<string, string>;
+};
+
 export type ProductOrgSettings = {
   id: number;
   name: string;
@@ -20,8 +25,8 @@ export type ProductOrgSettings = {
   pkg_default_notify_staff:  boolean;
   pkg_default_notify_client: boolean;
   pkg_default_esign:         boolean;
-  // Custom field color palette. null means "use application default".
-  field_palette: string[] | null;
+  // Per-account field color config. null means "use application defaults".
+  field_palette: FieldColorConfig | null;
 };
 
 let cachedProductOrg: ProductOrgSettings | null = null;

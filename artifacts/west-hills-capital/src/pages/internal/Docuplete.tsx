@@ -287,9 +287,16 @@ function isSensitiveValidationType(validationType: string | undefined | null): b
   return validationType === "ssn" || validationType === "dob";
 }
 
-function pickFieldColor(usedColors: string[], sensitive: boolean): string {
+function pickFieldColor(usedColors: string[], sensitive: boolean, validationType?: string): string {
+  const config = getCachedProductOrg()?.field_palette;
+  // Type override takes highest priority (works for any type, including sensitive ones)
+  if (validationType && validationType !== "none" && config?.typeColors?.[validationType]) {
+    return config.typeColors[validationType];
+  }
+  // Sensitive without a type override → default red
   if (sensitive) return "#DC2626";
-  const palette = getCachedProductOrg()?.field_palette ?? FIELD_COLOR_PALETTE;
+  // Random from the active palette (or app default if no org config)
+  const palette = config?.palette ?? FIELD_COLOR_PALETTE;
   const available = palette.filter((c) => !usedColors.includes(c));
   const pool = available.length > 0 ? available : palette;
   return pool[Math.floor(Math.random() * pool.length)];
@@ -2497,7 +2504,7 @@ export default function Docuplete() {
       const usedColors = pkg.fields.map((f) => f.color);
       const newFields = toAdd.map((lf): FieldItem => {
         const sensitive = lf.sensitive || isSensitiveValidationType(lf.validationType);
-        const color = pickFieldColor(usedColors, sensitive);
+        const color = pickFieldColor(usedColors, sensitive, lf.validationType);
         usedColors.push(color);
         return {
           id: newId("field"),
@@ -2556,7 +2563,7 @@ export default function Docuplete() {
         id: newId("field"),
         libraryFieldId: libraryField.id,
         name: libraryField.label,
-        color: pickFieldColor(pkg.fields.map((f) => f.color), libSensitive),
+        color: pickFieldColor(pkg.fields.map((f) => f.color), libSensitive, libraryField.validationType),
         type: libraryField.type,
         optionsMode: "inherit",
         interviewMode: libraryField.required ? "required" : "optional",
@@ -2646,6 +2653,7 @@ export default function Docuplete() {
           color: pickFieldColor(
             [...existingFields.map((f) => f.color), ...newFields.map((f) => f.color)],
             bestLib.sensitive,
+            bestLib.validationType,
           ),
           type: bestLib.type,
           optionsMode: "inherit",
@@ -3017,7 +3025,7 @@ export default function Docuplete() {
         id: newId("field"),
         libraryFieldId: "",
         name: `Field ${pkg.fields.length + 1}`,
-        color: pickFieldColor(pkg.fields.map((f) => f.color), false),
+        color: pickFieldColor(pkg.fields.map((f) => f.color), false, "none"),
         type: "text",
         options: [],
         interviewMode: "optional",
@@ -3037,7 +3045,7 @@ export default function Docuplete() {
     if (!selectedPackage) return;
     setFieldEditorDraft({
       name: `Field ${selectedPackage.fields.length + 1}`,
-      color: pickFieldColor(selectedPackage.fields.map((f) => f.color), false),
+      color: pickFieldColor(selectedPackage.fields.map((f) => f.color), false, "none"),
       type: "text", options: [], interviewMode: "optional",
       hasDefault: false, defaultValue: "",
       validationType: "none", validationPattern: "", validationMessage: "",
@@ -3225,7 +3233,7 @@ export default function Docuplete() {
           id: fieldId,
           libraryFieldId: lib.id,
           name: lib.label,
-          color: pickFieldColor(usedColors, lib.sensitive),
+          color: pickFieldColor(usedColors, lib.sensitive, lib.validationType),
           type: lib.type,
           optionsMode: "inherit",
           interviewMode: lib.required ? "required" : "optional",
@@ -5074,7 +5082,7 @@ export default function Docuplete() {
         onSave={saveFieldFromModal}
         onRemove={(fieldId) => { removeField(fieldId); setFieldEditorModal(null); }}
         packageFields={selectedPackage?.fields ?? []}
-        colorPalette={getCachedProductOrg()?.field_palette ?? FIELD_COLOR_PALETTE}
+        colorPalette={getCachedProductOrg()?.field_palette?.palette ?? FIELD_COLOR_PALETTE}
       />
 
       {deleteGuard && selectedPackage && (
