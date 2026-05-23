@@ -778,7 +778,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                           <span className="text-sm font-semibold text-[#0F1C3F]">Filled PDF Packet</span>
                           <span className="ml-auto text-[10px] bg-gray-100 text-gray-500 border border-gray-200 rounded px-1.5 py-0.5 shrink-0">Always on</span>
                         </div>
-                        <p className="text-xs text-[#6B7A99]">Generates a completed, print-ready PDF packet when any interview on this package is submitted.</p>
+                        <p className="text-xs text-[#4A5568]">Generates a completed, print-ready PDF packet when any interview on this package is submitted.</p>
                       </div>
                       <button type="button" onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, enable_interview: !pkg.enable_interview }))} className={`text-left rounded-lg border-2 p-3 transition-colors min-h-[100px] flex flex-col ${selectedPackage.enable_interview ? "border-[#0F1C3F] bg-white" : "border-gray-200 bg-gray-50"}`}>
                         <div className="flex items-start gap-2 mb-1.5">
