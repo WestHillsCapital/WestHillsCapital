@@ -151,18 +151,18 @@ const DEFAULT_TYPE_COLORS: Record<string, string> = {
 };
 
 const TYPE_OPTIONS = [
-  { value: "ssn",      label: "SSN",          hint: "Social Security Number" },
-  { value: "dob",      label: "Date of Birth", hint: "Sensitive date" },
+  { value: "name",     label: "Name",          hint: "Name format" },
   { value: "email",    label: "Email",         hint: "Email address" },
   { value: "phone",    label: "Phone",         hint: "Phone number" },
   { value: "date",     label: "Date",          hint: "MM/DD/YYYY" },
-  { value: "number",   label: "Number",        hint: "Numeric value" },
+  { value: "ssn",      label: "SSN",           hint: "Social Security Number" },
+  { value: "dob",      label: "Date of Birth", hint: "Sensitive date" },
   { value: "currency", label: "Currency",      hint: "Dollar amount" },
-  { value: "percent",  label: "Percent",       hint: "0–100 range" },
-  { value: "zip",      label: "ZIP Code",      hint: "5-digit ZIP" },
-  { value: "zip4",     label: "ZIP+4",         hint: "12345-6789 format" },
+  { value: "number",   label: "Number",        hint: "Numeric value" },
   { value: "state",    label: "State",         hint: "US state code" },
-  { value: "name",     label: "Name",          hint: "Name format" },
+  { value: "zip",      label: "ZIP Code",      hint: "5-digit ZIP" },
+  { value: "percent",  label: "Percent",       hint: "0–100 range" },
+  { value: "zip4",     label: "ZIP+4",         hint: "12345-6789 format" },
   { value: "time",     label: "Time",          hint: "HH:MM format" },
   { value: "custom",   label: "Custom",        hint: "Custom regex pattern" },
 ];
@@ -526,26 +526,35 @@ export function FieldColorsSection({
           </p>
         </div>
         <div className="flex-1 min-w-0">
-          <div className="border border-gray-200 rounded-xl overflow-visible divide-y divide-gray-100">
-            {TYPE_OPTIONS.map((opt) => {
+          <div className="border border-gray-200 rounded-xl overflow-visible grid grid-cols-2">
+            {TYPE_OPTIONS.map((opt, idx) => {
               const assigned = typeColors[opt.value] ?? null;
               const isOpen   = openType === opt.value;
+              const isLeftCol  = idx % 2 === 0;
+              const isLastRow  = idx >= TYPE_OPTIONS.length - 2;
               return (
-                <div key={opt.value} className="flex items-center justify-between px-4 py-2.5">
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium text-gray-800">{opt.label}</span>
-                    <span className="ml-2 text-xs text-gray-400 hidden sm:inline">{opt.hint}</span>
+                <div
+                  key={opt.value}
+                  className={[
+                    "flex items-center justify-between px-3 py-2.5",
+                    isLeftCol  ? "border-r border-gray-100" : "",
+                    !isLastRow ? "border-b border-gray-100" : "",
+                  ].join(" ")}
+                >
+                  <div className="flex-1 min-w-0 mr-2">
+                    <p className="text-xs font-medium text-gray-800 truncate">{opt.label}</p>
+                    <p className="text-[10px] text-gray-400 truncate">{opt.hint}</p>
                   </div>
 
                   <div
-                    className="relative flex-shrink-0 ml-3"
+                    className="relative flex-shrink-0"
                     ref={el => { typeRefs.current[opt.value] = el; }}
                   >
                     <button
                       type="button"
                       disabled={saving}
                       onClick={() => setOpenType(isOpen ? null : opt.value)}
-                      className="flex items-center gap-2 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs hover:border-gray-300 transition-colors disabled:cursor-not-allowed disabled:opacity-60 min-w-[116px]"
+                      className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2 py-1.5 text-xs hover:border-gray-300 transition-colors disabled:cursor-not-allowed disabled:opacity-60 min-w-[90px]"
                     >
                       {assigned ? (
                         <>
