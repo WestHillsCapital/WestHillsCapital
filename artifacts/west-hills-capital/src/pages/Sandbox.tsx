@@ -20,7 +20,7 @@ function SpinnerIcon() {
   );
 }
 
-const BRAND = "#C49A38";
+const BRAND = "#0E1D4A";
 
 /** Features shown in the hero */
 const FEATURES = [
@@ -67,13 +67,13 @@ export default function Sandbox() {
 
   if (status === "loading" || autoStart) {
     return (
-      <div className="min-h-screen bg-[#F8F6F0] flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
         <div className="flex flex-col items-center gap-4 text-center">
           <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: BRAND }}>
             <SpinnerIcon />
           </div>
-          <p className="text-sm text-[#6B7A99] font-medium">Spinning up your sandbox session…</p>
-          <p className="text-xs text-[#8A9BB8] max-w-xs">
+          <p className="text-sm text-gray-500 font-medium">Spinning up your sandbox session…</p>
+          <p className="text-xs text-gray-400 max-w-xs">
             Pre-filling your details and opening the interview. This takes about a second.
           </p>
         </div>
@@ -82,9 +82,9 @@ export default function Sandbox() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F6F0] flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
-      <header className="bg-white border-b border-[#DDD5C4] px-6 py-4">
+      <header className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center gap-3">
           <svg width="28" height="28" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect width="180" height="180" rx="38" fill="#0E1D4A"/>
@@ -98,8 +98,8 @@ export default function Sandbox() {
             <circle cx="131" cy="131" r="26" fill="#C49A38"/>
             <path d="M120 131L128 139L143 124" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          <span className="text-sm font-semibold text-[#0F1C3F]">Docuplete</span>
-          <span className="ml-2 text-[10px] rounded-full px-2 py-0.5 font-medium bg-amber-50 text-amber-700 border border-amber-200">SANDBOX</span>
+          <span className="text-sm font-semibold text-gray-900">Docuplete</span>
+          <span className="ml-2 text-[10px] rounded-full px-2 py-0.5 font-medium bg-gray-100 text-gray-500 border border-gray-200">SANDBOX</span>
         </div>
       </header>
 
@@ -107,11 +107,11 @@ export default function Sandbox() {
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-16">
         <div className="max-w-xl w-full text-center space-y-6">
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-widest text-[#8A9BB8]">Live Demo</p>
-            <h1 className="text-3xl font-bold text-[#0F1C3F] leading-tight">
+            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">Live Demo</p>
+            <h1 className="text-3xl font-bold text-gray-900 leading-tight">
               See Docuplete in action
             </h1>
-            <p className="text-[#6B7A99] text-base">
+            <p className="text-gray-500 text-base">
               Answer 8 questions. Get a signed, SHA-256 sealed PDF in under 2 minutes.
               Then inspect the raw API payload that generated it.
             </p>
@@ -120,11 +120,11 @@ export default function Sandbox() {
           {/* Feature grid */}
           <div className="grid grid-cols-2 gap-3 text-left">
             {FEATURES.map((f) => (
-              <div key={f.label} className="bg-white rounded-xl border border-[#DDD5C4] px-4 py-3 flex items-start gap-3">
+              <div key={f.label} className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex items-start gap-3">
                 <span className="text-lg mt-0.5 shrink-0">{f.icon}</span>
                 <div>
-                  <div className="text-sm font-semibold text-[#0F1C3F]">{f.label}</div>
-                  <div className="text-xs text-[#8A9BB8]">{f.sub}</div>
+                  <div className="text-sm font-semibold text-gray-900">{f.label}</div>
+                  <div className="text-xs text-gray-400">{f.sub}</div>
                 </div>
               </div>
             ))}
@@ -143,7 +143,7 @@ export default function Sandbox() {
             {status === "error" && (
               <p className="text-xs text-red-600">{errorMsg}</p>
             )}
-            <p className="text-xs text-[#8A9BB8]">No sign-up. No credit card. Closes in one click.</p>
+            <p className="text-xs text-gray-400">No sign-up. No credit card. Closes in one click.</p>
           </div>
 
           {/* Pre-fill tip */}
@@ -164,7 +164,7 @@ export default function Sandbox() {
         </div>
       </main>
 
-      <footer className="text-center py-4 text-[10px] text-[#8A9BB8]">
+      <footer className="text-center py-4 text-[10px] text-gray-400">
         Powered by Docuplete · This sandbox uses demo data only
       </footer>
     </div>
