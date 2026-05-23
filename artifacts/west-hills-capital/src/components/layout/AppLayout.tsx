@@ -212,10 +212,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 {/* Menu items */}
                 <div className="py-1">
                   <Link
-                    href="/app/sessions"
+                    href="/sessions"
                     onClick={() => setDropdownOpen(false)}
                     className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors ${
-                      location.startsWith("/app/sessions")
+                      location.startsWith("/sessions")
                         ? "bg-gray-50 text-gray-900 font-medium"
                         : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
                     }`}
@@ -227,10 +227,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     Sessions
                   </Link>
                   <Link
-                    href="/app/settings"
+                    href="/settings"
                     onClick={() => setDropdownOpen(false)}
                     className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors ${
-                      location.startsWith("/app/settings")
+                      location.startsWith("/settings")
                         ? "bg-gray-50 text-gray-900 font-medium"
                         : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
                     }`}

@@ -2574,6 +2574,7 @@ function NotificationsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
     if (contentType) h.set("Content-Type", contentType);
     return h;
   }
+  const bc = useBrandColor();
   const [prefs, setPrefs] = useState<Map<string, NotifPref>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
