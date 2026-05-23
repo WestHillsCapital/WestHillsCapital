@@ -35,13 +35,13 @@ const ALL_SETTINGS_NAV: Array<{ id: string; label: string; adminOnly?: boolean; 
   { id: "timezone-locale-section",    label: "Timezone" },
   // Workspace — organisation-wide settings
   { id: "organization-section",       label: "Organization",   group: "Workspace" },
+  { id: "field-colors-section",       label: "Field colors",   adminOnly: true },
   { id: "billing-section",            label: "Billing" },
   { id: "custom-domain-section",      label: "Custom domain",  adminOnly: true },
   { id: "team-section",               label: "Team" },
   // Docuplete — how the interview product behaves
   { id: "interview-defaults-section", label: "Interview",      group: "Docuplete" },
   { id: "email-section",              label: "Email" },
-  { id: "field-colors-section",       label: "Field colors",   adminOnly: true },
   // Connect — external tools and developer APIs
   { id: "integrations-section",       label: "Integrations",   group: "Connect" },
   { id: "developer-section",          label: "Developer" },
@@ -926,6 +926,19 @@ export default function AppSettings() {
         </div>
       </section>
 
+      {/* Field color palette section — admin only */}
+      <div id="field-colors-section">
+        <FieldColorsSection
+          getAuthHeaders={getAuthHeaders}
+          isAdmin={isAdmin}
+          currentPalette={org?.field_palette ?? null}
+          onPaletteChange={(palette) => {
+            setOrg((prev) => prev ? { ...prev, field_palette: palette } : prev);
+            if (org) updateProductOrgCache({ ...org, field_palette: palette });
+          }}
+        />
+      </div>
+
       {/* Billing section */}
       <div id="billing-section">
         <BillingSection getAuthHeaders={getAuthHeaders} />
@@ -954,19 +967,6 @@ export default function AppSettings() {
       {/* Email customization section — admin writes, all can view */}
       <div id="email-section">
         <EmailCustomizationSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
-      </div>
-
-      {/* Field color palette section — admin only */}
-      <div id="field-colors-section">
-        <FieldColorsSection
-          getAuthHeaders={getAuthHeaders}
-          isAdmin={isAdmin}
-          currentPalette={org?.field_palette ?? null}
-          onPaletteChange={(palette) => {
-            setOrg((prev) => prev ? { ...prev, field_palette: palette } : prev);
-            if (org) updateProductOrgCache({ ...org, field_palette: palette });
-          }}
-        />
       </div>
 
       {/* Integrations section */}
