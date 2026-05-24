@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import VideoWithControls from "@/components/explainer/video/VideoWithControls";
 import { PLAN_DATA } from "@workspace/plan-data";
 
 const GATE_KEY = "docuplete_compliance_unlocked";
@@ -257,17 +258,6 @@ function ComplianceGateModal({ onClose }: { onClose: () => void }) {
 
 function VideoSection() {
   const [open, setOpen] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-    const send = () =>
-      iframe.contentWindow?.postMessage({ type: 'docuplete-play' }, '*');
-    iframe.addEventListener('load', send);
-    return () => iframe.removeEventListener('load', send);
-  }, [open]);
 
   // Close modal on Escape
   useEffect(() => {
@@ -344,20 +334,13 @@ function VideoSection() {
             onClick={(e) => e.stopPropagation()}
           >
             <div
-              className="relative w-full"
+              className="relative w-full overflow-hidden rounded-xl border border-white/10"
               style={{
-                /* Width must not produce a 16:9 height exceeding the flex container */
                 maxWidth: 'min(100%, calc((100vh - 80px) * (16 / 9)))',
                 aspectRatio: '16 / 9',
               }}
             >
-              <iframe
-                ref={iframeRef}
-                src="/docuplete-explainer/"
-                className="absolute inset-0 w-full h-full rounded-xl border border-white/10"
-                allow="autoplay"
-                title="Docuplete Explainer Video"
-              />
+              {open && <VideoWithControls showControls autoStart />}
             </div>
           </div>
         </div>
