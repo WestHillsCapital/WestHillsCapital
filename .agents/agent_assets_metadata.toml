@@ -53,3 +53,9 @@ id = "SOrVMTvpFnVSKWmXOsxhw"
 uri = "file://attached_assets/docuplete-icon-hq.png"
 type = "image"
 title = "docuplete-icon-hq.png (1024×1024)"
+
+[[outputs]]
+id = "t4UYdYd-czHfIaGXxjoTC"
+uri = "file://attached_assets/docuplete-icon-v2.png"
+type = "image"
+title = "docuplete-icon-v2.png (1024×1024)"
