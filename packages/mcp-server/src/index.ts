@@ -21,7 +21,7 @@ if (!apiKey) {
 const client = new Docuplete({ apiKey });
 
 const server = new Server(
-  { name: "@docupleteapp/mcp-server", version: "0.1.0" },
+  { name: "@docupleteapp/mcp-server", version: "0.1.2" },
   { capabilities: { tools: {} } },
 );
 
