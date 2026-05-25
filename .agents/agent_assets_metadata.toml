@@ -35,3 +35,9 @@ id = "yUjwkgEFPJLwJiHzlCdOV"
 uri = "file://artifacts/west-hills-capital/public/affiliate-program-agreement.pdf"
 type = "pdf"
 title = "Docuplete Affiliate Program Agreement (Draft — Docuplete, Inc.)"
+
+[[outputs]]
+id = "lszVptxEzXPwyau9m6xKT"
+uri = "file://attached_assets/docuplete-icon-512.png"
+type = "image"
+title = "docuplete-icon-512.png"
