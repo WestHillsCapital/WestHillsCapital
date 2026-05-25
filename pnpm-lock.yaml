@@ -1388,17 +1388,19 @@ importers:
   packages/make: {}
 
   packages/mcp-server:
-    dependencies:
+    devDependencies:
       '@docuplete/sdk':
         specifier: workspace:*
         version: link:../sdk
       '@modelcontextprotocol/sdk':
         specifier: '>=1.26.0'
         version: 1.29.0
-    devDependencies:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.17
+      esbuild:
+        specifier: 0.27.3
+        version: 0.27.3
       typescript:
         specifier: ^5.5.0
         version: 5.9.3
@@ -8321,6 +8323,7 @@ packages:
   recharts@2.15.4:
     resolution: {integrity: sha512-UT/q6fwS3c1dHbXv2uFgYJ9BMFHu3fwnd7AYZaEQhXuYQ4hgsxLvsUXzGdKeZrW5xopzDCvuA2N41WJ88I7zIw==}
     engines: {node: '>=14'}
+    deprecated: 1.x and 2.x branches are no longer active. Bump to Recharts v3 to receive latest features and bugfixes. See https://github.com/recharts/recharts/wiki/3.0-migration-guide
     peerDependencies:
       react: ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react-dom: ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0

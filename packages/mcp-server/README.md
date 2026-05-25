@@ -1,4 +1,4 @@
-# @docuplete/mcp-server
+# @docupleteapp/mcp-server
 
 [![Docuplete](https://img.shields.io/badge/Powered%20by-Docuplete-blue?style=flat-square)](https://docuplete.com)
 
@@ -20,7 +20,7 @@ This server exposes Docuplete's document-filling and PDF-generation capabilities
 ## Quick start (npx)
 
 ```bash
-DOCUPLETE_API_KEY=sk_live_... npx @docuplete/mcp-server
+DOCUPLETE_API_KEY=sk_live_... npx @docupleteapp/mcp-server
 ```
 
 ---
@@ -36,7 +36,7 @@ Add the following to your `claude_desktop_config.json` (macOS: `~/Library/Applic
   "mcpServers": {
     "docuplete": {
       "command": "npx",
-      "args": ["-y", "@docuplete/mcp-server"],
+      "args": ["-y", "@docupleteapp/mcp-server"],
       "env": {
         "DOCUPLETE_API_KEY": "sk_live_YOUR_KEY_HERE"
       }
@@ -56,7 +56,7 @@ Add the following to `.cursor/mcp.json` in your project (or `~/.cursor/mcp.json`
   "mcpServers": {
     "docuplete": {
       "command": "npx",
-      "args": ["-y", "@docuplete/mcp-server"],
+      "args": ["-y", "@docupleteapp/mcp-server"],
       "env": {
         "DOCUPLETE_API_KEY": "sk_live_YOUR_KEY_HERE"
       }
