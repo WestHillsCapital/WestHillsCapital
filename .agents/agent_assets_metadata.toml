@@ -24,6 +24,12 @@ uri = "file://artifacts/docuplete-explainer/public/images/clean_ui.png"
 type = "image"
 title = "Clean UI illustration"
 
+[[generated]]
+id = "PcIPoVJeBYrOEpFFg2mZ1"
+uri = "file://attached_assets/docuplete-icon-hq.png"
+type = "image"
+title = "docuplete app icon high quality"
+
 [[outputs]]
 id = "GCU-49Xo_-dL_FdO1rV_U"
 uri = "file://artifacts/west-hills-capital/public/images/apple-touch-icon.png"
@@ -41,3 +47,9 @@ id = "lszVptxEzXPwyau9m6xKT"
 uri = "file://attached_assets/docuplete-icon-512.png"
 type = "image"
 title = "docuplete-icon-512.png"
+
+[[outputs]]
+id = "SOrVMTvpFnVSKWmXOsxhw"
+uri = "file://attached_assets/docuplete-icon-hq.png"
+type = "image"
+title = "docuplete-icon-hq.png (1024×1024)"
