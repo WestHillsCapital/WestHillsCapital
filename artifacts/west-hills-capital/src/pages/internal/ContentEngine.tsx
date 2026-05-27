@@ -860,7 +860,7 @@ function CoveragePanel({ onDraft }: { onDraft: (topic: string) => void }) {
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
-type Mode = "topics" | "generating" | "editing";
+type Mode = "topics" | "generating" | "streaming" | "editing";
 type Tab = "generate" | "coverage";
 
 export default function ContentEngine() {
@@ -872,28 +872,58 @@ export default function ContentEngine() {
   const [savedId, setSavedId] = useState<number | null>(null);
   const [initialPublished, setInitialPublished] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
+    const [streamingMeta, setStreamingMeta] = useState<{ title?: string; slug?: string; excerpt?: string; group?: string; metaDescription?: string } | null>(null);
+    const [streamingSections, setStreamingSections] = useState<{ heading?: string; paragraphs: string[] }[]>([]);
 
   const generate = useCallback(async (topic: string) => {
-    if (!topic.trim()) return;
-    setMode("generating");
-    setGenError(null);
-    try {
-      const res = await fetch(`${API_BASE}/api/internal/content/draft`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ topic }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Generation failed");
-      setDraft(data.draft);
-      setSavedId(null);
-      setInitialPublished(false);
-      setMode("editing");
-    } catch (err) {
-      setGenError(err instanceof Error ? err.message : "Generation failed");
-      setMode("topics");
-    }
-  }, [getAuthHeaders]);
+      if (!topic.trim()) return;
+      setMode("streaming");
+      setStreamingMeta(null);
+      setStreamingSections([]);
+      setGenError(null);
+      try {
+        const res = await fetch(`${API_BASE}/api/internal/content/draft`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+          body: JSON.stringify({ topic }),
+        });
+        if (!res.ok || !res.body) {
+          const errData = await res.json().catch(() => ({ error: "Generation failed" }));
+          throw new Error((errData as { error?: string }).error ?? "Generation failed");
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n");
+          buffer = parts.pop() ?? "";
+          for (const line of parts) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const event = JSON.parse(line.slice(6)) as { type: string; error?: string; title?: string; slug?: string; excerpt?: string; group?: string; metaDescription?: string; section?: { heading?: string; paragraphs: string[] }; draft?: DraftArticle };
+              if (event.type === "error") throw new Error(event.error ?? "Generation failed");
+              if (event.type === "meta") setStreamingMeta(event);
+              if (event.type === "section" && event.section) setStreamingSections((prev) => [...prev, event.section!]);
+              if (event.type === "done" && event.draft) {
+                setDraft(event.draft);
+                setSavedId(null);
+                setInitialPublished(false);
+                setMode("editing");
+                return;
+              }
+            } catch (parseErr) {
+              if (parseErr instanceof Error && parseErr.message !== "Generation failed" && !parseErr.message.includes("JSON")) throw parseErr;
+            }
+          }
+        }
+      } catch (err) {
+        setGenError(err instanceof Error ? err.message : "Generation failed");
+        setMode("topics");
+      }
+    }, [getAuthHeaders]);
 
   // Fetch full article (including sections + metaDescription) before opening editor
   const handleEdit = useCallback(async (article: SavedArticle) => {
@@ -975,15 +1005,60 @@ export default function ContentEngine() {
         </div>
       )}
 
-      {/* Generating state */}
-      {mode === "generating" && (
-        <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <div className="w-8 h-8 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-[#6B7A99]">Drafting article in the WHC voice…</p>
-          <p className="text-xs text-[#8A9BB8]">This usually takes 10–20 seconds.</p>
-        </div>
-      )}
+      {/* Streaming preview — article sections reveal as they arrive */}
+        {mode === "streaming" && (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 mb-6">
+              <div className="w-5 h-5 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-[#0F1C3F]">
+                  {streamingMeta?.title ?? "Drafting article in the WHC voice…"}
+                </p>
+                <p className="text-xs text-[#6B7A99] mt-0.5">
+                  {streamingSections.length > 0
+                    ? `${streamingSections.length} section${streamingSections.length !== 1 ? "s" : ""} written`
+                    : "Thinking through the approach…"}
+                </p>
+              </div>
+            </div>
 
+            {streamingMeta?.excerpt && (
+              <div className="bg-[#F5F0E8] border border-[#DDD5C4] rounded-xl px-5 py-4">
+                <p className="text-[11px] font-semibold text-[#8A9BB8] uppercase tracking-widest mb-2">Excerpt</p>
+                <p className="text-sm text-[#4A5B7A] leading-relaxed">{streamingMeta.excerpt}</p>
+              </div>
+            )}
+
+            {streamingSections.map((section, i) => (
+              <div key={i} className="bg-white border border-[#DDD5C4] rounded-xl p-5 space-y-3">
+                {section.heading && (
+                  <h3 className="text-sm font-semibold text-[#0F1C3F] border-b border-[#F0EBE3] pb-2">{section.heading}</h3>
+                )}
+                {section.paragraphs.map((para, pi) => (
+                  <p key={pi} className="text-sm text-[#4A5B7A] leading-relaxed">{para}</p>
+                ))}
+              </div>
+            ))}
+
+            <div className="bg-white border border-[#DDD5C4] rounded-xl p-5">
+              <div className="space-y-2.5">
+                <div className="h-2.5 bg-[#F0EBE3] rounded-full animate-pulse w-1/3" />
+                <div className="h-2.5 bg-[#F0EBE3] rounded-full animate-pulse w-full" />
+                <div className="h-2.5 bg-[#F0EBE3] rounded-full animate-pulse w-5/6" />
+                <div className="mt-3 h-2.5 bg-[#F0EBE3] rounded-full animate-pulse w-full" />
+                <div className="h-2.5 bg-[#F0EBE3] rounded-full animate-pulse w-3/4" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Generating state — used while loading an existing article for editing */}
+        {mode === "generating" && (
+          <div className="flex flex-col items-center justify-center py-24 gap-4">
+            <div className="w-8 h-8 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-[#6B7A99]">Loading article…</p>
+          </div>
+        )}
       {/* Coverage panel */}
       {mode === "topics" && tab === "coverage" && (
         <CoveragePanel onDraft={handleDraftFromCoverage} />
