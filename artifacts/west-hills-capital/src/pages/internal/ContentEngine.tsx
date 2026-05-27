@@ -106,6 +106,21 @@ interface SectionRewriteState {
 function defaultRewriteState(): SectionRewriteState {
   return { open: false, instructions: "", status: "idle", suggestion: null, error: null };
 }
+interface ArticleRewriteState {
+    open: boolean;
+    direction: string;
+    status: "idle" | "loading" | "done" | "error";
+    streamingMeta: { title?: string; slug?: string; excerpt?: string; group?: string; metaDescription?: string } | null;
+    streamingSections: { heading?: string; paragraphs: string[] }[];
+    suggestion: DraftArticle | null;
+    error: string | null;
+  }
+
+  function defaultArticleRewriteState(): ArticleRewriteState {
+    return { open: false, direction: "", status: "idle", streamingMeta: null, streamingSections: [], suggestion: null, error: null };
+  }
+
+  
 
 // ─── ARTICLE EDITOR ───────────────────────────────────────────────────────────
 
@@ -135,6 +150,7 @@ function ArticleEditor({
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(!savedId);
   const [rewriteStates, setRewriteStates] = useState<Record<number, SectionRewriteState>>({});
+  const [articleRewrite, setArticleRewrite] = useState<ArticleRewriteState>(defaultArticleRewriteState());
 
   const getRewriteState = (si: number): SectionRewriteState =>
     rewriteStates[si] ?? defaultRewriteState();
@@ -188,6 +204,69 @@ function ArticleEditor({
     }
   }, [draft, rewriteStates, getAuthHeaders]);
 
+
+    const handleRewriteArticle = useCallback(async () => {
+      const dir = articleRewrite.direction.trim();
+      if (!dir) return;
+      setArticleRewrite((prev) => ({ ...prev, status: "loading", streamingMeta: null, streamingSections: [], suggestion: null, error: null }));
+      try {
+        const res = await fetch(`${API_BASE}/api/internal/content/rewrite-article`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+          body: JSON.stringify({ draft, direction: dir }),
+        });
+        if (!res.ok || !res.body) {
+          const errData = await res.json().catch(() => ({ error: "Rewrite failed" }));
+          throw new Error((errData as { error?: string }).error ?? "Rewrite failed");
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n");
+          buffer = parts.pop() ?? "";
+          for (const line of parts) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const event = JSON.parse(line.slice(6)) as { type: string; error?: string; title?: string; slug?: string; excerpt?: string; group?: string; metaDescription?: string; section?: { heading?: string; paragraphs: string[] }; draft?: DraftArticle };
+              if (event.type === "error") throw new Error(event.error ?? "Rewrite failed");
+              if (event.type === "meta") setArticleRewrite((prev) => ({ ...prev, streamingMeta: event }));
+              if (event.type === "section" && event.section) setArticleRewrite((prev) => ({ ...prev, streamingSections: [...prev.streamingSections, event.section!] }));
+              if (event.type === "done" && event.draft) {
+                setArticleRewrite((prev) => ({ ...prev, status: "done", suggestion: event.draft! }));
+                return;
+              }
+            } catch (parseErr) {
+              if (parseErr instanceof Error && !parseErr.message.includes("JSON")) throw parseErr;
+            }
+          }
+        }
+      } catch (err) {
+        setArticleRewrite((prev) => ({
+          ...prev,
+          status: "error",
+          error: err instanceof Error ? err.message : "Rewrite failed",
+        }));
+      }
+    }, [draft, articleRewrite.direction, getAuthHeaders]);
+
+    const acceptArticleRewrite = () => {
+      const s = articleRewrite.suggestion;
+      if (!s) return;
+      setDraft(s);
+      setSaveMsg(null);
+      setIsDirty(true);
+      setArticleRewrite(defaultArticleRewriteState());
+    };
+
+    const discardArticleRewrite = () => {
+      setArticleRewrite(defaultArticleRewriteState());
+    };
+
+  
   const acceptRewrite = (si: number) => {
     const suggestion = getRewriteState(si).suggestion;
     if (!suggestion) return;
@@ -351,6 +430,19 @@ function ArticleEditor({
           </a>
         )}
         <button
+            onClick={() => setArticleRewrite((prev) => ({ ...prev, open: !prev.open }))}
+            disabled={articleRewrite.status === "loading"}
+            className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded transition-colors disabled:opacity-50 ${
+              articleRewrite.open
+                ? "bg-[#C49A38] text-white"
+                : "bg-[#F5F0E8] border border-[#DDD5C4] text-[#4A5B7A] hover:text-[#C49A38] hover:border-[#C49A38]"
+            }`}
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Rewrite Article
+          </button>
+  
+        <button
           onClick={save}
           disabled={saving}
           className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded bg-[#F5F0E8] border border-[#DDD5C4] text-[#4A5B7A] hover:bg-[#E8E0D0] transition-colors disabled:opacity-50"
@@ -379,6 +471,119 @@ function ArticleEditor({
         )}
       </div>
 
+
+        {/* Article-level rewrite panel */}
+        {articleRewrite.open && (
+          <div className="bg-[#FDFAF5] border border-[#DDD5C4] rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#DDD5C4]">
+              <p className="text-xs font-semibold text-[#8A9BB8] uppercase tracking-widest mb-1">Rewrite entire article</p>
+              <p className="text-xs text-[#6B7A99] leading-relaxed">Describe the new direction — tone, angle, audience, or emphasis. Every section will be rewritten to align with it.</p>
+            </div>
+
+            {articleRewrite.status === "idle" || articleRewrite.status === "error" ? (
+              <div className="px-5 py-4 space-y-3">
+                <div className="flex gap-2">
+                  <textarea
+                    value={articleRewrite.direction}
+                    onChange={(e) => setArticleRewrite((prev) => ({ ...prev, direction: e.target.value }))}
+                    placeholder='E.g. "Write this for a first-time gold buyer who is skeptical" or "Shift tone to be warmer and more conversational throughout"'
+                    rows={3}
+                    className="flex-1 border border-[#DDD5C4] rounded-lg px-3 py-2 text-sm text-[#0F1C3F] placeholder:text-[#AAB3C4] resize-none focus:outline-none focus:border-[#C49A38] bg-white"
+                  />
+                  <button
+                    onClick={handleRewriteArticle}
+                    disabled={!articleRewrite.direction.trim()}
+                    className="shrink-0 flex flex-col items-center justify-center gap-1 w-24 text-xs font-semibold rounded-lg bg-[#C49A38] text-white hover:bg-[#B8882A] disabled:opacity-40 transition-colors"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Rewrite</span>
+                  </button>
+                </div>
+                {articleRewrite.status === "error" && articleRewrite.error && (
+                  <p className="text-xs text-red-500">{articleRewrite.error}</p>
+                )}
+              </div>
+            ) : articleRewrite.status === "loading" ? (
+              <div className="px-5 py-4 space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-4 h-4 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-[#0F1C3F]">
+                      {articleRewrite.streamingMeta?.title ?? "Rewriting article…"}
+                    </p>
+                    <p className="text-xs text-[#6B7A99] mt-0.5">
+                      {articleRewrite.streamingSections.length > 0
+                        ? `${articleRewrite.streamingSections.length} section${articleRewrite.streamingSections.length !== 1 ? "s" : ""} rewritten`
+                        : "Analyzing direction…"}
+                    </p>
+                  </div>
+                </div>
+                {articleRewrite.streamingMeta?.excerpt && (
+                  <div className="bg-[#F5F0E8] border border-[#DDD5C4] rounded-xl px-4 py-3">
+                    <p className="text-[11px] font-semibold text-[#8A9BB8] uppercase tracking-widest mb-1.5">New excerpt</p>
+                    <p className="text-sm text-[#4A5B7A] leading-relaxed">{articleRewrite.streamingMeta.excerpt}</p>
+                  </div>
+                )}
+                {articleRewrite.streamingSections.map((section, i) => (
+                  <div key={i} className="bg-white border border-[#DDD5C4] rounded-xl p-4 space-y-2">
+                    {section.heading && <h3 className="text-xs font-semibold text-[#0F1C3F] border-b border-[#F0EBE3] pb-1.5 mb-2">{section.heading}</h3>}
+                    {section.paragraphs.map((para, pi) => (
+                      <p key={pi} className="text-sm text-[#4A5B7A] leading-relaxed">{para}</p>
+                    ))}
+                  </div>
+                ))}
+                <div className="bg-white border border-[#DDD5C4] rounded-xl p-4">
+                  <div className="space-y-2">
+                    <div className="h-2.5 bg-[#F0EBE3] rounded-full animate-pulse w-1/3" />
+                    <div className="h-2.5 bg-[#F0EBE3] rounded-full animate-pulse w-full" />
+                    <div className="h-2.5 bg-[#F0EBE3] rounded-full animate-pulse w-5/6" />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="px-5 py-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[#0F1C3F]">{articleRewrite.suggestion?.title}</p>
+                    <p className="text-xs text-[#6B7A99] mt-0.5">{articleRewrite.streamingSections.length} sections rewritten</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={acceptArticleRewrite}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded bg-green-600 text-white hover:bg-green-700 transition-colors"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      Accept rewrite
+                    </button>
+                    <button
+                      onClick={discardArticleRewrite}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded bg-white border border-[#DDD5C4] text-[#6B7A99] hover:text-red-500 hover:border-red-200 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      Discard
+                    </button>
+                  </div>
+                </div>
+                {articleRewrite.streamingMeta?.excerpt && (
+                  <div className="bg-[#F5F0E8] border border-[#DDD5C4] rounded-xl px-4 py-3">
+                    <p className="text-[11px] font-semibold text-[#8A9BB8] uppercase tracking-widest mb-1.5">New excerpt</p>
+                    <p className="text-sm text-[#4A5B7A] leading-relaxed">{articleRewrite.streamingMeta.excerpt}</p>
+                  </div>
+                )}
+                {articleRewrite.streamingSections.map((section, i) => (
+                  <div key={i} className="bg-white border border-[#DDD5C4] rounded-xl p-4 space-y-2">
+                    {section.heading && <h3 className="text-xs font-semibold text-[#0F1C3F] border-b border-[#F0EBE3] pb-1.5 mb-2">{section.heading}</h3>}
+                    {section.paragraphs.map((para, pi) => (
+                      <p key={pi} className="text-sm text-[#4A5B7A] leading-relaxed">{para}</p>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+  
       {/* Meta fields */}
       <div className="bg-white border border-[#DDD5C4] rounded-xl p-5 space-y-4">
         <h3 className="text-xs font-semibold text-[#8A9BB8] uppercase tracking-widest">Article metadata</h3>
