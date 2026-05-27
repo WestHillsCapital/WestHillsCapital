@@ -245,7 +245,7 @@ router.post("/draft", async (req, res): Promise<void> => {
     const client = getAnthropicClient();
 
     const message = await client.messages.create({
-      model: "claude-3-haiku-20240307",
+      model: "claude-haiku-4-5",
       max_tokens: 3000,
       system: WHC_VOICE_SYSTEM_PROMPT,
       messages: [
@@ -468,7 +468,7 @@ Return ONLY a valid JSON object with this exact shape — no markdown, no explan
     const client = getAnthropicClient();
 
     const message = await client.messages.create({
-      model: "claude-3-haiku-20240307",
+      model: "claude-haiku-4-5",
       max_tokens: 1200,
       system: WHC_VOICE_SYSTEM_PROMPT,
       messages: [{ role: "user", content: prompt }],
