@@ -453,6 +453,133 @@ router.post("/articles/:id/unpublish", async (req, res): Promise<void> => {
   }
 });
 
+// POST /api/internal/content/rewrite-article
+// Body: { draft: DraftArticle, direction: string }
+// Takes the full current draft and a direction note, then rewrites the entire
+// article for coherence and alignment. Streams SSE: meta → section × N → done.
+router.post("/rewrite-article", async (req, res): Promise<void> => {
+  const { draft, direction } = req.body as {
+    draft?: Record<string, unknown>;
+    direction?: string;
+  };
+
+  if (!draft || typeof draft !== "object") {
+    res.status(400).json({ error: "draft is required" }); return;
+  }
+  if (!direction || typeof direction !== "string" || direction.trim().length < 3) {
+    res.status(400).json({ error: "direction is required" }); return;
+  }
+
+  const sections = Array.isArray(draft.sections) ? draft.sections as { heading?: string; paragraphs: string[] }[] : [];
+  if (sections.length === 0) {
+    res.status(400).json({ error: "draft has no sections" }); return;
+  }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+
+  const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+  const keepalive = setInterval(() => res.write(": keepalive\n\n"), 5000);
+
+  const sectionText = (s: { heading?: string; paragraphs: string[] }) =>
+    [s.heading ? `### ${s.heading}` : "", ...s.paragraphs].filter(Boolean).join("\n\n");
+
+  const currentArticle = sections
+    .map((s, i) => `SECTION ${i + 1}:\n${sectionText(s)}`)
+    .join("\n\n---\n\n");
+
+  const prompt = `The editor has written the following article titled: "${draft.title ?? "untitled"}"
+
+CURRENT ARTICLE:
+${currentArticle}
+
+---
+
+DIRECTION NOTE FROM EDITOR:
+${direction.trim()}
+
+---
+
+Rewrite the entire article so every section aligns with the direction note. The narrative, tone, and emphasis must be consistent from first paragraph to last — no section should contradict or ignore the new direction. Preserve the same number of sections and their approximate focus, but rewrite the content freely. The title, slug, excerpt, and group may be updated if the direction changes the angle significantly.
+
+Return ONLY a valid JSON object — no markdown, no explanation, no code fences — with this exact shape:
+{
+  "title": "string",
+  "slug": "string — lowercase, hyphens only",
+  "excerpt": "string — 2-3 sentences of plain prose",
+  "group": "one of: understanding-pricing | making-smart-decisions | ownership-and-practicality | choosing-who-to-trust",
+  "metaDescription": "string — 140–160 chars",
+  "sections": [
+    { "heading": "string or null", "paragraphs": ["string", "string"] }
+  ]
+}`;
+
+  try {
+    const client = getAnthropicClient();
+
+    const stream = client.messages.stream({
+      model: "claude-haiku-4-5",
+      max_tokens: 4000,
+      system: WHC_VOICE_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    let fullText = "";
+    for await (const chunk of stream) {
+      if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
+        fullText += chunk.delta.text;
+      }
+    }
+
+    clearInterval(keepalive);
+
+    const jsonMatch = fullText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      logger.error({ fullText }, "[Content] Rewrite-article: no JSON in response");
+      send({ type: "error", error: "AI returned an unexpected format" });
+      res.end(); return;
+    }
+
+    let rewritten: Record<string, unknown>;
+    try {
+      rewritten = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+    } catch {
+      send({ type: "error", error: "AI returned malformed JSON" });
+      res.end(); return;
+    }
+
+    send({
+      type: "meta",
+      title: rewritten.title,
+      slug: rewritten.slug,
+      excerpt: rewritten.excerpt,
+      group: rewritten.group,
+      metaDescription: rewritten.metaDescription,
+    });
+
+    const newSections = Array.isArray(rewritten.sections) ? rewritten.sections : [];
+    for (let i = 0; i < newSections.length; i++) {
+      await new Promise((r) => setTimeout(r, 80));
+      send({ type: "section", index: i, total: newSections.length, section: newSections[i] });
+    }
+
+    send({ type: "done", draft: rewritten });
+    res.end();
+  } catch (err) {
+    clearInterval(keepalive);
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("No Anthropic credentials configured")) {
+      send({ type: "error", error: "AI integration is not configured on this server." });
+    } else {
+      logger.error({ err }, "[Content] Rewrite-article failed");
+      send({ type: "error", error: `Rewrite failed: ${msg}` });
+    }
+    res.end();
+  }
+});
+
 // POST /api/internal/content/rewrite-section
 // Body: { articleTitle, instructions, currentSection, prevSection?, nextSection? }
 // Returns: { section: ArticleSection }
