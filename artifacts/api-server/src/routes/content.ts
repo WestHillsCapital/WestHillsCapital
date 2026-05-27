@@ -241,10 +241,14 @@ router.post("/draft", async (req, res): Promise<void> => {
     res.status(400).json({ error: "topic is required" }); return;
   }
 
+  // Stream the response so Railway's proxy never sees an idle connection.
+  // Whitespace chunks keep the connection alive; JSON.parse ignores them.
+  res.setHeader("Content-Type", "application/json");
+
   try {
     const client = getAnthropicClient();
 
-    const message = await client.messages.create({
+    const stream = client.messages.stream({
       model: "claude-haiku-4-5",
       max_tokens: 3000,
       system: WHC_VOICE_SYSTEM_PROMPT,
@@ -254,18 +258,24 @@ router.post("/draft", async (req, res): Promise<void> => {
           content: `Write an Insights article for West Hills Capital on this topic: ${topic.trim()}`,
         },
       ],
-    }, { timeout: 55000 });
+    });
 
-    const text = message.content
-      .filter((b) => b.type === "text")
-      .map((b) => (b as { type: "text"; text: string }).text)
-      .join("");
+    let fullText = "";
+    for await (const chunk of stream) {
+      if (
+        chunk.type === "content_block_delta" &&
+        chunk.delta.type === "text_delta"
+      ) {
+        fullText += chunk.delta.text;
+      }
+      res.write(" ");
+    }
 
-    // Parse JSON from response
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const jsonMatch = fullText.match(/{[\s\S]*}/);
     if (!jsonMatch) {
-      logger.error({ text }, "[Content] Anthropic response did not contain JSON");
-      res.status(500).json({ error: "AI returned an unexpected format" }); return;
+      logger.error({ fullText }, "[Content] Anthropic response did not contain JSON");
+      res.end(JSON.stringify({ error: "AI returned an unexpected format" }));
+      return;
     }
 
     let draft: unknown;
@@ -273,26 +283,25 @@ router.post("/draft", async (req, res): Promise<void> => {
       draft = JSON.parse(jsonMatch[0]);
     } catch (parseErr) {
       logger.error({ parseErr, json: jsonMatch[0].slice(0, 200) }, "[Content] Draft generation failed — invalid JSON from Anthropic");
-      res.status(500).json({ error: "AI returned malformed JSON — check server logs for details." }); return;
-    }
-    res.json({ draft });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    // Missing Anthropic credentials (either path)
-    if (msg.includes("No Anthropic credentials configured") || msg.includes("AI_INTEGRATIONS_ANTHROPIC")) {
-      logger.error({ err }, "[Content] Anthropic AI not configured — draft generation will fail");
-      res.status(500).json({ error: "AI integration is not configured on this server. Set ANTHROPIC_API_KEY in Railway environment variables." });
+      res.end(JSON.stringify({ error: "AI returned malformed JSON — check server logs for details." }));
       return;
     }
-    // Anthropic API errors carry a numeric status property
+    res.end(JSON.stringify({ draft }));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("No Anthropic credentials configured") || msg.includes("AI_INTEGRATIONS_ANTHROPIC")) {
+      logger.error({ err }, "[Content] Anthropic AI not configured — draft generation will fail");
+      res.end(JSON.stringify({ error: "AI integration is not configured on this server. Set ANTHROPIC_API_KEY in Railway environment variables." }));
+      return;
+    }
     const status = (err as Record<string, unknown>)["status"];
     if (typeof status === "number") {
       logger.error({ err, status, msg }, "[Content] Anthropic API error");
-      res.status(500).json({ error: `Anthropic API error (HTTP ${status}): ${msg}` });
+      res.end(JSON.stringify({ error: `Anthropic API error (HTTP ${status}): ${msg}` }));
       return;
     }
     logger.error({ err, msg }, "[Content] Draft generation failed (unexpected error)");
-    res.status(500).json({ error: `Draft generation failed: ${msg}` });
+    res.end(JSON.stringify({ error: `Draft generation failed: ${msg}` }));
   }
 });
 
