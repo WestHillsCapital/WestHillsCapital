@@ -9,6 +9,7 @@ const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 interface TopicCluster {
   cluster: string;
   topics: string[];
+  faqs: { q: string; a: string }[];
 }
 
 interface ArticleSection {
@@ -329,6 +330,7 @@ function ArticleEditor({
         group:           currentDraft.group,
         metaDescription: currentDraft.metaDescription,
         sections:        currentDraft.sections,
+        faqs:            currentDraft.faqs ?? [],
         related:         [],
       }),
     });
@@ -752,6 +754,73 @@ function ArticleEditor({
             </div>
           );
         })}
+
+        {/* FAQ editor */}
+        <div className="bg-white border border-[#DDD5C4] rounded-xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-[#8A9BB8] uppercase tracking-widest">FAQs for AI search ({draft.faqs?.length ?? 0})</h3>
+            <button
+              onClick={() => {
+                setDraft((d) => ({ ...d, faqs: [...(d.faqs ?? []), { q: "", a: "" }] }));
+                setIsDirty(true);
+              }}
+              className="text-[11px] font-semibold text-[#C49A38] hover:underline"
+            >
+              + Add question
+            </button>
+          </div>
+          {(draft.faqs ?? []).length === 0 && (
+            <p className="text-xs text-[#8A9BB8]">No FAQs yet. Click "Add question" or regenerate the article to auto-generate them.</p>
+          )}
+          {(draft.faqs ?? []).map((faq, fi) => (
+            <div key={fi} className="border border-[#DDD5C4] rounded-xl p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold text-[#8A9BB8] uppercase tracking-widest shrink-0">Q{fi + 1}</span>
+                <input
+                  value={faq.q}
+                  onChange={(e) => {
+                    setDraft((d) => {
+                      const faqs = [...(d.faqs ?? [])];
+                      faqs[fi] = { ...faqs[fi], q: e.target.value };
+                      return { ...d, faqs };
+                    });
+                    setIsDirty(true);
+                  }}
+                  placeholder="Question a reader would ask an AI assistant"
+                  className="flex-1 border-0 border-b border-[#DDD5C4] pb-1 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] bg-transparent"
+                />
+                <button
+                  onClick={() => {
+                    setDraft((d) => {
+                      const faqs = (d.faqs ?? []).filter((_, i) => i !== fi);
+                      return { ...d, faqs };
+                    });
+                    setIsDirty(true);
+                  }}
+                  className="shrink-0 text-[#AAB3C4] hover:text-red-400 transition-colors"
+                  title="Remove"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <textarea
+                value={faq.a}
+                onChange={(e) => {
+                  setDraft((d) => {
+                    const faqs = [...(d.faqs ?? [])];
+                    faqs[fi] = { ...faqs[fi], a: e.target.value };
+                    return { ...d, faqs };
+                  });
+                  setIsDirty(true);
+                }}
+                placeholder="1–3 sentence answer. Write it so an AI can quote it directly."
+                rows={2}
+                className="w-full border border-[#DDD5C4] rounded-lg px-3 py-2 text-sm text-[#4A5B7A] leading-relaxed resize-y focus:outline-none focus:border-[#C49A38]"
+              />
+            </div>
+          ))}
+        </div>
+  
       </div>
     </div>
   );
@@ -1149,6 +1218,7 @@ export default function ContentEngine() {
         group: full.group,
         metaDescription: full.metaDescription ?? "",
         sections: full.sections ?? [],
+        faqs: full.faqs ?? [],
       });
       setMode("editing");
     } catch (err) {
