@@ -485,6 +485,10 @@ export async function initDb(): Promise<void> {
     "ALTER TABLE content_articles ADD COLUMN IF NOT EXISTS meta_description TEXT NOT NULL DEFAULT ''"
   ).catch(() => {});
 
+  await db.query(
+    "ALTER TABLE content_articles ADD COLUMN IF NOT EXISTS faqs JSONB NOT NULL DEFAULT '[]'"
+  ).catch(() => {});
+
   // ── Deals table ────────────────────────────────────────────────────────────
 
   await db.query(`
@@ -1694,6 +1698,8 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS deletion_requested_by TEXT`);
   // Post-trial data retention — set when a trial ends without converting; cleared on subscribe
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS trial_ended_at TIMESTAMPTZ`);
+  // Trial end date — set at signup so billing UI can show countdown before Stripe subscription exists
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ`);
   // Set by the purge job after org content is deleted; prevents re-processing
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS data_purged_at TIMESTAMPTZ`);
 
@@ -2115,6 +2121,17 @@ export async function initDb(): Promise<void> {
   // Stamped when the automated reminder email is sent so we don't re-send.
   await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMPTZ`);
 
+  // ── Demo package flag ──────────────────────────────────────────────────────
+  // Demo packages are seeded automatically on account creation and must not
+  // count against the free-plan package quota — otherwise users hit the upgrade
+  // wall before they can create a single real package of their own.
+  await db.query(`ALTER TABLE docuplete_packages ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`);
+
+  // ── Per-account field color palette ────────────────────────────────────────
+  // Stored as a JSON text array of hex strings (e.g. '["#C4A06B","#7A9E82"]').
+  // NULL means "use the application default palette".
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS field_palette TEXT`);
+
   // ── Status page incidents ──────────────────────────────────────────────────
   await db.query(`
     CREATE TABLE IF NOT EXISTS status_incidents (
@@ -2215,9 +2232,7 @@ export async function pruneRetainedSubmissions(): Promise<void> {
     if (gcsKeys.length > 0) {
       await Promise.allSettled(
         gcsKeys.map((key) =>
-          objectStorage
-            .getObjectEntityFile(key)
-            .then((f) => f.delete({ ignoreNotFound: true }))
+          objectStorage.deleteObject(key)
             .catch((err) => logger.warn({ err, key }, "[DB] GCS cleanup for retained submission failed (non-fatal)")),
         ),
       );
@@ -2284,9 +2299,7 @@ export async function processScheduledDeletions(): Promise<void> {
         if (sessionGcsKeys.length > 0) {
           await Promise.allSettled(
             sessionGcsKeys.map((key) =>
-              objectStorage
-                .getObjectEntityFile(key)
-                .then((f) => f.delete({ ignoreNotFound: true }))
+              objectStorage.deleteObject(key)
                 .catch((err) => logger.warn({ err, key, accountId: account.id }, "[DB] GCS cleanup for deleted account session failed (non-fatal)")),
             ),
           );
@@ -2336,9 +2349,7 @@ export async function purgeExpiredTrialData(): Promise<void> {
         if (trialGcsKeys.length > 0) {
           await Promise.allSettled(
             trialGcsKeys.map((key) =>
-              objectStorage
-                .getObjectEntityFile(key)
-                .then((f) => f.delete({ ignoreNotFound: true }))
+              objectStorage.deleteObject(key)
                 .catch((err) => logger.warn({ err, key, accountId: account.id }, "[DB] GCS cleanup for lapsed trial session failed (non-fatal)")),
             ),
           );
@@ -2406,9 +2417,7 @@ export async function pruneExpiredDocupleteSessions(): Promise<void> {
     if (gcsKeys.length > 0) {
       await Promise.allSettled(
         gcsKeys.map((key) =>
-          objectStorage
-            .getObjectEntityFile(key)
-            .then((f) => f.delete({ ignoreNotFound: true }))
+          objectStorage.deleteObject(key)
             .catch((err) => logger.warn({ err, key }, "[DB] GCS cleanup for expired draft session failed (non-fatal)")),
         ),
       );
