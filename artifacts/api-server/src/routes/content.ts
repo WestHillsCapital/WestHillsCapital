@@ -119,6 +119,9 @@ FIRM BACKGROUND:
 - Clients commit on the phone call, wire funds, receive metal via FedEx 2-Day fully insured with adult signature required.
 - Core philosophy: physical metal is real money. Not a certificate, not a fund, not a paper claim. The metal is yours outright.
 
+ANSWER-FIRST RULE (critical for AI search visibility):
+The lede section (first section, no heading) must open with a direct, declarative sentence that answers the question or states the core claim of the title. No warmup. No "Many people wonder..." No "It depends." State the answer plainly in the very first sentence, then build from there. Example: if the title is "What spot price really means," the first sentence should be something like: "Spot price is the financial market's reference price for an ounce of gold — but it is not what physical buyers actually pay." Every subsequent section should build on or deepen that opening answer.
+
 OUTPUT FORMAT:
 Return ONLY a valid JSON object — no markdown, no explanation, no code fences — with this exact shape:
 {
@@ -129,6 +132,9 @@ Return ONLY a valid JSON object — no markdown, no explanation, no code fences 
   "metaDescription": "string — 140–160 chars, plain language, no first-person",
   "sections": [
     { "heading": "string", "paragraphs": ["string", "string"] }
+  ],
+  "faqs": [
+    { "q": "string — exact question a reader would type into an AI assistant", "a": "string — 1-3 sentence direct answer, self-contained and quotable" }
   ]
 }
 
@@ -139,7 +145,8 @@ ARTICLE REQUIREMENTS:
 - metaDescription: 140–160 characters exactly. Informative, plain, no clickbait
 - Sections: 8–12 sections total. First section often has no heading (the lede). Each section has 2–4 paragraphs.
 - Group: pick the group that fits best
-- Paragraphs: each paragraph is a complete, standalone sentence or set of sentences. Aim for 2–5 sentences per paragraph.`;
+- Paragraphs: each paragraph is a complete, standalone sentence or set of sentences. Aim for 2–5 sentences per paragraph.
+- FAQs: 5–7 questions a real reader would ask an AI assistant about this topic. Each answer must be a standalone, citable statement — no "it depends," no references to "this article." Write them as if Perplexity will quote them directly.`;
 
 // ─── PUBLIC ENDPOINT ──────────────────────────────────────────────────────────
 
@@ -151,7 +158,7 @@ publicContentRouter.get("/published", async (_req, res) => {
   try {
     const db = getDb();
     const { rows } = await db.query(`
-      SELECT id, slug, title, excerpt, group_id, meta_description, sections, related, published_at
+      SELECT id, slug, title, excerpt, group_id, meta_description, sections, related, faqs, published_at
       FROM content_articles
       WHERE status = 'published'
       ORDER BY published_at DESC
@@ -164,6 +171,7 @@ publicContentRouter.get("/published", async (_req, res) => {
       metaDescription: r.meta_description,
       sections: r.sections,
       related: r.related,
+      faqs: r.faqs ?? [],
       publishedAt: r.published_at,
     }));
     res.json({ articles });
@@ -206,7 +214,7 @@ router.get("/articles/:id", async (req, res): Promise<void> => {
   try {
     const db = getDb();
     const { rows } = await db.query(
-      `SELECT id, slug, title, excerpt, group_id, meta_description, sections, related, status, published_at
+      `SELECT id, slug, title, excerpt, group_id, meta_description, sections, related, faqs, status, published_at
        FROM content_articles WHERE id = $1`,
       [id]
     );
@@ -222,6 +230,7 @@ router.get("/articles/:id", async (req, res): Promise<void> => {
         metaDescription: r.meta_description,
         sections: r.sections,
         related: r.related,
+        faqs: r.faqs ?? [],
         status: r.status,
         publishedAt: r.published_at,
       },
@@ -329,7 +338,7 @@ router.post("/draft", async (req, res): Promise<void> => {
 // POST /api/internal/content/articles
 // Saves a draft article.
 router.post("/articles", async (req, res): Promise<void> => {
-  const { slug, title, excerpt, group, metaDescription, sections, related } = req.body as {
+  const { slug, title, excerpt, group, metaDescription, sections, related, faqs } = req.body as {
     slug?: string;
     title?: string;
     excerpt?: string;
@@ -337,6 +346,7 @@ router.post("/articles", async (req, res): Promise<void> => {
     metaDescription?: string;
     sections?: unknown;
     related?: unknown;
+    faqs?: unknown;
   };
 
   if (!slug || !title || !excerpt || !group || !metaDescription || !sections) {
@@ -346,8 +356,8 @@ router.post("/articles", async (req, res): Promise<void> => {
   try {
     const db = getDb();
     const { rows } = await db.query(
-      `INSERT INTO content_articles (slug, title, excerpt, group_id, meta_description, sections, related, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'draft')
+      `INSERT INTO content_articles (slug, title, excerpt, group_id, meta_description, sections, related, faqs, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft')
        ON CONFLICT (slug) DO UPDATE
          SET title = EXCLUDED.title,
              excerpt = EXCLUDED.excerpt,
@@ -355,9 +365,10 @@ router.post("/articles", async (req, res): Promise<void> => {
              meta_description = EXCLUDED.meta_description,
              sections = EXCLUDED.sections,
              related = EXCLUDED.related,
+             faqs = EXCLUDED.faqs,
              updated_at = NOW()
        RETURNING id, slug, status`,
-      [slug, title, excerpt, group, metaDescription, JSON.stringify(sections), JSON.stringify(related ?? [])]
+      [slug, title, excerpt, group, metaDescription, JSON.stringify(sections), JSON.stringify(related ?? []), JSON.stringify(faqs ?? [])]
     );
     res.json({ article: rows[0] });
   } catch (err) {
@@ -372,7 +383,7 @@ router.patch("/articles/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { slug, title, excerpt, group, metaDescription, sections, related } = req.body as {
+  const { slug, title, excerpt, group, metaDescription, sections, related, faqs } = req.body as {
     slug?: string;
     title?: string;
     excerpt?: string;
@@ -380,6 +391,7 @@ router.patch("/articles/:id", async (req, res): Promise<void> => {
     metaDescription?: string;
     sections?: unknown;
     related?: unknown;
+    faqs?: unknown;
   };
 
   try {
@@ -393,12 +405,14 @@ router.patch("/articles/:id", async (req, res): Promise<void> => {
            meta_description = COALESCE($6, meta_description),
            sections = COALESCE($7, sections),
            related = COALESCE($8, related),
+           faqs = COALESCE($9, faqs),
            updated_at = NOW()
        WHERE id = $1
        RETURNING id, slug, title, status`,
       [id, slug, title, excerpt, group, metaDescription,
        sections ? JSON.stringify(sections) : null,
-       related ? JSON.stringify(related) : null]
+       related ? JSON.stringify(related) : null,
+       faqs ? JSON.stringify(faqs) : null]
     );
     if (rows.length === 0) { res.status(404).json({ error: "Article not found" }); return; }
     res.json({ article: rows[0] });

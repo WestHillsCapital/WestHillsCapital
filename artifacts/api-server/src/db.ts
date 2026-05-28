@@ -485,6 +485,10 @@ export async function initDb(): Promise<void> {
     "ALTER TABLE content_articles ADD COLUMN IF NOT EXISTS meta_description TEXT NOT NULL DEFAULT ''"
   ).catch(() => {});
 
+  await db.query(
+    "ALTER TABLE content_articles ADD COLUMN IF NOT EXISTS faqs JSONB NOT NULL DEFAULT '[]'"
+  ).catch(() => {});
+
   // ── Deals table ────────────────────────────────────────────────────────────
 
   await db.query(`
