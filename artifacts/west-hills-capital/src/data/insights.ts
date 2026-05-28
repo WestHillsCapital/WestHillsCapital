@@ -17,6 +17,7 @@ export interface InsightArticle {
   metaDescription: string;
   sections: InsightSection[];
   related: string[];
+  faqs?: { q: string; a: string }[];
   foundersPerspective?: boolean;
   publishedAt?: string;
 }
