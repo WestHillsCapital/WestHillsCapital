@@ -141,7 +141,14 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
     ],
-    related: [
+
+    faqs: [
+      { q: "what is spot price for gold and silver", a: "Spot price is the current market price for one ounce of gold or silver based on global financial trading, primarily through large exchanges and over-the-counter markets. It's the industry reference point, but it reflects financial market activity—not the actual price you pay for physical metal." },
+      { q: "why is spot price different from what I actually pay", a: "Spot price is the starting point; your actual price is spot plus premium, which covers refining, minting, shipping, insurance, storage, and handling of the physical product. Premiums are normal and necessary costs that reflect real-world logistics." },
+      { q: "does spot price reflect supply and demand for physical metals", a: "No—spot price is shaped largely by financial contracts and institutional trading, not physical metal changing hands; fewer than 1% of futures contracts result in actual delivery. The financial market and physical market often move together but operate on different logic." },
+      { q: "who sets the spot price of gold", a: "No single company or dealer sets spot price; it comes from global markets where metals trade continuously, based on buying and selling activity, market expectations, and broader financial conditions across major exchanges." },
+      { q: "should I try to time spot price when buying physical gold", a: "No—as a long-term buyer of physical metal, you don't need to predict or time spot price movements; understanding what spot represents and what it doesn't is far more valuable than chasing daily fluctuations." },
+    ],    related: [
       "paper-gold-vs-physical-gold-why-the-market-is-changing",
       "why-people-overpay-for-gold-and-silver",
       "bullion-vs-proof-coins",
@@ -242,7 +249,14 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
     ],
-    related: [
+
+    faqs: [
+      { q: "why is the price of gold different on different exchanges", a: "Gold no longer trades at a single global price because physical delivery demand and Eastern markets like Shanghai now exert independent pricing power. When futures markets were dominated by cash settlement with minimal physical delivery, prices stayed synchronized, but the surge in actual metal demand and China's role as the world's largest producer and consumer have created multiple pricing centers that don't always agree." },
+      { q: "what's the difference between allocated and unallocated gold", a: "Allocated gold means specific bars are set aside and identified in your name—you own them outright. Unallocated gold means you hold a claim on a shared pool of metal, and if the institution fails, your claim lines up behind others in a queue." },
+      { q: "why do futures contracts matter if most don't result in physical delivery", a: "Futures markets set the benchmark price most people see, even though historically fewer than 1% of contracts end in actual delivery; the rest settle in cash or roll forward. This means the global gold price has been determined by traders who never intended to hold real metal, a dynamic that's only now being challenged by increased physical delivery demand." },
+      { q: "is Shanghai gold price more accurate than London or New York", a: "Shanghai's pricing reflects physical supply and demand more directly because the Shanghai Gold Exchange operates with significantly higher physical delivery rates than Western exchanges. As China's economic weight has grown, Shanghai pricing has become equally authoritative, not subordinate to Western markets." },
+      { q: "should I buy physical gold or futures contracts", a: "Physical gold gives you direct ownership of metal when markets diverge in ways that create premiums for actual delivery, whereas futures contracts tie you to exchange pricing and settlement rules that may not serve long-term physical buyers. The choice depends on whether you want to own metal outright or participate in price exposure through leverage and cash settlement." },
+    ],    related: [
       "what-spot-price-really-means",
       "what-happens-after-you-buy-gold",
       "why-people-overpay-for-gold-and-silver",
@@ -384,7 +398,14 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
     ],
-    related: [
+
+    faqs: [
+      { q: "How much premium over spot price should I expect to pay for gold and silver bullion?", a: "Legitimate premiums for standard bullion typically range from 3–8% above spot price, depending on the product and market conditions; this covers refining, minting, shipping, insurance, and the dealer's margin. Anything significantly higher should raise questions about what you're actually paying for." },
+      { q: "Why do proof coins and graded coins cost so much more than regular bullion?", a: "Proof coins and graded coins carry collector premiums based on rarity, condition, and certification—not additional metal content. If your goal is metal ownership for wealth preservation, you're paying extra for collector value you may never recover." },
+      { q: "Is fractional gold worth buying?", a: "Fractional pieces (tenth-ounce, quarter-ounce coins) have higher per-ounce premiums than one-ounce coins, meaning you're paying more to own the same amount of gold. They make sense only if liquidity at smaller denominations is a priority for your specific situation." },
+      { q: "What does 'bonus metal' or 'free silver' offers really mean?", a: "There is no free metal—the cost is built into the transaction price somewhere, just not itemized separately. Comparing these bundle offers against straight bullion pricing on identical products will always show the markup." },
+      { q: "How do I know if I'm overpaying for precious metals?", a: "Compare per-ounce costs across identical products from multiple dealers, ask what percentage of your payment goes directly to metal versus markup, and stick to simple bullion if your goal is wealth preservation rather than collecting. If the sales pitch focuses on scarcity or emotion instead of weight and purity, that's a warning sign." },
+    ],    related: [
       "why-we-recommend-only-three-products",
       "why-free-silver-is-never-free",
       "bullion-vs-proof-coins",
@@ -499,7 +520,14 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
     ],
-    related: [
+
+    faqs: [
+      { q: "Why do precious metals dealers offer free silver or bonus coins?", a: "Dealers offer free silver because the commissions built into your purchase are large enough to cover it and still leave profit—they're not losing money, they're restructuring the transaction through higher premiums, product substitution, or wider buy-sell spreads." },
+      { q: "How do dealers make money if they're giving away free metal?", a: "They restructure pricing through three main mechanisms: increasing premiums on your main purchase, steering you toward higher-commission products like proof coins, or widening the spread between buy and sell prices so you receive less when you eventually sell." },
+      { q: "What should I actually compare when evaluating a precious metals purchase?", a: "Compare total ounces received for your money, the price relative to spot, the product type, and the buy-back value when you sell—ignore promotional narratives and focus entirely on how much physical metal you're actually getting." },
+      { q: "Why do people overpay for precious metals with free offers?", a: "Free promotions shift attention away from price per ounce and total value toward perceived gain, making the transaction feel positive and generous even when you're paying more per ounce than a straightforward purchase would cost." },
+      { q: "How can I tell if a precious metals deal is actually good?", a: "Calculate the total cost divided by total ounces received, compare it to spot price plus a reasonable markup, and verify the buy-back spread—if the math isn't immediately clear, the offer probably isn't either." },
+    ],    related: [
       "why-people-overpay-for-gold-and-silver",
       "the-one-question-every-gold-buyer-should-ask",
       "how-to-choose-a-gold-dealer-without-getting-burned",
@@ -627,7 +655,14 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
     ],
-    related: [
+
+    faqs: [
+      { q: "What's the difference between bullion coins and proof coins?", a: "Bullion coins are mass-produced for investment and priced close to the metal's spot value, while proof coins are specially minted with polished dies and presentation packaging, carrying significant numismatic premiums. Both contain identical amounts of precious metal, but proof coins cost more because buyers are paying for collectibility and appearance, not additional metal." },
+      { q: "Do bullion and proof coins have the same amount of gold or silver?", a: "Yes, a bullion coin and proof coin of the same denomination contain exactly the same weight and purity of precious metal. The difference is purely in how they're minted and packaged, which affects the price you pay but not the metal content." },
+      { q: "Why does premium matter when buying precious metals?", a: "Premium is the markup above spot price, and higher premiums mean less of your money converts into actual metal ounces. If two investors spend the same amount but one buys bullion with lower premiums and one buys proof coins with higher premiums, the bullion buyer ends up with significantly more ounces for the same price." },
+      { q: "Should I buy proof coins or bullion for wealth preservation?", a: "For wealth preservation and long-term ownership, bullion is the better choice because it minimizes premium costs and maximizes your metal exposure per dollar spent. Proof coins introduce subjective value dependent on collector demand, whereas bullion tracks metal price directly, making it more predictable for investment purposes." },
+      { q: "How do I know if a dealer is charging fair prices on precious metals?", a: "Ask the dealer: if you buy today and sell back today, what will they pay you? That spread tells you immediately whether the premium and markups are reasonable, and it's the clearest way to evaluate real value versus inflated pricing." },
+    ],    related: [
       "why-we-recommend-only-three-products",
       "why-people-overpay-for-gold-and-silver",
       "what-spot-price-really-means",
@@ -751,7 +786,14 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
     ],
-    related: [
+
+    faqs: [
+      { q: "what does the gold to silver ratio mean", a: "The gold-to-silver ratio tells you how many ounces of silver it takes to buy one ounce of gold. If the ratio is 80 to 1, you need 80 ounces of silver to equal the value of 1 ounce of gold." },
+      { q: "is the gold silver ratio a good timing signal", a: "No. The ratio shows relative pricing between the two metals right now, but it doesn't predict what happens next and is heavily influenced by financial market activity rather than physical supply and demand alone." },
+      { q: "why does the gold to silver ratio change", a: "Gold and silver move differently—gold acts primarily as a store of value while silver has both monetary and industrial uses, making it more volatile. When one metal rises or falls faster than the other, the ratio shifts." },
+      { q: "what does a high gold silver ratio mean", a: "A historically high ratio suggests silver is priced low relative to gold at that moment, but this reflects current market positioning and doesn't guarantee the ratio will fall or that silver is undervalued overall." },
+      { q: "should I use the ratio to decide between buying gold or silver", a: "Some investors use it as a guide for slight portfolio tilts, while others ignore it entirely and focus on long-term ownership and simplicity. Your choice depends on your goals and whether relative pricing matters to your strategy." },
+    ],    related: [
       "when-does-it-actually-make-sense-to-adjust-between-gold-and-silver",
       "why-pricing-everything-in-dollars-can-be-misleading",
       "what-spot-price-really-means",
@@ -886,7 +928,14 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
     ],
-    related: [
+
+    faqs: [
+      { q: "Should I switch between gold and silver to time the market?", a: "No. Gold and silver serve different purposes—they're not competing investments to be traded back and forth. Constant switching leads to higher costs, poor timing, and overthinking; the real decision is how much of your wealth should be outside the dollar system, not how to divide between the two metals." },
+      { q: "What's the difference between gold and silver as stores of value?", a: "Gold is primarily a store of value—compact, efficient, and held by institutions worldwide—while silver is part monetary and part industrial, making it more volatile and space-intensive. Gold preserves; silver amplifies. Both belong in a portfolio, but they play different roles." },
+      { q: "When is it reasonable to adjust my gold to silver ratio?", a: "Adjustments make sense in three situations: when the gold-to-silver ratio stretches far beyond its historical range, when your allocation drifts from your original intent due to one metal outperforming the other, or when your personal objectives change. Even then, adjustments should be small and gradual, not major shifts." },
+      { q: "Should I use the gold-to-silver ratio to make buying decisions?", a: "The ratio provides useful context by showing how the metals are priced relative to each other, but it should not drive constant decision-making. An extreme ratio may signal imbalance, but that's different from timing certainty—it may justify a small adjustment, nothing more." },
+      { q: "How do I decide whether to hold more gold or more silver?", a: "Base it on your personal situation, not market predictions: gold offers more stability due to its compact value density, while silver suits those comfortable with volatility and who have adequate storage space. Your allocation should reflect your actual purpose and constraints, not market calls." },
+    ],    related: [
       "what-the-gold-to-silver-ratio-actually-means",
       "gold-vs-silver-storage-transport-and-real-world-practicality",
       "why-pricing-everything-in-dollars-can-be-misleading",
@@ -1003,7 +1052,14 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
     ],
-    related: [
+
+    faqs: [
+      { q: "Why is measuring everything in dollars misleading?", a: "The dollar's purchasing power changes constantly due to inflation and monetary policy, so a rising dollar price doesn't tell you whether something actually became more or less valuable relative to other assets. Measuring in dollars alone hides whether capital is rotating between asset classes or if relationships are moving to historical extremes." },
+      { q: "How do I compare asset values without relying on dollar prices?", a: "Look at the ratio between two assets instead—for example, how many ounces of gold equal the price of a median home at different points in history. This removes inflation noise and reveals whether one asset has become stretched relative to another, showing you patterns that dollar prices alone conceal." },
+      { q: "What does it mean when the relationship between assets stretches far from historical ranges?", a: "It signals that capital may be out of balance between those asset classes, which can help you decide where to adjust exposure—not as a prediction tool, but as a way to stay oriented and make more informed long-term decisions." },
+      { q: "Can relative asset pricing tell me exactly when to buy or sell?", a: "No—it shows you the relationship between assets and whether extremes are present, but it doesn't predict timing or guarantee outcomes. Two assets can stay out of balance much longer than expected, and the underlying system itself can shift over time." },
+      { q: "How should I use relative pricing in my long-term investment approach?", a: "Use it for context and orientation rather than prediction: when one asset looks stretched relative to another, pay attention and consider adjusting exposure; when relationships are closer to historical ranges, there's less urgency. It's about making steadier decisions over time, not timing the market." },
+    ],    related: [
       "what-the-gold-to-silver-ratio-actually-means",
       "when-does-it-actually-make-sense-to-adjust-between-gold-and-silver",
       "how-to-choose-a-gold-dealer-without-getting-burned",
@@ -1135,7 +1191,14 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
     ],
-    related: [
+
+    faqs: [
+      { q: "What's the difference between taking delivery of gold and storing it in an IRA?", a: "Taking delivery means you physically receive and store the metal yourself—you have full control but are responsible for security and storage. An IRA keeps metals in a depository managed by a custodian—you own it but don't physically hold it, and access is governed by retirement account rules." },
+      { q: "Should I store gold at home or in a safe deposit box?", a: "Home storage gives you immediate access and full control, but requires serious security planning. Safe deposit boxes limit access to bank hours, don't always include insurance the way people assume, and can make it hard to prove contents if problems arise—which is why many serious investors avoid them." },
+      { q: "How do I sell physical gold or silver when I need the money?", a: "You contact a dealer, agree on a price at market rates, arrange to ship or deliver the metal, and receive payment—it's straightforward but takes days, not minutes. The dealer will pay market price minus their spread, so if you overpaid on premiums when buying, that gap becomes obvious when you sell." },
+      { q: "Why does silver take up so much more space than gold?", a: "Silver is far less dense than gold, so you need significantly more weight and volume to store equivalent value—this affects how you store it, transport it, and how quickly you can liquidate it if needed." },
+      { q: "What should I document after buying physical metals?", a: "Keep clear records of what you own, verify it's properly insured, and make sure someone you trust knows how to access it if something happens to you—this matters whether you're moving, selling, or planning for the future." },
+    ],    related: [
       "gold-vs-silver-storage-transport-and-real-world-practicality",
       "gold-ira-what-actually-happens-step-by-step",
       "why-people-overpay-for-gold-and-silver",
@@ -1266,7 +1329,14 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
     ],
-    related: [
+
+    faqs: [
+      { q: "how much space do you need to store $100,000 in gold vs silver", a: "Gold worth $100,000 fits in the palm of your hand, while the same amount in silver requires multiple heavy boxes. This difference compounds with larger allocations and directly impacts storage security, logistics, and overall practicality." },
+      { q: "are bank safe deposit boxes actually insured for precious metals", a: "No. Bank safe deposit boxes typically do not insure contents the way most people assume, access is limited to bank hours, and proving what was inside if something goes wrong is difficult. Many serious metal owners avoid this option entirely for these reasons." },
+      { q: "what's the best way to store physical gold and silver at home", a: "Home storage gives you immediate access, full control, and zero ongoing fees, but it requires strong security measures, discretion, and careful planning—demands that increase significantly with the amount of silver you hold." },
+      { q: "is it easier to sell gold or silver when you need to", a: "Gold is easier to transact in large amounts because it requires fewer units and is faster to handle, while silver involves more individual units, more physical handling, and more logistics, making larger sales more cumbersome." },
+      { q: "should I buy more silver because the gold silver ratio is high", a: "Not without thinking through storage, transport, and resale logistics first. A high ratio might look attractive theoretically, but silver's bulk and weight make it far less efficient to store and move at scale compared to gold." },
+    ],    related: [
       "what-happens-after-you-buy-gold",
       "the-one-question-every-gold-buyer-should-ask",
       "why-people-overpay-for-gold-and-silver",
@@ -1392,7 +1462,14 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
     ],
-    related: [
+
+    faqs: [
+      { q: "What's the difference between a regular IRA and a self-directed IRA for physical gold?", a: "A regular IRA limits you to stocks, bonds, and mutual funds, while a self-directed IRA allows broader investments including physical gold and silver. Both are administered by a custodian, but the self-directed version opens the door to tangible assets." },
+      { q: "Do I need to do a direct transfer or can I do a rollover when moving money into a gold IRA?", a: "Both work, but a direct transfer moves funds institution-to-institution and is cleaner, while an indirect rollover puts the money in your hands for 60 days before deposit—miss that window and you face taxes and penalties. Direct transfers are simpler and avoid that risk." },
+      { q: "What purity standards does the IRS require for gold and silver in an IRA?", a: "Gold must be .995 fine and silver must be .999 fine—standards that standard bullion coins and bars easily meet. Anything below those thresholds won't qualify for an IRA." },
+      { q: "Should I buy proof coins or standard bullion for a gold IRA?", a: "Standard bullion is the right choice for an IRA because it meets purity requirements, carries lower premiums, and maximizes your exposure to actual metal. Proof coins have higher premiums with no additional benefit inside a retirement account." },
+      { q: "Can I store my gold IRA metals at home or in a safe deposit box?", a: "No—IRS rules require that IRA metals be stored in an approved depository, not at home or in a personal safe deposit box. The custodian arranges this storage at a secure facility designed for that purpose." },
+    ],    related: [
       "what-happens-after-you-buy-gold",
       "how-to-choose-a-gold-dealer-without-getting-burned",
       "the-one-question-every-gold-buyer-should-ask",
@@ -1506,7 +1583,14 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
     ],
-    related: [
+
+    faqs: [
+      { q: "What's the difference between spot price and what I actually pay for gold?", a: "Spot price is the live market rate; what you pay includes a premium on top of that, which covers the dealer's costs and margin. The real measure of that premium is asking what the dealer would pay you back for the same product today—that gap reveals your true cost." },
+      { q: "How do I know if a precious metals dealer is charging fair prices?", a: "Ask them directly: if you bought it today, what would they pay you back for it today? A clear, specific number shows transparent pricing; vague answers or deflection are red flags that the spread is larger than it should be." },
+      { q: "Why do some gold coins cost so much more than others?", a: "Coins carry different premiums based on rarity, condition, and demand—proof coins and numismatics typically have much larger markups than bullion. The only way to know if that premium is justified is to ask what you'd get paid back immediately." },
+      { q: "Should I buy gold right now or wait for prices to drop?", a: "Timing the market is impossible; what matters is understanding your actual cost going in. Focus on buying from dealers with tight spreads and transparent pricing rather than chasing the perfect entry point." },
+      { q: "What's the best question to ask before buying precious metals?", a: "Ask: if I buy this today, what would you pay me back for it today? This single question cuts through marketing and product narratives to show you the real spread and whether pricing is actually transparent." },
+    ],    related: [
       "why-people-overpay-for-gold-and-silver",
       "why-free-silver-is-never-free",
       "how-to-choose-a-gold-dealer-without-getting-burned",
@@ -1612,7 +1696,14 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
     ],
-    related: [
+
+    faqs: [
+      { q: "Why do gold dealers have such different prices if they're selling the same product?", a: "Precious metals pricing is not standardized—there's no universal pricing model across the industry. Dealers set their own markups, spreads, and premiums based on their business model, and those margins vary widely depending on how the company makes money and what products it prioritizes." },
+      { q: "How do celebrity endorsements affect gold dealer pricing?", a: "Celebrity endorsements are paid arrangements funded by marketing budgets that come directly from product margins. The cost of those endorsements has to be covered somewhere, which often means higher markups, wider spreads, or steering customers toward higher-margin products." },
+      { q: "What's the best question to ask a gold dealer to understand their pricing?", a: "Ask: \"What would you pay me for this today?\" That single question reveals their actual margins and buyback spread more clearly than any presentation or marketing pitch ever will." },
+      { q: "Should I trust reviews with high star ratings when choosing a gold dealer?", a: "Star ratings are the least informative part of reviews. Focus instead on negative reviews for patterns—complaints about product switching, unexpected markups, pressure tactics, or difficulty selling back—and watch how the company responds to criticism." },
+      { q: "How can I tell if a dealer is focused on their margin instead of my interests?", a: "A dealer aligned with your interests keeps the conversation on ounces, price relative to spot, and simple products. A dealer focused on their own margin steers toward exclusive offerings, limited editions, product stories, and unnecessary complexity—because complexity is usually where the margin hides." },
+    ],    related: [
       "the-one-question-every-gold-buyer-should-ask",
       "gold-ira-what-actually-happens-step-by-step",
       "why-people-overpay-for-gold-and-silver",
@@ -1777,7 +1868,14 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
     ],
-    related: [
+
+    faqs: [
+      { q: "Why do you only sell three products instead of offering more options?", a: "Limiting to the 1 oz Gold American Eagle, 1 oz Gold American Buffalo, and 1 oz Silver American Eagle eliminates noise and reduces friction in buying and selling. These coins are highly liquid, widely recognized, and consistently priced—which matters far more for wealth preservation than variety does." },
+      { q: "Are American Eagle coins easy to sell if I need to liquidate?", a: "Yes. These coins are actively traded in both domestic and international markets, carry tight spreads, and have clear pricing because they're standardized and widely recognized by dealers and institutions. That liquidity is built into the decision to recommend them." },
+      { q: "Can I use these coins in a retirement account?", a: "Yes, these U.S. Mint products are widely accepted in IRAs when structured properly through an approved custodian and depository. The standardization eliminates product-related complications that can arise with other metals in self-directed retirement accounts." },
+      { q: "What's the tax and reporting advantage of sticking to these three coins?", a: "Widely traded sovereign coins like American Eagles generally avoid the same dealer reporting thresholds that apply to bars or foreign coins, reducing unnecessary complexity. That said, tax treatment varies by situation, so consult a qualified tax professional about your specific circumstances." },
+      { q: "How do I know these coins are authentic and what they're worth?", a: "American Eagles are produced by the United States Mint and are standardized, meaning they're straightforward to verify and price. Their global recognition means any dealer or institution can instantly authenticate and value them, eliminating the uncertainty that comes with obscure or limited-mintage products." },
+    ],    related: [
       "bullion-vs-proof-coins",
       "why-people-overpay-for-gold-and-silver",
       "the-one-question-every-gold-buyer-should-ask",
@@ -1879,7 +1977,14 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
     ],
-    related: [
+
+    faqs: [
+      { q: "Why do precious metals dealers carry so many different products?", a: "Higher product variety allows dealers to offer items with larger premiums above metal value — proof coins, rare dates, and collectibles can carry 100%+ markups compared to bullion. This structure rewards dealers for steering buyers toward higher-margin products rather than maximizing the amount of metal per dollar spent." },
+      { q: "What's the difference between a proof coin and bullion coin?", a: "A proof coin has a mirror finish, polished dies, and multiple strikes during production, making it visually distinctive and collectible. A bullion coin contains the same amount of metal but costs significantly less because you're not paying for presentation, rarity, or collector premium." },
+      { q: "Do proof coins hold their value better than regular bullion?", a: "Proof coins hold the metal's value, but the collector premium paid at purchase typically doesn't come back on resale unless you find a buyer who specifically values numismatic appeal. In a time-sensitive or forced sale, you recover metal value only — the premium you paid vanishes." },
+      { q: "How much of the price am I actually paying for gold versus the dealer markup?", a: "On a $4,000 proof coin when gold is at $2,000 an ounce, roughly half or more of the purchase price is premium rather than metal value — and a significant portion of that premium is the dealer's margin. Bullion coins minimize this gap because the markup is directly tied to metal content." },
+      { q: "Should I buy rare or collectible coins if I'm buying precious metals for the long term?", a: "If your goal is holding metal long-term, collectible premiums are a cost you pay upfront but won't recover on exit unless you spend time finding a numismatic buyer. For pure metal ownership, bullion is more efficient — you pay less upfront and get the same amount of gold or silver." },
+    ],    related: [
       "bullion-vs-proof-coins",
       "why-we-recommend-only-three-products",
       "the-one-question-every-gold-buyer-should-ask",
