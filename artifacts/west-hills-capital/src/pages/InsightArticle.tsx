@@ -145,35 +145,65 @@ export default function InsightArticle() {
   const related = getRelatedArticles(article.related);
   const readTime = estimateReadTime(article.sections);
 
-  // Article JSON-LD for search engines and LLMs
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    "headline": article.title,
-    "description": article.metaDescription,
-    "author": {
-      "@type": "Organization",
-      "name": "West Hills Capital",
-      "url": "https://westhillscapital.com"
-    },
-    "publisher": {
-      "@type": "Organization",
-      "name": "West Hills Capital",
-      "logo": {
-        "@type": "ImageObject",
-        "url": "https://westhillscapital.com/images/logo.webp"
-      }
-    },
-    "url": `https://westhillscapital.com/insights/${article.slug}`,
-    "mainEntityOfPage": `https://westhillscapital.com/insights/${article.slug}`,
-    "articleSection": group?.title ?? "Insights",
-    "keywords": ["gold", "silver", "precious metals", "physical gold", "gold IRA"],
-  };
+  // Article + FAQPage JSON-LD for search engines and AI assistants
+    const articleJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": article.title,
+      "description": article.metaDescription,
+      "author": {
+        "@type": "Person",
+        "name": "Joe",
+        "worksFor": {
+          "@type": "Organization",
+          "name": "West Hills Capital",
+          "url": "https://westhillscapital.com",
+          "foundingDate": "2011-06"
+        }
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "West Hills Capital",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://westhillscapital.com/images/logo.webp"
+        }
+      },
+      "url": `https://westhillscapital.com/insights/${article.slug}`,
+      "mainEntityOfPage": `https://westhillscapital.com/insights/${article.slug}`,
+      "articleSection": group?.title ?? "Insights",
+      "keywords": ["gold", "silver", "precious metals", "physical gold", "gold IRA", "American Gold Eagle", "sovereign bullion"],
+      ...(article.publishedAt ? { "datePublished": article.publishedAt } : {}),
+    };
+
+    const faqJsonLd = article.faqs && article.faqs.length > 0 ? {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": article.faqs.map((faq) => ({
+        "@type": "Question",
+        "name": faq.q,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": faq.a,
+        },
+      })),
+    } : null;
 
   return (
     <>
       <ReadingProgressBar />
 
+      {/* Per-article structured data */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+        />
+        {faqJsonLd && (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+          />
+        )}
       {/* Per-article structured data */}
       <script
         type="application/ld+json"
@@ -280,6 +310,25 @@ export default function InsightArticle() {
             </div>
           )}
 
+
+            {/* FAQ SECTION */}
+            {article.faqs && article.faqs.length > 0 && (
+              <div className="mt-16 border-t border-border/30 pt-12">
+                <h2 className="text-[1.1rem] font-serif font-semibold text-foreground mb-8">
+                  Frequently Asked Questions
+                </h2>
+                <div className="space-y-6">
+                  {article.faqs.map((faq, i) => (
+                    <div key={i} className="border-b border-border/20 pb-6 last:border-0">
+                      <p className="text-[15px] font-semibold text-foreground mb-2">{faq.q}</p>
+                      <p className="text-[15px] text-foreground/68 leading-relaxed">{faq.a}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+  
           {/* EMAIL CAPTURE */}
           <EmailCapture />
 
