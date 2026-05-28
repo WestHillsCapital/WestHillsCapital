@@ -204,11 +204,6 @@ export default function InsightArticle() {
             dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
           />
         )}
-      {/* Per-article structured data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
 
       <div className="w-full bg-background min-h-screen pt-10 pb-28">
         <div className="max-w-[680px] mx-auto px-4 sm:px-6 lg:px-8">
