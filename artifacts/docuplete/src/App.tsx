@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/Home";
+import Affiliates from "@/pages/Affiliates";
 import SsoLogin from "@/pages/SsoLogin";
 import SsoSettings from "@/pages/SsoSettings";
 import IpAllowlistSettings from "@/pages/IpAllowlistSettings";
@@ -16,6 +17,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/affiliates" component={Affiliates} />
       <Route path="/sso" component={SsoLogin} />
       <Route path="/settings/sso" component={SsoSettings} />
       <Route path="/settings/ip-allowlist" component={IpAllowlistSettings} />
