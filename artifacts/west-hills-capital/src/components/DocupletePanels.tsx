@@ -168,6 +168,7 @@ export function FieldGroupsPanel({
       setPanelError(err);
     } else {
       setSavedId(item.id);
+      setExpandedId(null);
       setTimeout(() => setSavedId(null), 2000);
     }
   }
