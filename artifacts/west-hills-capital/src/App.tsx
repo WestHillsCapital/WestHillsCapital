@@ -6,6 +6,7 @@ import { useEffect, lazy, Suspense } from "react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { ClerkProvider, useUser } from "@clerk/react";
 import * as Sentry from "@sentry/react";
+import { Analytics } from "@vercel/analytics/react";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { UpgradeModalProvider } from "@/hooks/useUpgradeModal";
 import { UpgradeModal } from "@/components/UpgradeModal";
@@ -342,6 +343,7 @@ function App() {
           </WouterRouter>
           <Toaster />
           <CookieConsentBanner />
+          <Analytics />
         </TooltipProvider>
       </QueryClientProvider>
     </GoogleOAuthProvider>
