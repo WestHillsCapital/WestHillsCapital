@@ -61,6 +61,10 @@ export const CUSTODIANS: Custodian[] = [
         a: "Account approval typically takes 2–5 business days. Once approved, the rollover or transfer process adds another 1–3 weeks depending on your existing custodian's speed.",
       },
       {
+        q: "What does Equity Trust charge for a precious metals IRA?",
+        a: "Equity Trust uses an asset-based annual maintenance fee: $350/yr for accounts under $50,000, scaling to $2,500/yr for accounts over $1,000,000. Setup is $50 online or $75 by paper. Precious metals storage runs $110/yr (non-segregated) or $160/yr (segregated), billed by the depository. In-kind distributions are $50/transaction.",
+      },
+      {
         q: "Does West Hills Capital have a fee relationship with Equity Trust?",
         a: "No. We do not receive referral fees from custodians. We mention custodians by name because clients ask, and we want to be transparent about the firms we have worked with.",
       },
@@ -120,7 +124,7 @@ export const CUSTODIANS: Custodian[] = [
       },
       {
         q: "What fees does Strata Trust charge?",
-        a: "Strata Trust charges annual custodial fees and may charge asset-based fees. Contact Strata Trust directly for their current fee schedule — fees vary by account type and value.",
+        a: "For a Precious Metals IRA, Strata Trust charges a $50 account setup fee (waived for online opening) and a $125 annual account fee. Precious metals storage is $100/yr commingled or $175/yr segregated. Purchase and sale transactions carry a $40 processing fee. Outgoing wires are $35. Fee schedule is effective January 1, 2024.",
       },
       {
         q: "Does Strata Trust allow Solo 401(k) accounts for precious metals?",
@@ -130,58 +134,28 @@ export const CUSTODIANS: Custodian[] = [
   },
   {
     slug: "kingdom-trust",
-    name: "Kingdom Trust",
-    shortName: "Kingdom Trust",
+    name: "Choice IRA (formerly Kingdom Trust)",
+    shortName: "Choice IRA",
     location: "Murray, Kentucky",
     founded: 2009,
     description:
-      "Kingdom Trust is a self-directed IRA custodian based in Murray, Kentucky, administering billions in alternative assets for clients across the country. They offer a range of self-directed account types and work with major depositories for physical precious metals storage.",
+      "Kingdom Trust has rebranded as Choice IRA (choiceapp.io). We are confirming whether Choice IRA continues to accept new precious metals IRA clients under its current platform — this page will be updated once that is verified. Existing Kingdom Trust clients should contact Choice IRA directly to confirm their account status.",
     howWeWork:
-      "Clients with Kingdom Trust accounts work with West Hills Capital the same way they would with any custodian. Once your account is funded, Kingdom Trust issues a purchase direction, we confirm the trade at live pricing, and coordinate direct shipment to the designated depository. Our transparent pricing applies regardless of which custodian you use.",
-    accountTypes: [
-      "Traditional Self-Directed IRA",
-      "Roth Self-Directed IRA",
-      "SEP IRA",
-      "Health Savings Account (HSA)",
-    ],
-    setupSteps: [
-      {
-        step: 1,
-        title: "Establish Your Kingdom Trust Account",
-        description:
-          "Open a self-directed IRA through Kingdom Trust's application process. They support online and paper applications for most account types.",
-      },
-      {
-        step: 2,
-        title: "Fund the Account",
-        description:
-          "Transfer existing IRA funds or initiate a rollover from a 401(k) or other qualified plan. Kingdom Trust manages the incoming transfer.",
-      },
-      {
-        step: 3,
-        title: "Direct the Purchase",
-        description:
-          "Kingdom Trust issues a direction of investment to West Hills Capital. We confirm pricing and execute the purchase at current market rates.",
-      },
-      {
-        step: 4,
-        title: "Depository Confirmation",
-        description:
-          "Metal ships directly to the IRS-approved depository and is held in your name. Kingdom Trust updates your account upon confirmed receipt.",
-      },
-    ],
+      "West Hills Capital is verifying whether Choice IRA (formerly Kingdom Trust) still supports precious metals IRA transactions. If you have an existing Kingdom Trust account and want to purchase metals through West Hills Capital, contact us directly and we will confirm the current process with Choice IRA.",
+    accountTypes: [],
+    setupSteps: [],
     faqs: [
       {
-        q: "Does Kingdom Trust charge based on asset value?",
-        a: "Kingdom Trust uses a fee structure that may include both flat annual fees and asset-based components. Contact Kingdom Trust directly for current pricing — fees change periodically.",
+        q: "Is Kingdom Trust still accepting precious metals IRA clients?",
+        a: "Kingdom Trust has rebranded as Choice IRA (choiceapp.io). We are confirming whether precious metals IRAs are still supported under the new platform. Contact us or Choice IRA directly for the most current information.",
       },
       {
-        q: "Which depositories does Kingdom Trust work with?",
-        a: "Kingdom Trust typically works with Delaware Depository and Brinks. Clients may have a choice of depository — confirm options when setting up your account.",
+        q: "What happens to my existing Kingdom Trust precious metals IRA?",
+        a: "Existing accounts should remain intact through the rebrand. Contact Choice IRA directly at choiceapp.io to confirm your account status and any changes to their fee schedule or service offerings.",
       },
       {
-        q: "Is Kingdom Trust regulated?",
-        a: "Yes. Kingdom Trust is a South Dakota-chartered trust company and is subject to regulatory oversight. They are a qualified custodian under IRS rules for self-directed IRAs.",
+        q: "Does West Hills Capital still work with Choice IRA?",
+        a: "We are in the process of confirming Choice IRA's current precious metals IRA policies. We will update this page once we have verified their current offerings.",
       },
     ],
   },
@@ -239,63 +213,9 @@ export const CUSTODIANS: Custodian[] = [
         q: "How long has GoldStar been in business?",
         a: "GoldStar Trust Company was founded in 1989, making it one of the longer-tenured precious metals IRA custodians in the country.",
       },
-    ],
-  },
-  {
-    slug: "midland-ira",
-    name: "Midland IRA",
-    shortName: "Midland IRA",
-    location: "Fort Myers, Florida",
-    founded: 2002,
-    description:
-      "NOTE: Midland IRA (midlandira.com) has been acquired by Equity Trust and now redirects to Midland Trust, part of the Equity Trust family. This page should be reviewed — confirm with Equity Trust whether to update, redirect, or retire this custodian entry before publishing.",
-    howWeWork:
-      "West Hills Capital works with clients who hold their self-directed accounts at Midland IRA. Once the account is funded and a buy direction issued, we confirm the trade at current pricing and arrange direct delivery to the depository. Midland's responsive team makes coordination efficient.",
-    accountTypes: [
-      "Traditional Self-Directed IRA",
-      "Roth Self-Directed IRA",
-      "SEP IRA",
-      "SIMPLE IRA",
-      "Coverdell ESA",
-    ],
-    setupSteps: [
       {
-        step: 1,
-        title: "Apply for a Midland IRA Self-Directed Account",
-        description:
-          "Submit Midland IRA's account application. They support most common IRA types and can guide you on which is right for your situation.",
-      },
-      {
-        step: 2,
-        title: "Transfer Funds to Your New Account",
-        description:
-          "Initiate a rollover or direct transfer from your existing retirement account. Midland manages the incoming transfer process.",
-      },
-      {
-        step: 3,
-        title: "Authorize West Hills Capital as Dealer",
-        description:
-          "Midland issues a direction of investment to West Hills Capital. We confirm pricing and execute the purchase.",
-      },
-      {
-        step: 4,
-        title: "Metal Ships to Depository",
-        description:
-          "Metal ships directly to the IRS-approved depository designated by Midland. The depository confirms receipt and Midland updates your account.",
-      },
-    ],
-    faqs: [
-      {
-        q: "Is Midland IRA based in Florida?",
-        a: "Yes. Midland IRA is headquartered in Fort Myers, Florida, though they serve clients nationwide.",
-      },
-      {
-        q: "Can Midland IRA hold other alternative assets besides precious metals?",
-        a: "Yes. Midland IRA supports a wide range of alternative assets including real estate, private equity, and notes. However, for precious metals, the same IRS-approved custodian rules apply.",
-      },
-      {
-        q: "How does Midland IRA handle required minimum distributions (RMDs)?",
-        a: "Midland IRA calculates and coordinates RMDs for traditional IRA accounts. For precious metals, an RMD can be satisfied by taking a distribution in metal (an in-kind distribution) or by liquidating and distributing cash.",
+        q: "What does GoldStar Trust charge for a precious metals account?",
+        a: "GoldStar's published fee schedule shows a $50 establishment fee and $150 annual maintenance fee. Segregated depository storage starts at $225/year minimum, with no maximum — accounts over $125,000 in metals value are charged $1.80 per $1,000 (18 basis points). There is no fee to buy, sell, or exchange metals. Outgoing wires are $50.",
       },
     ],
   },
@@ -351,6 +271,10 @@ export const CUSTODIANS: Custodian[] = [
       {
         q: "Does Advanta IRA have educational resources for new investors?",
         a: "Yes. Advanta IRA is known for providing educational materials and events about self-directed IRAs and alternative asset investing. For precious metals specifically, West Hills Capital provides guidance on eligible metals, pricing, and the purchase process.",
+      },
+      {
+        q: "What does Advanta IRA charge for a precious metals account?",
+        a: "Advanta IRA charges a one-time $50 account opening fee. Annual recordkeeping can be billed two ways: per-asset ($250/yr per precious metals depository) or by account value (ranging from $200/yr for accounts under $15,000 to $1,850/yr for accounts over $750,000, billed quarterly). Depository storage fees are separate. Transactions are $95–$145 per purchase or sale. Outgoing wires are $30.",
       },
       {
         q: "What depositories does Advanta IRA work with for precious metals?",
