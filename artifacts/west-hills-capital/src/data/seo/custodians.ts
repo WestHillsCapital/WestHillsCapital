@@ -248,7 +248,7 @@ export const CUSTODIANS: Custodian[] = [
     location: "Fort Myers, Florida",
     founded: 2002,
     description:
-      "Midland IRA is a Florida-based self-directed IRA custodian with a broad range of alternative asset offerings, including physical precious metals. They are known for responsive customer service and a straightforward account setup process.",
+      "NOTE: Midland IRA (midlandira.com) has been acquired by Equity Trust and now redirects to Midland Trust, part of the Equity Trust family. This page should be reviewed — confirm with Equity Trust whether to update, redirect, or retire this custodian entry before publishing.",
     howWeWork:
       "West Hills Capital works with clients who hold their self-directed accounts at Midland IRA. Once the account is funded and a buy direction issued, we confirm the trade at current pricing and arrange direct delivery to the depository. Midland's responsive team makes coordination efficient.",
     accountTypes: [
