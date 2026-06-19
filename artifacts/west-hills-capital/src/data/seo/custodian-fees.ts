@@ -151,17 +151,22 @@ export const CUSTODIAN_FEES: CustodianFees[] = [
     verifiedDate: "2025-06-19",
     feesUrl: "https://www.goldstartrust.com/forms-3/",
     setupFee: 50,
-    setupFeeNotes: "Establishment fee: $50. Note: Fee schedule provided is for Self-Directed Custodial Account (Non-qualified or Custodial Plans). GoldStar publishes a separate IRA fee schedule — confirm IRA-specific setup fee with GoldStar if different.",
+    setupFeeNotes: "Establishment fee: $50 for precious metals IRA accounts.",
     annualFee: {
       structure: "flat",
-      flatAmount: 150,
-      notes: "Annual Maintenance Fee: $150. Note: Verified from the Custodial Plan fee schedule. GoldStar's IRA fee schedule may differ slightly — confirm directly for IRA accounts.",
+      flatAmount: 90,
+      notes: "Annual Maintenance Fee for Precious Metals IRA: $90/yr. Note: Other asset types (general assets, real estate) carry a $150/yr maintenance fee — the $90 rate applies specifically to precious metals IRA accounts.",
     },
     storageFees: [
       {
+        type: "commingled",
+        annualRate: 125,
+        notes: "Annual Commingled Depository Storage Fee: $125/yr. Billed on account anniversary.",
+      },
+      {
         type: "segregated",
         annualRate: 225,
-        notes: "Annual Segregated Depository Storage Fee: $225 minimum / no maximum. $1.80 per $1,000 of precious metals value greater than $125,000 (18 basis points). Storage fees billed on account anniversary.",
+        notes: "Annual Segregated Depository Storage Fee: $225 minimum / no maximum. $1.80 per $1,000 of precious metals value greater than $125,000 (18 basis points). Billed on account anniversary.",
       },
     ],
     transactionFee: 0,
@@ -171,6 +176,8 @@ export const CUSTODIAN_FEES: CustodianFees[] = [
     otherFees: [
       { label: "Full Termination Fee", amount: 150, notes: "" },
       { label: "Partial Transfer of Assets / Distribution In-Kind Fee", amount: 75, notes: "" },
+      { label: "Roth Conversion / Recharacterization Fee", amount: 100, notes: "Establishment fee may also apply." },
+      { label: "Excess Contribution Removal Fee", amount: 100, notes: "" },
       { label: "Overnight Fee", amount: 60, notes: "" },
       { label: "Late Fee", amount: 50, notes: "Per occurrence — applies to fees not paid within 30 days of due date." },
       { label: "Annual Paper Statement Fee", amount: 40, notes: "" },
@@ -180,7 +187,7 @@ export const CUSTODIAN_FEES: CustodianFees[] = [
       { label: "Recurring Check Distribution Fee", amount: 5, notes: "" },
       { label: "Statement Reprint Fee", amount: 10, notes: "" },
     ],
-    summaryNotes: "Verified from GoldStar Trust Custodial Plan Fee Schedule (Non-qualified or Custodial Plans). GoldStar also publishes a separate IRA & ESA fee schedule — download from goldstartrust.com/forms-3/ to confirm any differences for IRA accounts.",
+    summaryNotes: "Verified from GoldStar Trust IRA Fee Schedule for Self-Directed Traditional, Roth, SEP, or SIMPLE IRAs and ESAs. The $90 annual maintenance fee applies specifically to precious metals accounts — other asset types use a $150 rate.",
   },
   {
     slug: "advanta-ira",

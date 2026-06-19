@@ -215,7 +215,7 @@ export const CUSTODIANS: Custodian[] = [
       },
       {
         q: "What does GoldStar Trust charge for a precious metals account?",
-        a: "GoldStar's published fee schedule shows a $50 establishment fee and $150 annual maintenance fee. Segregated depository storage starts at $225/year minimum, with no maximum — accounts over $125,000 in metals value are charged $1.80 per $1,000 (18 basis points). There is no fee to buy, sell, or exchange metals. Outgoing wires are $50.",
+        a: "GoldStar's IRA fee schedule shows a $50 establishment fee and a $90 annual maintenance fee for precious metals accounts (lower than their $150 rate for other asset types). Commingled depository storage is $125/yr; segregated storage starts at $225/yr minimum with no maximum — accounts over $125,000 in metals value are charged at $1.80 per $1,000 (18 basis points). There is no fee to buy, sell, or exchange metals. Outgoing wires are $50.",
       },
     ],
   },
