@@ -22,16 +22,18 @@ function ScrollToTop() {
   return null;
 }
 
-const NotFound          = lazy(() => import("@/pages/not-found"));
-const Verify            = lazy(() => import("@/pages/Verify"));
-const DocupleteInternal = lazy(() => import("@/pages/internal/Docuplete"));
-const SettingsInternal  = lazy(() => import("@/pages/internal/Settings"));
+const NotFound           = lazy(() => import("@/pages/not-found"));
+const Verify             = lazy(() => import("@/pages/Verify"));
+const DocupleteInternal  = lazy(() => import("@/pages/internal/Docuplete"));
+const SettingsInternal   = lazy(() => import("@/pages/internal/Settings"));
 const SuperAdminInternal = lazy(() => import("@/pages/internal/SuperAdmin"));
-const DocupleteCustomer = lazy(() => import("@/pages/DocupleteCustomer"));
-const SandboxLanding    = lazy(() => import("@/pages/Sandbox"));
-const AppPortal         = lazy(() => import("@/pages/app/AppPortal"));
-const AppSignIn         = lazy(() => import("@/pages/app/AppSignIn"));
-const AppSignUp         = lazy(() => import("@/pages/app/AppSignUp"));
+const DocupleteCustomer  = lazy(() => import("@/pages/DocupleteCustomer"));
+const SandboxLanding     = lazy(() => import("@/pages/Sandbox"));
+const AppPortal          = lazy(() => import("@/pages/app/AppPortal"));
+const AppSignIn          = lazy(() => import("@/pages/app/AppSignIn"));
+const AppSignUp          = lazy(() => import("@/pages/app/AppSignUp"));
+const CustodianListPage  = lazy(() => import("@/pages/seo/CustodianListPage"));
+const CustodianDetailPage = lazy(() => import("@/pages/seo/CustodianDetailPage"));
 
 function PageSpinner() {
   return (
@@ -71,7 +73,8 @@ function Router() {
   const isCustomerForm = location.startsWith("/docuplete/public/");
   const isSandbox      = location === "/sandbox";
   const isVerify       = location === "/verify";
-  const isApp          = !isInternal && !isCustomerForm && !isSandbox && !isVerify;
+  const isPublicSeo    = location.startsWith("/ira/custodians");
+  const isApp          = !isInternal && !isCustomerForm && !isSandbox && !isVerify && !isPublicSeo;
 
   useEffect(() => {
     const ref = new URLSearchParams(window.location.search).get("ref");
@@ -114,6 +117,18 @@ function Router() {
       <ScrollToTop />
       <Suspense fallback={<PageSpinner />}>
         <Switch><Route path="/verify" component={Verify} /></Switch>
+      </Suspense>
+    </div>
+  );
+
+  if (isPublicSeo) return (
+    <div className="west-hills-public">
+      <ScrollToTop />
+      <Suspense fallback={<PageSpinner />}>
+        <Switch>
+          <Route path="/ira/custodians/:slug" component={CustodianDetailPage} />
+          <Route path="/ira/custodians" component={CustodianListPage} />
+        </Switch>
       </Suspense>
     </div>
   );
