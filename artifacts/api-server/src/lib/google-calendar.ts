@@ -202,14 +202,22 @@ export async function createBookingEvent(params: {
 
   try {
     const calendar = google.calendar({ version: "v3", auth });
-    // NOTE: attendees[] and sendUpdates are intentionally omitted.
-    // Service accounts cannot add external attendees to calendar events without
-    // domain-wide delegation — attempting to do so causes the entire insert to
-    // fail (no event is created at all). The event appears on the WHC Bookings
-    // calendar only; clients are informed of the appointment via the booking
-    // confirmation email instead.
+    // ownerEmail is added as an attendee with sendUpdates: "none" so the event
+    // appears on Joe's calendar without triggering a separate invite email.
+    // External prospect emails are NOT added — service accounts can't send
+    // invites to external addresses without domain-wide delegation, and
+    // attempting it causes the entire insert to fail.
+    const attendees = params.ownerEmail
+      ? [{ email: params.ownerEmail }]
+      : [];
+
     const event = await calendar.events.insert({
       calendarId: BOOKING_CALENDAR_ID,
+      // sendUpdates: "none" suppresses email invitations while still placing
+      // the event on each attendee's calendar as a tentative entry.
+      // This avoids the service-account permission error that fires when
+      // sendUpdates: "all" is used for external addresses.
+      sendUpdates: "none",
       requestBody: {
         summary: `WHC Allocation Call — ${params.firstName} ${params.lastName}`,
         description,
@@ -221,6 +229,7 @@ export async function createBookingEvent(params: {
           dateTime: slotEnd.toISOString(),
           timeZone: "America/Chicago",
         },
+        ...(attendees.length > 0 && { attendees }),
         reminders: {
           useDefault: false,
           overrides: [
