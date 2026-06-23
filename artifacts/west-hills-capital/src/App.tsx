@@ -51,6 +51,10 @@ const LearnHubPage         = lazy(() => import("@/pages/seo/LearnHubPage"));
 const DepositoriesHubPage  = lazy(() => import("@/pages/seo/DepositoriesHubPage"));
 const DepositoryPage       = lazy(() => import("@/pages/seo/DepositoryPage"));
 
+const InternalProspectingPipeline = lazy(() => import("@/pages/internal/Leads"));
+const InternalScheduledCalls      = lazy(() => import("@/pages/internal/Appointments"));
+const DealBuilder                 = lazy(() => import("@/pages/internal/DealBuilder"));
+const ContentEngine               = lazy(() => import("@/pages/internal/ContentEngine"));
 const DocupleteInternal  = lazy(() => import("@/pages/internal/Docuplete"));
 const SettingsInternal   = lazy(() => import("@/pages/internal/Settings"));
 const SuperAdminInternal = lazy(() => import("@/pages/internal/SuperAdmin"));
@@ -76,6 +80,16 @@ function InternalRouter() {
   return (
     <InternalLayout>
       <Switch>
+        <Route path="/internal/prospecting-pipeline" component={InternalProspectingPipeline} />
+        <Route path="/internal/scheduled-calls"      component={InternalScheduledCalls}      />
+        <Route path="/internal/leads"><Redirect to="/internal/prospecting-pipeline" /></Route>
+        <Route path="/internal/appointments"><Redirect to="/internal/scheduled-calls" /></Route>
+        <Route path="/internal/deal-builder">
+          <ErrorBoundary inline label="Deal Builder">
+            <DealBuilder />
+          </ErrorBoundary>
+        </Route>
+        <Route path="/internal/content"  component={ContentEngine}    />
         <Route path="/internal/docuplete">
           <ErrorBoundary inline label="Docuplete">
             <DocupleteInternal />
@@ -83,7 +97,7 @@ function InternalRouter() {
         </Route>
         <Route path="/internal/settings"    component={SettingsInternal}   />
         <Route path="/internal/super-admin" component={SuperAdminInternal} />
-        <Route><Redirect to="/internal/docuplete" /></Route>
+        <Route><Redirect to="/internal/prospecting-pipeline" /></Route>
       </Switch>
     </InternalLayout>
   );

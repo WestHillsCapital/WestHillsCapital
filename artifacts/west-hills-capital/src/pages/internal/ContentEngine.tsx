@@ -1,0 +1,1396 @@
+import { useState, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInternalAuth } from "@/hooks/useInternalAuth";
+import { ChevronDown, ChevronRight, Sparkles, Save, Globe, FileText, Trash2, Eye, EyeOff, BarChart2, ArrowRight, RefreshCw, Wand2, Check, X } from "lucide-react";
+import { INSIGHTS, INSIGHT_GROUPS } from "@/data/insights";
+
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+
+interface TopicCluster {
+  cluster: string;
+  topics: string[];
+  faqs: { q: string; a: string }[];
+}
+
+interface ArticleSection {
+  heading?: string;
+  paragraphs: string[];
+}
+
+interface DraftArticle {
+  title: string;
+  slug: string;
+  excerpt: string;
+  group: string;
+  metaDescription: string;
+  sections: ArticleSection[];
+}
+
+interface SavedArticle {
+  id: number;
+  slug: string;
+  title: string;
+  excerpt: string;
+  group_id: string;
+  status: "draft" | "published";
+  published_at: string | null;
+  created_at: string;
+}
+
+const GROUP_LABELS: Record<string, string> = {
+  "understanding-pricing":       "Understanding Pricing",
+  "making-smart-decisions":      "Making Smart Decisions",
+  "ownership-and-practicality":  "Ownership & Practical Reality",
+  "choosing-who-to-trust":       "Choosing Who to Trust",
+};
+
+// ─── TOPIC PICKER ─────────────────────────────────────────────────────────────
+
+function TopicPicker({ onSelect }: { onSelect: (topic: string) => void }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const { getAuthHeaders } = useInternalAuth();
+
+  const { data } = useQuery<{ clusters: TopicCluster[] }>({
+    queryKey: ["content-topics"],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/api/internal/content/topics`, {
+        headers: getAuthHeaders(),
+      });
+      return res.json();
+    },
+  });
+
+  return (
+    <div className="space-y-2">
+      {(data?.clusters ?? []).map((cluster) => (
+        <div key={cluster.cluster} className="border border-[#DDD5C4] rounded-lg overflow-hidden">
+          <button
+            onClick={() => setOpen(open === cluster.cluster ? null : cluster.cluster)}
+            className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[#F5F0E8] transition-colors"
+          >
+            <span className="text-sm font-semibold text-[#0F1C3F]">{cluster.cluster}</span>
+            {open === cluster.cluster ? (
+              <ChevronDown className="w-4 h-4 text-[#C49A38] shrink-0" />
+            ) : (
+              <ChevronRight className="w-4 h-4 text-[#6B7A99] shrink-0" />
+            )}
+          </button>
+          {open === cluster.cluster && (
+            <div className="border-t border-[#DDD5C4] bg-white divide-y divide-[#DDD5C4]/50">
+              {cluster.topics.map((topic) => (
+                <button
+                  key={topic}
+                  onClick={() => onSelect(topic)}
+                  className="w-full text-left px-5 py-2.5 text-sm text-[#4A5B7A] hover:bg-[#C49A38]/8 hover:text-[#0F1C3F] transition-colors"
+                >
+                  {topic}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── SECTION REWRITE STATE ────────────────────────────────────────────────────
+
+interface SectionRewriteState {
+  open: boolean;
+  instructions: string;
+  status: "idle" | "loading" | "done" | "error";
+  suggestion: ArticleSection | null;
+  error: string | null;
+}
+
+function defaultRewriteState(): SectionRewriteState {
+  return { open: false, instructions: "", status: "idle", suggestion: null, error: null };
+}
+interface ArticleRewriteState {
+    open: boolean;
+    direction: string;
+    status: "idle" | "loading" | "done" | "error";
+    streamingMeta: { title?: string; slug?: string; excerpt?: string; group?: string; metaDescription?: string } | null;
+    streamingSections: { heading?: string; paragraphs: string[] }[];
+    suggestion: DraftArticle | null;
+    error: string | null;
+  }
+
+  function defaultArticleRewriteState(): ArticleRewriteState {
+    return { open: false, direction: "", status: "idle", streamingMeta: null, streamingSections: [], suggestion: null, error: null };
+  }
+
+  
+
+// ─── ARTICLE EDITOR ───────────────────────────────────────────────────────────
+
+function ArticleEditor({
+  initial,
+  savedId,
+  initialPublished,
+  onSaved,
+  onReset,
+}: {
+  initial: DraftArticle;
+  savedId: number | null;
+  initialPublished?: boolean;
+  onSaved: (id: number) => void;
+  onReset: () => void;
+}) {
+  const { getAuthHeaders } = useInternalAuth();
+  const qc = useQueryClient();
+  const [draft, setDraft] = useState<DraftArticle>(initial);
+  const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [unpublishing, setUnpublishing] = useState(false);
+  const [isPublished, setIsPublished] = useState(initialPublished ?? false);
+  const [liveUrl, setLiveUrl] = useState<string | null>(
+    initialPublished ? `https://westhillscapital.com/insights/${initial.slug}` : null
+  );
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(!savedId);
+  const [rewriteStates, setRewriteStates] = useState<Record<number, SectionRewriteState>>({});
+  const [articleRewrite, setArticleRewrite] = useState<ArticleRewriteState>(defaultArticleRewriteState());
+
+  const getRewriteState = (si: number): SectionRewriteState =>
+    rewriteStates[si] ?? defaultRewriteState();
+
+  const setRewriteField = <K extends keyof SectionRewriteState>(
+    si: number,
+    field: K,
+    value: SectionRewriteState[K]
+  ) => {
+    setRewriteStates((prev) => ({
+      ...prev,
+      [si]: { ...(prev[si] ?? defaultRewriteState()), [field]: value },
+    }));
+  };
+
+  const handleRewriteSection = useCallback(async (si: number) => {
+    const rw = rewriteStates[si] ?? defaultRewriteState();
+    if (!rw.instructions.trim()) return;
+    setRewriteStates((prev) => ({
+      ...prev,
+      [si]: { ...(prev[si] ?? defaultRewriteState()), status: "loading", suggestion: null, error: null },
+    }));
+    try {
+      const sections = draft.sections;
+      const res = await fetch(`${API_BASE}/api/internal/content/rewrite-section`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({
+          articleTitle: draft.title,
+          instructions: rw.instructions,
+          currentSection: sections[si],
+          prevSection: si > 0 ? sections[si - 1] : null,
+          nextSection: si < sections.length - 1 ? sections[si + 1] : null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Rewrite failed");
+      setRewriteStates((prev) => ({
+        ...prev,
+        [si]: { ...(prev[si] ?? defaultRewriteState()), status: "done", suggestion: data.section as ArticleSection },
+      }));
+    } catch (err) {
+      setRewriteStates((prev) => ({
+        ...prev,
+        [si]: {
+          ...(prev[si] ?? defaultRewriteState()),
+          status: "error",
+          error: err instanceof Error ? err.message : "Rewrite failed",
+        },
+      }));
+    }
+  }, [draft, rewriteStates, getAuthHeaders]);
+
+
+    const handleRewriteArticle = useCallback(async () => {
+      const dir = articleRewrite.direction.trim();
+      if (!dir) return;
+      setArticleRewrite((prev) => ({ ...prev, status: "loading", streamingMeta: null, streamingSections: [], suggestion: null, error: null }));
+      try {
+        const res = await fetch(`${API_BASE}/api/internal/content/rewrite-article`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+          body: JSON.stringify({ draft, direction: dir }),
+        });
+        if (!res.ok || !res.body) {
+          const errData = await res.json().catch(() => ({ error: "Rewrite failed" }));
+          throw new Error((errData as { error?: string }).error ?? "Rewrite failed");
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n");
+          buffer = parts.pop() ?? "";
+          for (const line of parts) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const event = JSON.parse(line.slice(6)) as { type: string; error?: string; title?: string; slug?: string; excerpt?: string; group?: string; metaDescription?: string; section?: { heading?: string; paragraphs: string[] }; draft?: DraftArticle };
+              if (event.type === "error") throw new Error(event.error ?? "Rewrite failed");
+              if (event.type === "meta") setArticleRewrite((prev) => ({ ...prev, streamingMeta: event }));
+              if (event.type === "section" && event.section) setArticleRewrite((prev) => ({ ...prev, streamingSections: [...prev.streamingSections, event.section!] }));
+              if (event.type === "done" && event.draft) {
+                setArticleRewrite((prev) => ({ ...prev, status: "done", suggestion: event.draft! }));
+                return;
+              }
+            } catch (parseErr) {
+              if (parseErr instanceof Error && !parseErr.message.includes("JSON")) throw parseErr;
+            }
+          }
+        }
+      } catch (err) {
+        setArticleRewrite((prev) => ({
+          ...prev,
+          status: "error",
+          error: err instanceof Error ? err.message : "Rewrite failed",
+        }));
+      }
+    }, [draft, articleRewrite.direction, getAuthHeaders]);
+
+    const acceptArticleRewrite = () => {
+      const s = articleRewrite.suggestion;
+      if (!s) return;
+      setDraft(s);
+      setSaveMsg(null);
+      setIsDirty(true);
+      setArticleRewrite(defaultArticleRewriteState());
+    };
+
+    const discardArticleRewrite = () => {
+      setArticleRewrite(defaultArticleRewriteState());
+    };
+
+  
+  const acceptRewrite = (si: number) => {
+    const suggestion = getRewriteState(si).suggestion;
+    if (!suggestion) return;
+    setDraft((d) => {
+      const sections = d.sections.map((s, idx) => idx === si ? suggestion : s);
+      return { ...d, sections };
+    });
+    setSaveMsg(null);
+    setIsDirty(true);
+    setRewriteStates((prev) => ({ ...prev, [si]: defaultRewriteState() }));
+  };
+
+  const discardRewrite = (si: number) => {
+    setRewriteStates((prev) => ({ ...prev, [si]: defaultRewriteState() }));
+  };
+
+  const handleFieldChange = (field: keyof DraftArticle, value: string) => {
+    setDraft((d) => ({ ...d, [field]: value }));
+    setSaveMsg(null);
+    setIsDirty(true);
+  };
+
+  const handleSectionHeadingChange = (i: number, value: string) => {
+    setDraft((d) => {
+      const sections = [...d.sections];
+      sections[i] = { ...sections[i], heading: value };
+      return { ...d, sections };
+    });
+    setSaveMsg(null);
+    setIsDirty(true);
+  };
+
+  const handleParagraphChange = (sectionIdx: number, paraIdx: number, value: string) => {
+    setDraft((d) => {
+      const sections = d.sections.map((s, si) => {
+        if (si !== sectionIdx) return s;
+        const paragraphs = [...s.paragraphs];
+        paragraphs[paraIdx] = value;
+        return { ...s, paragraphs };
+      });
+      return { ...d, sections };
+    });
+    setSaveMsg(null);
+    setIsDirty(true);
+  };
+
+  // Returns the saved article id (creates or updates), throws on error
+  const persistDraft = useCallback(async (currentSavedId: number | null, currentDraft: DraftArticle): Promise<number> => {
+    const url = currentSavedId
+      ? `${API_BASE}/api/internal/content/articles/${currentSavedId}`
+      : `${API_BASE}/api/internal/content/articles`;
+    const method = currentSavedId ? "PATCH" : "POST";
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({
+        slug:            currentDraft.slug,
+        title:           currentDraft.title,
+        excerpt:         currentDraft.excerpt,
+        group:           currentDraft.group,
+        metaDescription: currentDraft.metaDescription,
+        sections:        currentDraft.sections,
+        faqs:            currentDraft.faqs ?? [],
+        related:         [],
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Save failed");
+    return data.article.id as number;
+  }, [getAuthHeaders]);
+
+  const save = useCallback(async () => {
+    setSaving(true);
+    setSaveMsg(null);
+    try {
+      const id = await persistDraft(savedId, draft);
+      onSaved(id);
+      setIsDirty(false);
+      setSaveMsg("Saved");
+      await qc.invalidateQueries({ queryKey: ["content-articles"] });
+    } catch (err) {
+      setSaveMsg(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }, [draft, savedId, persistDraft, onSaved, qc]);
+
+  const publish = useCallback(async () => {
+    setPublishing(true);
+    setSaveMsg(null);
+    try {
+      let articleId = savedId;
+      // Implicitly save first if there are unsaved changes or article not yet saved
+      if (isDirty || !articleId) {
+        articleId = await persistDraft(savedId, draft);
+        onSaved(articleId);
+        setIsDirty(false);
+        await qc.invalidateQueries({ queryKey: ["content-articles"] });
+      }
+      const res = await fetch(`${API_BASE}/api/internal/content/articles/${articleId}/publish`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Publish failed");
+      setIsPublished(true);
+      const url: string = data.article?.liveUrl ?? `https://westhillscapital.com/insights/${draft.slug}`;
+      setLiveUrl(url);
+      setSaveMsg("Published");
+      await qc.invalidateQueries({ queryKey: ["content-articles"] });
+    } catch (err) {
+      setSaveMsg(err instanceof Error ? err.message : "Publish failed");
+    } finally {
+      setPublishing(false);
+    }
+  }, [savedId, isDirty, draft, persistDraft, onSaved, getAuthHeaders, qc]);
+
+  const unpublish = useCallback(async () => {
+    if (!savedId) return;
+    setUnpublishing(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/internal/content/articles/${savedId}/unpublish`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error("Unpublish failed");
+      setIsPublished(false);
+      setLiveUrl(null);
+      setSaveMsg("Moved back to draft");
+      await qc.invalidateQueries({ queryKey: ["content-articles"] });
+    } catch (err) {
+      setSaveMsg(err instanceof Error ? err.message : "Unpublish failed");
+    } finally {
+      setUnpublishing(false);
+    }
+  }, [savedId, getAuthHeaders, qc]);
+
+  return (
+    <div className="space-y-6">
+      {/* Toolbar */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <button
+          onClick={onReset}
+          className="text-xs text-[#8A9BB8] hover:text-[#0F1C3F] transition-colors px-3 py-1.5 rounded border border-[#DDD5C4] hover:border-[#8A9BB8]"
+        >
+          ← New topic
+        </button>
+        <div className="flex-1" />
+        {saveMsg && !liveUrl && (
+          <span className={`text-xs font-medium ${saveMsg === "Published" || saveMsg.includes("Published") ? "text-green-600" : saveMsg.includes("fail") || saveMsg.includes("Save first") ? "text-red-500" : "text-[#C49A38]"}`}>
+            {saveMsg}
+          </span>
+        )}
+        {liveUrl && (
+          <a
+            href={liveUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-medium text-green-600 hover:underline"
+          >
+            Published — view live →
+          </a>
+        )}
+        <button
+            onClick={() => setArticleRewrite((prev) => ({ ...prev, open: !prev.open }))}
+            disabled={articleRewrite.status === "loading"}
+            className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded transition-colors disabled:opacity-50 ${
+              articleRewrite.open
+                ? "bg-[#C49A38] text-white"
+                : "bg-[#F5F0E8] border border-[#DDD5C4] text-[#4A5B7A] hover:text-[#C49A38] hover:border-[#C49A38]"
+            }`}
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Rewrite Article
+          </button>
+  
+        <button
+          onClick={save}
+          disabled={saving}
+          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded bg-[#F5F0E8] border border-[#DDD5C4] text-[#4A5B7A] hover:bg-[#E8E0D0] transition-colors disabled:opacity-50"
+        >
+          <Save className="w-3.5 h-3.5" />
+          {saving ? "Saving…" : "Save draft"}
+        </button>
+        {isPublished ? (
+          <button
+            onClick={unpublish}
+            disabled={unpublishing}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-50"
+          >
+            <EyeOff className="w-3.5 h-3.5" />
+            {unpublishing ? "Unpublishing…" : "Unpublish"}
+          </button>
+        ) : (
+          <button
+            onClick={publish}
+            disabled={publishing}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded bg-[#C49A38] text-white hover:bg-[#B8882A] transition-colors disabled:opacity-50"
+          >
+            <Globe className="w-3.5 h-3.5" />
+            {publishing ? "Publishing…" : "Publish"}
+          </button>
+        )}
+      </div>
+
+
+        {/* Article-level rewrite panel */}
+        {articleRewrite.open && (
+          <div className="bg-[#FDFAF5] border border-[#DDD5C4] rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#DDD5C4]">
+              <p className="text-xs font-semibold text-[#8A9BB8] uppercase tracking-widest mb-1">Rewrite entire article</p>
+              <p className="text-xs text-[#6B7A99] leading-relaxed">Describe the new direction — tone, angle, audience, or emphasis. Every section will be rewritten to align with it.</p>
+            </div>
+
+            {articleRewrite.status === "idle" || articleRewrite.status === "error" ? (
+              <div className="px-5 py-4 space-y-3">
+                <div className="flex gap-2">
+                  <textarea
+                    value={articleRewrite.direction}
+                    onChange={(e) => setArticleRewrite((prev) => ({ ...prev, direction: e.target.value }))}
+                    placeholder='E.g. "Write this for a first-time gold buyer who is skeptical" or "Shift tone to be warmer and more conversational throughout"'
+                    rows={3}
+                    className="flex-1 border border-[#DDD5C4] rounded-lg px-3 py-2 text-sm text-[#0F1C3F] placeholder:text-[#AAB3C4] resize-none focus:outline-none focus:border-[#C49A38] bg-white"
+                  />
+                  <button
+                    onClick={handleRewriteArticle}
+                    disabled={!articleRewrite.direction.trim()}
+                    className="shrink-0 flex flex-col items-center justify-center gap-1 w-24 text-xs font-semibold rounded-lg bg-[#C49A38] text-white hover:bg-[#B8882A] disabled:opacity-40 transition-colors"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Rewrite</span>
+                  </button>
+                </div>
+                {articleRewrite.status === "error" && articleRewrite.error && (
+                  <p className="text-xs text-red-500">{articleRewrite.error}</p>
+                )}
+              </div>
+            ) : articleRewrite.status === "loading" ? (
+              <div className="px-5 py-4 space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-4 h-4 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-[#0F1C3F]">
+                      {articleRewrite.streamingMeta?.title ?? "Rewriting article…"}
+                    </p>
+                    <p className="text-xs text-[#6B7A99] mt-0.5">
+                      {articleRewrite.streamingSections.length > 0
+                        ? `${articleRewrite.streamingSections.length} section${articleRewrite.streamingSections.length !== 1 ? "s" : ""} rewritten`
+                        : "Analyzing direction…"}
+                    </p>
+                  </div>
+                </div>
+                {articleRewrite.streamingMeta?.excerpt && (
+                  <div className="bg-[#F5F0E8] border border-[#DDD5C4] rounded-xl px-4 py-3">
+                    <p className="text-[11px] font-semibold text-[#8A9BB8] uppercase tracking-widest mb-1.5">New excerpt</p>
+                    <p className="text-sm text-[#4A5B7A] leading-relaxed">{articleRewrite.streamingMeta.excerpt}</p>
+                  </div>
+                )}
+                {articleRewrite.streamingSections.map((section, i) => (
+                  <div key={i} className="bg-white border border-[#DDD5C4] rounded-xl p-4 space-y-2">
+                    {section.heading && <h3 className="text-xs font-semibold text-[#0F1C3F] border-b border-[#F0EBE3] pb-1.5 mb-2">{section.heading}</h3>}
+                    {section.paragraphs.map((para, pi) => (
+                      <p key={pi} className="text-sm text-[#4A5B7A] leading-relaxed">{para}</p>
+                    ))}
+                  </div>
+                ))}
+                <div className="bg-white border border-[#DDD5C4] rounded-xl p-4">
+                  <div className="space-y-2">
+                    <div className="h-2.5 bg-[#F0EBE3] rounded-full animate-pulse w-1/3" />
+                    <div className="h-2.5 bg-[#F0EBE3] rounded-full animate-pulse w-full" />
+                    <div className="h-2.5 bg-[#F0EBE3] rounded-full animate-pulse w-5/6" />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="px-5 py-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[#0F1C3F]">{articleRewrite.suggestion?.title}</p>
+                    <p className="text-xs text-[#6B7A99] mt-0.5">{articleRewrite.streamingSections.length} sections rewritten</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={acceptArticleRewrite}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded bg-green-600 text-white hover:bg-green-700 transition-colors"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      Accept rewrite
+                    </button>
+                    <button
+                      onClick={discardArticleRewrite}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded bg-white border border-[#DDD5C4] text-[#6B7A99] hover:text-red-500 hover:border-red-200 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      Discard
+                    </button>
+                  </div>
+                </div>
+                {articleRewrite.streamingMeta?.excerpt && (
+                  <div className="bg-[#F5F0E8] border border-[#DDD5C4] rounded-xl px-4 py-3">
+                    <p className="text-[11px] font-semibold text-[#8A9BB8] uppercase tracking-widest mb-1.5">New excerpt</p>
+                    <p className="text-sm text-[#4A5B7A] leading-relaxed">{articleRewrite.streamingMeta.excerpt}</p>
+                  </div>
+                )}
+                {articleRewrite.streamingSections.map((section, i) => (
+                  <div key={i} className="bg-white border border-[#DDD5C4] rounded-xl p-4 space-y-2">
+                    {section.heading && <h3 className="text-xs font-semibold text-[#0F1C3F] border-b border-[#F0EBE3] pb-1.5 mb-2">{section.heading}</h3>}
+                    {section.paragraphs.map((para, pi) => (
+                      <p key={pi} className="text-sm text-[#4A5B7A] leading-relaxed">{para}</p>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+  
+      {/* Meta fields */}
+      <div className="bg-white border border-[#DDD5C4] rounded-xl p-5 space-y-4">
+        <h3 className="text-xs font-semibold text-[#8A9BB8] uppercase tracking-widest">Article metadata</h3>
+
+        <div className="grid grid-cols-1 gap-4">
+          <div>
+            <label className="text-xs font-medium text-[#4A5B7A] block mb-1">Title</label>
+            <input
+              value={draft.title}
+              onChange={(e) => handleFieldChange("title", e.target.value)}
+              className="w-full border border-[#DDD5C4] rounded-lg px-3 py-2 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#C49A38]"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[#4A5B7A] block mb-1">Slug</label>
+            <input
+              value={draft.slug}
+              onChange={(e) => handleFieldChange("slug", e.target.value)}
+              className="w-full border border-[#DDD5C4] rounded-lg px-3 py-2 text-sm text-[#0F1C3F] font-mono focus:outline-none focus:border-[#C49A38]"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[#4A5B7A] block mb-1">Excerpt</label>
+            <textarea
+              value={draft.excerpt}
+              onChange={(e) => handleFieldChange("excerpt", e.target.value)}
+              rows={3}
+              className="w-full border border-[#DDD5C4] rounded-lg px-3 py-2 text-sm text-[#0F1C3F] resize-y focus:outline-none focus:border-[#C49A38]"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-medium text-[#4A5B7A] block mb-1">Topic group</label>
+              <select
+                value={draft.group}
+                onChange={(e) => handleFieldChange("group", e.target.value)}
+                className="w-full border border-[#DDD5C4] rounded-lg px-3 py-2 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#C49A38]"
+              >
+                {Object.entries(GROUP_LABELS).map(([id, label]) => (
+                  <option key={id} value={id}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-[#4A5B7A] block mb-1">Meta description ({draft.metaDescription.length} chars)</label>
+              <input
+                value={draft.metaDescription}
+                onChange={(e) => handleFieldChange("metaDescription", e.target.value)}
+                className="w-full border border-[#DDD5C4] rounded-lg px-3 py-2 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#C49A38]"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Article sections */}
+      <div className="space-y-4">
+        <h3 className="text-xs font-semibold text-[#8A9BB8] uppercase tracking-widest">Article body ({draft.sections.length} sections)</h3>
+        {draft.sections.map((section, si) => {
+          const rw = getRewriteState(si);
+          return (
+            <div key={si} className="bg-white border border-[#DDD5C4] rounded-xl overflow-hidden">
+              {/* Section fields */}
+              <div className="p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    value={section.heading ?? ""}
+                    onChange={(e) => handleSectionHeadingChange(si, e.target.value)}
+                    placeholder="Section heading (optional)"
+                    className="flex-1 border-0 border-b border-[#DDD5C4] pb-2 text-sm font-semibold text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] bg-transparent"
+                  />
+                  <button
+                    onClick={() => setRewriteField(si, "open", !rw.open)}
+                    title="Rewrite this section with AI"
+                    className={`shrink-0 flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded transition-colors ${
+                      rw.open
+                        ? "bg-[#C49A38] text-white"
+                        : "bg-[#F5F0E8] text-[#8A9BB8] border border-[#DDD5C4] hover:text-[#C49A38] hover:border-[#C49A38]"
+                    }`}
+                  >
+                    <Wand2 className="w-3 h-3" />
+                    Rewrite
+                  </button>
+                </div>
+                {section.paragraphs.map((para, pi) => (
+                  <textarea
+                    key={pi}
+                    value={para}
+                    onChange={(e) => handleParagraphChange(si, pi, e.target.value)}
+                    rows={Math.max(2, Math.ceil(para.length / 100))}
+                    className="w-full border border-[#DDD5C4] rounded-lg px-3 py-2 text-sm text-[#4A5B7A] leading-relaxed resize-y focus:outline-none focus:border-[#C49A38]"
+                  />
+                ))}
+              </div>
+
+              {/* Rewrite panel */}
+              {rw.open && (
+                <div className="border-t border-[#DDD5C4] bg-[#FDFAF5] px-5 py-4 space-y-3">
+                  <p className="text-[11px] font-semibold text-[#8A9BB8] uppercase tracking-widest">Rewrite instructions</p>
+                  <div className="flex gap-2">
+                    <textarea
+                      value={rw.instructions}
+                      onChange={(e) => setRewriteField(si, "instructions", e.target.value)}
+                      placeholder="E.g. 'Make this less technical' or 'Add context about the 2008 crisis' or 'Shorten to 2 paragraphs'"
+                      rows={2}
+                      disabled={rw.status === "loading"}
+                      className="flex-1 border border-[#DDD5C4] rounded-lg px-3 py-2 text-sm text-[#0F1C3F] placeholder:text-[#AAB3C4] resize-none focus:outline-none focus:border-[#C49A38] disabled:opacity-50 bg-white"
+                    />
+                    <button
+                      onClick={() => handleRewriteSection(si)}
+                      disabled={rw.status === "loading" || !rw.instructions.trim()}
+                      className="shrink-0 flex flex-col items-center justify-center gap-1 w-20 text-xs font-semibold rounded-lg bg-[#C49A38] text-white hover:bg-[#B8882A] disabled:opacity-40 transition-colors"
+                    >
+                      {rw.status === "loading" ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>Writing…</span>
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className="w-3.5 h-3.5" />
+                          <span>Rewrite</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {rw.status === "error" && rw.error && (
+                    <p className="text-xs text-red-500">{rw.error}</p>
+                  )}
+
+                  {/* Suggestion preview */}
+                  {rw.status === "done" && rw.suggestion && (
+                    <div className="border border-[#C49A38]/40 rounded-xl bg-white overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-2.5 bg-[#C49A38]/8 border-b border-[#C49A38]/25">
+                        <span className="text-[11px] font-semibold text-[#C49A38] uppercase tracking-widest">Suggested rewrite</span>
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={() => acceptRewrite(si)}
+                            className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded bg-green-600 text-white hover:bg-green-700 transition-colors"
+                          >
+                            <Check className="w-3 h-3" />
+                            Accept
+                          </button>
+                          <button
+                            onClick={() => discardRewrite(si)}
+                            className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded bg-white border border-[#DDD5C4] text-[#6B7A99] hover:text-red-500 hover:border-red-200 transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                            Discard
+                          </button>
+                        </div>
+                      </div>
+                      <div className="px-4 py-4 space-y-2">
+                        {rw.suggestion.heading && (
+                          <p className="text-sm font-semibold text-[#0F1C3F]">{rw.suggestion.heading}</p>
+                        )}
+                        {rw.suggestion.paragraphs.map((p, pi) => (
+                          <p key={pi} className="text-sm text-[#4A5B7A] leading-relaxed">{p}</p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* FAQ editor */}
+        <div className="bg-white border border-[#DDD5C4] rounded-xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-[#8A9BB8] uppercase tracking-widest">FAQs for AI search ({draft.faqs?.length ?? 0})</h3>
+            <button
+              onClick={() => {
+                setDraft((d) => ({ ...d, faqs: [...(d.faqs ?? []), { q: "", a: "" }] }));
+                setIsDirty(true);
+              }}
+              className="text-[11px] font-semibold text-[#C49A38] hover:underline"
+            >
+              + Add question
+            </button>
+          </div>
+          {(draft.faqs ?? []).length === 0 && (
+            <p className="text-xs text-[#8A9BB8]">No FAQs yet. Click "Add question" or regenerate the article to auto-generate them.</p>
+          )}
+          {(draft.faqs ?? []).map((faq, fi) => (
+            <div key={fi} className="border border-[#DDD5C4] rounded-xl p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold text-[#8A9BB8] uppercase tracking-widest shrink-0">Q{fi + 1}</span>
+                <input
+                  value={faq.q}
+                  onChange={(e) => {
+                    setDraft((d) => {
+                      const faqs = [...(d.faqs ?? [])];
+                      faqs[fi] = { ...faqs[fi], q: e.target.value };
+                      return { ...d, faqs };
+                    });
+                    setIsDirty(true);
+                  }}
+                  placeholder="Question a reader would ask an AI assistant"
+                  className="flex-1 border-0 border-b border-[#DDD5C4] pb-1 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] bg-transparent"
+                />
+                <button
+                  onClick={() => {
+                    setDraft((d) => {
+                      const faqs = (d.faqs ?? []).filter((_, i) => i !== fi);
+                      return { ...d, faqs };
+                    });
+                    setIsDirty(true);
+                  }}
+                  className="shrink-0 text-[#AAB3C4] hover:text-red-400 transition-colors"
+                  title="Remove"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <textarea
+                value={faq.a}
+                onChange={(e) => {
+                  setDraft((d) => {
+                    const faqs = [...(d.faqs ?? [])];
+                    faqs[fi] = { ...faqs[fi], a: e.target.value };
+                    return { ...d, faqs };
+                  });
+                  setIsDirty(true);
+                }}
+                placeholder="1–3 sentence answer. Write it so an AI can quote it directly."
+                rows={2}
+                className="w-full border border-[#DDD5C4] rounded-lg px-3 py-2 text-sm text-[#4A5B7A] leading-relaxed resize-y focus:outline-none focus:border-[#C49A38]"
+              />
+            </div>
+          ))}
+        </div>
+  
+      </div>
+    </div>
+  );
+}
+
+// ─── SAVED ARTICLES LIST ──────────────────────────────────────────────────────
+
+function SavedArticlesList({ onEdit }: { onEdit: (article: SavedArticle) => void }) {
+  const { getAuthHeaders } = useInternalAuth();
+  const qc = useQueryClient();
+
+  const { data, isLoading } = useQuery<{ articles: SavedArticle[] }>({
+    queryKey: ["content-articles"],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/api/internal/content/articles`, {
+        headers: getAuthHeaders(),
+      });
+      return res.json();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`${API_BASE}/api/internal/content/articles/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error("Delete failed");
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["content-articles"] }),
+  });
+
+  if (isLoading) return <p className="text-sm text-[#8A9BB8]">Loading…</p>;
+  if (!data?.articles?.length) return null;
+
+  return (
+    <div className="mt-8">
+      <h3 className="text-xs font-semibold text-[#8A9BB8] uppercase tracking-widest mb-3">Saved articles</h3>
+      <div className="space-y-2">
+        {data.articles.map((article) => (
+          <div
+            key={article.id}
+            className="flex items-center gap-3 bg-white border border-[#DDD5C4] rounded-lg px-4 py-3"
+          >
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-[#0F1C3F] truncate">{article.title}</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${
+                  article.status === "published"
+                    ? "bg-green-50 text-green-700"
+                    : "bg-[#F5F0E8] text-[#8A9BB8]"
+                }`}>
+                  {article.status === "published" ? "Published" : "Draft"}
+                </span>
+                <span className="text-[11px] text-[#8A9BB8]">/{article.slug}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {article.status === "published" && (
+                <a
+                  href={`/insights/${article.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 rounded hover:bg-[#F5F0E8] text-[#8A9BB8] hover:text-[#C49A38] transition-colors"
+                  title="View live article"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                </a>
+              )}
+              <button
+                onClick={() => onEdit(article)}
+                className="p-1.5 rounded hover:bg-[#F5F0E8] text-[#8A9BB8] hover:text-[#0F1C3F] transition-colors"
+                title="Edit"
+              >
+                <FileText className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm("Delete this article?")) deleteMutation.mutate(article.id);
+                }}
+                className="p-1.5 rounded hover:bg-red-50 text-[#8A9BB8] hover:text-red-500 transition-colors"
+                title="Delete"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── KEYWORD GAP DATA ─────────────────────────────────────────────────────────
+
+interface GapTopic {
+  topic: string;
+  volume: "High" | "Med" | "Low";
+  priority: "P1" | "P2" | "P3";
+}
+
+const GAP_TOPICS: Record<string, GapTopic[]> = {
+  "understanding-pricing": [
+    { topic: "Why buy price and sell price are always different",   volume: "High", priority: "P1" },
+    { topic: "What is a spread and how does it affect what you pay", volume: "High", priority: "P1" },
+    { topic: "How gold prices differ between dealers",               volume: "Med",  priority: "P2" },
+    { topic: "Gold vs. silver: which moves more and why",           volume: "High", priority: "P1" },
+    { topic: "How to read a live gold price chart",                 volume: "Med",  priority: "P2" },
+    { topic: "Why the futures price and the physical price diverge", volume: "Low",  priority: "P3" },
+  ],
+  "making-smart-decisions": [
+    { topic: "How to sell gold and silver back — what to expect",    volume: "High", priority: "P1" },
+    { topic: "1099 reporting rules for gold and silver sales",       volume: "High", priority: "P1" },
+    { topic: "Junk silver vs. bullion silver — which is better",    volume: "Med",  priority: "P2" },
+    { topic: "How much gold should I own relative to my savings",   volume: "High", priority: "P1" },
+    { topic: "Fractional gold coins — worth the premium or not",    volume: "Med",  priority: "P2" },
+    { topic: "Gold vs. silver — which to buy first and why",        volume: "High", priority: "P2" },
+    { topic: "What happens to gold in an estate or inheritance",    volume: "Low",  priority: "P3" },
+  ],
+  "ownership-and-practicality": [
+    { topic: "Allocated vs. segregated storage — what the difference means", volume: "Med",  priority: "P2" },
+    { topic: "How to insure physical gold and silver",              volume: "Med",  priority: "P2" },
+    { topic: "What to expect when your metals are delivered",       volume: "Low",  priority: "P3" },
+    { topic: "How to verify gold and silver authenticity at home",  volume: "High", priority: "P1" },
+    { topic: "Storing gold in a safe deposit box — pros and cons",  volume: "Med",  priority: "P2" },
+    { topic: "Home safe vs. depository — how to decide",           volume: "Med",  priority: "P2" },
+  ],
+  "choosing-who-to-trust": [
+    { topic: "Red flags when buying gold online",                               volume: "High", priority: "P1" },
+    { topic: "Gold dealer fees — what you should and should not be paying",     volume: "High", priority: "P1" },
+    { topic: "How to read a gold dealer's buyback policy",                      volume: "Med",  priority: "P2" },
+    { topic: "Questions to ask a gold dealer before you commit",                volume: "Med",  priority: "P2" },
+    { topic: "How to evaluate gold dealer reviews — what to look for",          volume: "Low",  priority: "P3" },
+    { topic: "Why some dealers push numismatic coins on first-time buyers",     volume: "Low",  priority: "P3" },
+  ],
+  "programmatic-seo-pairs": [
+    { topic: "What happens to your 401(k) fees after a gold rollover",                    volume: "High", priority: "P1" },
+    { topic: "Why the American Gold Eagle remains the most liquid bullion coin",           volume: "High", priority: "P1" },
+    { topic: "How gold performs in high-inflation states — historical context",            volume: "Med",  priority: "P1" },
+    { topic: "What a Gold Buffalo can do that a Gold Eagle cannot",                       volume: "Med",  priority: "P2" },
+    { topic: "The 2-year SIMPLE IRA rule: what it means for a precious metals rollover",  volume: "Med",  priority: "P2" },
+    { topic: "Equity Trust vs. GoldStar Trust: choosing a precious metals IRA custodian", volume: "High", priority: "P1" },
+    { topic: "Why TSP rollovers to a Precious Metals IRA work differently than 401(k)",   volume: "Med",  priority: "P2" },
+    { topic: "Gold vs. bonds in a rising-rate environment — what history shows",          volume: "High", priority: "P1" },
+    { topic: "Physical gold vs. gold ETF in a financial crisis",                          volume: "High", priority: "P1" },
+    { topic: "The Gold Buffalo's .9999 purity — what it actually means for IRA holders",  volume: "Med",  priority: "P2" },
+    { topic: "Silver Eagle premiums: why they're higher and what it means when you sell",  volume: "Med",  priority: "P2" },
+    { topic: "How gold has held purchasing power across 50-year periods",                  volume: "High", priority: "P1" },
+    { topic: "Is a Gold IRA better than a Roth IRA for early retirement?",                volume: "High", priority: "P1" },
+    { topic: "What 'IRA eligible' really means for a gold coin",                          volume: "Med",  priority: "P2" },
+    { topic: "How a pension lump-sum rollover into a Precious Metals IRA works",          volume: "Low",  priority: "P3" },
+  ],
+};
+
+// ─── COVERAGE PANEL ───────────────────────────────────────────────────────────
+
+const STOP_WORDS = new Set([
+  "what","when","where","which","with","that","this","from","have","into",
+  "than","then","they","them","their","does","will","your","should","would",
+  "could","about","these","there","after","before","between","during","within",
+  "while","being","been","were","some","more","most","also","over","under",
+]);
+
+function sigWords(text: string): string[] {
+  return text.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/)
+    .filter((w) => w.length >= 4 && !STOP_WORDS.has(w));
+}
+
+function topicsOverlap(articleTitle: string, gapTopic: string): boolean {
+  const titleWords = new Set(sigWords(articleTitle));
+  const gapWords = sigWords(gapTopic);
+  const matches = gapWords.filter((w) => titleWords.has(w)).length;
+  return matches >= 3;
+}
+
+function CoveragePanel({ onDraft }: { onDraft: (topic: string) => void }) {
+  const { getAuthHeaders } = useInternalAuth();
+
+  const { data, refetch, isFetching } = useQuery<{ articles: SavedArticle[] }>({
+    queryKey: ["content-articles"],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/api/internal/content/articles`, {
+        headers: getAuthHeaders(),
+      });
+      return res.json();
+    },
+  });
+
+  const allArticles = data?.articles ?? [];
+
+  const articlesByGroup = (groupId: string) => {
+    const dynamic = allArticles.filter((a) => a.group_id === groupId);
+    const staticInGroup = INSIGHTS.filter((a) => a.group === groupId && !a.foundersPerspective);
+    return { dynamic, static: staticInGroup };
+  };
+
+  const isGapCovered = (gapTopic: string, dynamic: SavedArticle[]): boolean =>
+    dynamic.some((a) => topicsOverlap(a.title, gapTopic));
+
+  return (
+    <div className="space-y-8">
+      <div className="bg-[#F5F0E8] border border-[#DDD5C4] rounded-xl px-5 py-4 text-sm text-[#4A5B7A] leading-relaxed flex items-center justify-between gap-4">
+        <span>Topics already in the library are listed under each group. Gap topics are buyer search queries the library does not yet address — click any to draft an article.</span>
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="shrink-0 flex items-center gap-1.5 text-xs font-medium text-[#4A5B7A] hover:text-[#C49A38] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
+          Refresh
+        </button>
+      </div>
+
+      {INSIGHT_GROUPS.map((group) => {
+        const { dynamic, static: staticArticles } = articlesByGroup(group.id);
+        const allGaps = GAP_TOPICS[group.id] ?? [];
+        const openGaps = allGaps.filter((g) => !isGapCovered(g.topic, dynamic));
+        const totalCovered = staticArticles.length + dynamic.length;
+
+        return (
+          <div key={group.id} className="bg-white border border-[#DDD5C4] rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#DDD5C4] flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-[#0F1C3F]">{group.title}</h3>
+                <p className="text-xs text-[#8A9BB8] mt-0.5">{group.description}</p>
+              </div>
+              <span className="text-xs font-semibold text-[#C49A38] bg-[#C49A38]/10 px-2.5 py-1 rounded-full shrink-0 ml-4">
+                {totalCovered} article{totalCovered !== 1 ? "s" : ""}
+              </span>
+            </div>
+
+            <div className="divide-y divide-[#DDD5C4]/50">
+              {/* In library */}
+              <div className="px-5 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#8A9BB8] mb-2">In library</p>
+                <ul className="space-y-1">
+                  {staticArticles.map((a) => (
+                    <li key={a.slug} className="text-xs text-[#4A5B7A] flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+                      {a.title}
+                    </li>
+                  ))}
+                  {dynamic.map((a) => (
+                    <li key={a.slug} className="text-xs text-[#4A5B7A] flex items-center gap-1.5">
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                        a.status === "published" ? "bg-green-400" : "bg-amber-400"
+                      }`} />
+                      {a.title}
+                      <span className={`text-[10px] font-medium ${
+                        a.status === "published" ? "text-green-600" : "text-amber-600"
+                      }`}>
+                        {a.status === "published" ? "(Published)" : "(Draft)"}
+                      </span>
+                    </li>
+                  ))}
+                  {totalCovered === 0 && (
+                    <li className="text-xs text-[#8A9BB8] italic">No articles yet</li>
+                  )}
+                </ul>
+              </div>
+
+              {/* Gaps to fill */}
+              <div className="px-5 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#8A9BB8] mb-2">
+                  Gaps to fill
+                  {openGaps.length < allGaps.length && (
+                    <span className="ml-2 normal-case font-normal text-green-600">
+                      {allGaps.length - openGaps.length} covered
+                    </span>
+                  )}
+                </p>
+                <ul className="space-y-1.5">
+                  {openGaps.length === 0 && (
+                    <li className="text-xs text-green-600 italic">All gaps covered</li>
+                  )}
+                  {openGaps.map(({ topic, volume, priority }) => (
+                    <li key={topic}>
+                      <button
+                        onClick={() => onDraft(topic)}
+                        className="w-full text-left text-xs text-[#4A5B7A] flex items-center justify-between gap-2 group hover:text-[#C49A38] transition-colors"
+                      >
+                        <span className="flex items-center gap-1.5 min-w-0">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#DDD5C4] group-hover:bg-[#C49A38] shrink-0 transition-colors" />
+                          <span className="truncate">{topic}</span>
+                        </span>
+                        <span className="flex items-center gap-1 shrink-0">
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                            volume === "High" ? "bg-green-100 text-green-700" :
+                            volume === "Med"  ? "bg-amber-100 text-amber-700" :
+                                               "bg-slate-100 text-slate-500"
+                          }`}>{volume}</span>
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                            priority === "P1" ? "bg-red-100 text-red-600" :
+                            priority === "P2" ? "bg-amber-100 text-amber-700" :
+                                               "bg-slate-100 text-slate-500"
+                          }`}>{priority}</span>
+                          <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── MAIN PAGE ────────────────────────────────────────────────────────────────
+
+type Mode = "topics" | "generating" | "streaming" | "editing";
+type Tab = "generate" | "coverage";
+
+export default function ContentEngine() {
+  const { getAuthHeaders } = useInternalAuth();
+  const [tab, setTab] = useState<Tab>("generate");
+  const [mode, setMode] = useState<Mode>("topics");
+  const [customTopic, setCustomTopic] = useState("");
+  const [draft, setDraft] = useState<DraftArticle | null>(null);
+  const [savedId, setSavedId] = useState<number | null>(null);
+  const [initialPublished, setInitialPublished] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+    const [streamingMeta, setStreamingMeta] = useState<{ title?: string; slug?: string; excerpt?: string; group?: string; metaDescription?: string } | null>(null);
+    const [streamingSections, setStreamingSections] = useState<{ heading?: string; paragraphs: string[] }[]>([]);
+
+  const generate = useCallback(async (topic: string) => {
+      if (!topic.trim()) return;
+      setMode("streaming");
+      setStreamingMeta(null);
+      setStreamingSections([]);
+      setGenError(null);
+      try {
+        const res = await fetch(`${API_BASE}/api/internal/content/draft`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+          body: JSON.stringify({ topic }),
+        });
+        if (!res.ok || !res.body) {
+          const errData = await res.json().catch(() => ({ error: "Generation failed" }));
+          throw new Error((errData as { error?: string }).error ?? "Generation failed");
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n");
+          buffer = parts.pop() ?? "";
+          for (const line of parts) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const event = JSON.parse(line.slice(6)) as { type: string; error?: string; title?: string; slug?: string; excerpt?: string; group?: string; metaDescription?: string; section?: { heading?: string; paragraphs: string[] }; draft?: DraftArticle };
+              if (event.type === "error") throw new Error(event.error ?? "Generation failed");
+              if (event.type === "meta") setStreamingMeta(event);
+              if (event.type === "section" && event.section) setStreamingSections((prev) => [...prev, event.section!]);
+              if (event.type === "done" && event.draft) {
+                setDraft(event.draft);
+                setSavedId(null);
+                setInitialPublished(false);
+                setMode("editing");
+                return;
+              }
+            } catch (parseErr) {
+              if (parseErr instanceof Error && parseErr.message !== "Generation failed" && !parseErr.message.includes("JSON")) throw parseErr;
+            }
+          }
+        }
+      } catch (err) {
+        setGenError(err instanceof Error ? err.message : "Generation failed");
+        setMode("topics");
+      }
+    }, [getAuthHeaders]);
+
+  // Fetch full article (including sections + metaDescription) before opening editor
+  const handleEdit = useCallback(async (article: SavedArticle) => {
+    setMode("generating"); // reuse spinner state while fetching
+    try {
+      const res = await fetch(`${API_BASE}/api/internal/content/articles/${article.id}`, {
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to load article");
+      const full = data.article;
+      setSavedId(full.id);
+      setInitialPublished(full.status === "published");
+      setDraft({
+        title: full.title,
+        slug: full.slug,
+        excerpt: full.excerpt,
+        group: full.group,
+        metaDescription: full.metaDescription ?? "",
+        sections: full.sections ?? [],
+        faqs: full.faqs ?? [],
+      });
+      setMode("editing");
+    } catch (err) {
+      setGenError(err instanceof Error ? err.message : "Failed to load article");
+      setMode("topics");
+    }
+  }, [getAuthHeaders]);
+
+  const reset = () => {
+    setMode("topics");
+    setDraft(null);
+    setSavedId(null);
+    setInitialPublished(false);
+    setGenError(null);
+    setCustomTopic("");
+  };
+
+  const handleDraftFromCoverage = useCallback((topic: string) => {
+    setTab("generate");
+    generate(topic);
+  }, [generate]);
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-[#0F1C3F] mb-1">Content Engine</h1>
+        <p className="text-sm text-[#6B7A99]">
+          Generate Insights articles in the WHC voice. Review and edit before publishing.
+        </p>
+      </div>
+
+      {/* Tabs — only show when not in generating/editing mode */}
+      {mode === "topics" && (
+        <div className="flex gap-1 mb-8 border-b border-[#DDD5C4]">
+          <button
+            onClick={() => setTab("generate")}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              tab === "generate"
+                ? "border-[#C49A38] text-[#0F1C3F]"
+                : "border-transparent text-[#8A9BB8] hover:text-[#4A5B7A]"
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Generate
+          </button>
+          <button
+            onClick={() => setTab("coverage")}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              tab === "coverage"
+                ? "border-[#C49A38] text-[#0F1C3F]"
+                : "border-transparent text-[#8A9BB8] hover:text-[#4A5B7A]"
+            }`}
+          >
+            <BarChart2 className="w-3.5 h-3.5" />
+            Coverage
+          </button>
+        </div>
+      )}
+
+      {/* Streaming preview — article sections reveal as they arrive */}
+        {mode === "streaming" && (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 mb-6">
+              <div className="w-5 h-5 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-[#0F1C3F]">
+                  {streamingMeta?.title ?? "Drafting article in the WHC voice…"}
+                </p>
+                <p className="text-xs text-[#6B7A99] mt-0.5">
+                  {streamingSections.length > 0
+                    ? `${streamingSections.length} section${streamingSections.length !== 1 ? "s" : ""} written`
+                    : "Thinking through the approach…"}
+                </p>
+              </div>
+            </div>
+
+            {streamingMeta?.excerpt && (
+              <div className="bg-[#F5F0E8] border border-[#DDD5C4] rounded-xl px-5 py-4">
+                <p className="text-[11px] font-semibold text-[#8A9BB8] uppercase tracking-widest mb-2">Excerpt</p>
+                <p className="text-sm text-[#4A5B7A] leading-relaxed">{streamingMeta.excerpt}</p>
+              </div>
+            )}
+
+            {streamingSections.map((section, i) => (
+              <div key={i} className="bg-white border border-[#DDD5C4] rounded-xl p-5 space-y-3">
+                {section.heading && (
+                  <h3 className="text-sm font-semibold text-[#0F1C3F] border-b border-[#F0EBE3] pb-2">{section.heading}</h3>
+                )}
+                {section.paragraphs.map((para, pi) => (
+                  <p key={pi} className="text-sm text-[#4A5B7A] leading-relaxed">{para}</p>
+                ))}
+              </div>
+            ))}
+
+            <div className="bg-white border border-[#DDD5C4] rounded-xl p-5">
+              <div className="space-y-2.5">
+                <div className="h-2.5 bg-[#F0EBE3] rounded-full animate-pulse w-1/3" />
+                <div className="h-2.5 bg-[#F0EBE3] rounded-full animate-pulse w-full" />
+                <div className="h-2.5 bg-[#F0EBE3] rounded-full animate-pulse w-5/6" />
+                <div className="mt-3 h-2.5 bg-[#F0EBE3] rounded-full animate-pulse w-full" />
+                <div className="h-2.5 bg-[#F0EBE3] rounded-full animate-pulse w-3/4" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Generating state — used while loading an existing article for editing */}
+        {mode === "generating" && (
+          <div className="flex flex-col items-center justify-center py-24 gap-4">
+            <div className="w-8 h-8 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-[#6B7A99]">Loading article…</p>
+          </div>
+        )}
+      {/* Coverage panel */}
+      {mode === "topics" && tab === "coverage" && (
+        <CoveragePanel onDraft={handleDraftFromCoverage} />
+      )}
+
+      {/* Topic picker */}
+      {mode === "topics" && tab === "generate" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div>
+            <h2 className="text-sm font-semibold text-[#0F1C3F] mb-4">
+              <Sparkles className="w-4 h-4 inline mr-1.5 text-[#C49A38]" />
+              Choose a topic
+            </h2>
+            <TopicPicker onSelect={(t) => generate(t)} />
+
+            {/* Custom topic */}
+            <div className="mt-6">
+              <label className="text-xs font-semibold text-[#8A9BB8] uppercase tracking-widest block mb-2">Or write your own</label>
+              <div className="flex gap-2">
+                <input
+                  value={customTopic}
+                  onChange={(e) => setCustomTopic(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && generate(customTopic)}
+                  placeholder="Describe the article topic…"
+                  className="flex-1 border border-[#DDD5C4] rounded-lg px-3 py-2 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#C49A38]"
+                />
+                <button
+                  onClick={() => generate(customTopic)}
+                  disabled={!customTopic.trim()}
+                  className="px-4 py-2 text-sm font-semibold rounded-lg bg-[#C49A38] text-white hover:bg-[#B8882A] disabled:opacity-40 transition-colors"
+                >
+                  Draft
+                </button>
+              </div>
+            </div>
+
+            {genError && (
+              <p className="mt-3 text-xs text-red-500">{genError}</p>
+            )}
+          </div>
+
+          <div>
+            <SavedArticlesList onEdit={handleEdit} />
+          </div>
+        </div>
+      )}
+
+      {/* Editor */}
+      {mode === "editing" && draft && (
+        <ArticleEditor
+          initial={draft}
+          savedId={savedId}
+          initialPublished={initialPublished}
+          onSaved={(id) => setSavedId(id)}
+          onReset={reset}
+        />
+      )}
+    </div>
+  );
+}
