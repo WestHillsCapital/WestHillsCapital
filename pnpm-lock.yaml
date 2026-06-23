@@ -1388,13 +1388,14 @@ importers:
   packages/make: {}
 
   packages/mcp-server:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: '>=1.26.0'
+        version: 1.29.0
     devDependencies:
       '@docuplete/sdk':
         specifier: workspace:*
         version: link:../sdk
-      '@modelcontextprotocol/sdk':
-        specifier: '>=1.26.0'
-        version: 1.29.0
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.17

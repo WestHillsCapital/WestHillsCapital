@@ -33,7 +33,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.26.0"
+    "@modelcontextprotocol/sdk": ">=1.26.0"
   },
   "devDependencies": {
     "@docuplete/sdk": "workspace:*",
