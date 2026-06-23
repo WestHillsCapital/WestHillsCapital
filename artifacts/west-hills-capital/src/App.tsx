@@ -122,11 +122,7 @@ function Router() {
     </div>
   );
 
-  return (
-    <Suspense fallback={<PageSpinner />}>
-      <Switch><Route component={NotFound} /></Switch>
-    </Suspense>
-  );
+  return <Redirect to="/ira/custodians" />;
 }
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
