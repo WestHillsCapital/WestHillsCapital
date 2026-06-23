@@ -1,7 +1,0 @@
-{
-  "name": "docuplete",
-  "label": "Docuplete",
-  "description": "Automate document generation by connecting Docuplete interviews to Make scenarios. Trigger on completed interviews, create new interview sessions, and look up session status.",
-  "version": "1.0.0",
-  "theme": "#2563EB"
-}
