@@ -64,7 +64,6 @@ import { DocupleteBuilderPanel } from "./DocupleteBuilderPanel";
 import { DocupleteMapperPanel } from "./DocupleteMapperPanel";
 import { DocupleteInterviewPanel } from "./DocupleteInterviewPanel";
 import { DocupleteCsvPanel } from "./DocupleteCsvPanel";
-import AppHelp from "@/pages/app/AppHelp";
 import { AcroFieldReviewOverlay, type PendingAnnotation, type RowChoice } from "@/components/AcroFieldReviewOverlay";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
@@ -5016,7 +5015,7 @@ export default function Docuplete() {
       )}
 
       {!isPublicSession && tab === "help" && (
-        <AppHelp />
+        <div className="p-8 text-sm text-gray-500">Help content coming soon.</div>
       )}
 
       {inspectorMode === "modal" && placementModal && selectedPackage && (() => {

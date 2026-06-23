@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useAuth } from "@clerk/react";
 import { useUpgradeModal } from "@/hooks/useUpgradeModal";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
@@ -95,7 +94,6 @@ function Counter({
 
 export function UpgradeModal() {
   const { isOpen, state, hide } = useUpgradeModal();
-  const { getToken } = useAuth();
 
   const [interval, setInterval] = useState<BillingInterval>("monthly");
   const [extraSeats, setExtraSeats] = useState(0);
@@ -123,43 +121,8 @@ export function UpgradeModal() {
   const showSeatAddon = targetPlan !== "starter";
   const showPackAddon = targetPlan === "pro";
 
-  async function handleUpgrade(planChoice: "starter" | "pro" | "enterprise") {
-    setError(null);
-    setIsLoading(true);
-    try {
-      const token = await getToken();
-      if (!token) {
-        setError("You must be signed in to upgrade. Please sign in and try again.");
-        return;
-      }
-      const res = await fetch(`${SETTINGS_BASE}/billing/checkout`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          plan:                 planChoice,
-          interval,
-          extraSeats:           extraSeats,
-          extraSubmissionPacks: planChoice === "pro" ? extraPacks : 0,
-          referralCode:         localStorage.getItem("docuplete_referral_code") ?? undefined,
-        }),
-      });
-      const data = await res.json() as { url?: string; error?: string };
-      if (!res.ok) {
-        setError(data.error ?? "Failed to start checkout.");
-        return;
-      }
-      if (data.url) {
-        window.location.href = data.url;
-        hide();
-      }
-    } catch {
-      setError("Failed to start checkout. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
+  async function handleUpgrade(_planChoice: "starter" | "pro" | "enterprise") {
+    hide();
   }
 
   const planColorCls =

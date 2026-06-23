@@ -3,8 +3,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect, lazy, Suspense } from "react";
-import { ClerkProvider, useUser } from "@clerk/react";
-import * as Sentry from "@sentry/react";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { UpgradeModalProvider } from "@/hooks/useUpgradeModal";
 import { UpgradeModal } from "@/components/UpgradeModal";
@@ -29,9 +27,6 @@ const SettingsInternal   = lazy(() => import("@/pages/internal/Settings"));
 const SuperAdminInternal = lazy(() => import("@/pages/internal/SuperAdmin"));
 const DocupleteCustomer  = lazy(() => import("@/pages/DocupleteCustomer"));
 const SandboxLanding     = lazy(() => import("@/pages/Sandbox"));
-const AppPortal          = lazy(() => import("@/pages/app/AppPortal"));
-const AppSignIn          = lazy(() => import("@/pages/app/AppSignIn"));
-const AppSignUp          = lazy(() => import("@/pages/app/AppSignUp"));
 const CustodianListPage  = lazy(() => import("@/pages/seo/CustodianListPage"));
 const CustodianDetailPage = lazy(() => import("@/pages/seo/CustodianDetailPage"));
 
@@ -74,12 +69,6 @@ function Router() {
   const isSandbox      = location === "/sandbox";
   const isVerify       = location === "/verify";
   const isPublicSeo    = location.startsWith("/ira/custodians");
-  const isApp          = !isInternal && !isCustomerForm && !isSandbox && !isVerify && !isPublicSeo;
-
-  useEffect(() => {
-    const ref = new URLSearchParams(window.location.search).get("ref");
-    if (ref?.trim()) localStorage.setItem("docuplete_referral_code", ref.trim().toUpperCase());
-  }, [location]);
 
   if (isInternal) return (
     <div className="docuplete-app">
@@ -133,69 +122,26 @@ function Router() {
     </div>
   );
 
-  if (isApp) return (
-    <div className="docuplete-app">
-      <ScrollToTop />
-      <ErrorBoundary label="app portal">
-        <Suspense fallback={<PageSpinner />}>
-          <Switch>
-            <Route path="/sign-in/*?" component={AppSignIn} />
-            <Route path="/sign-up/*?" component={AppSignUp} />
-            <Route path="/*?"         component={AppPortal} />
-          </Switch>
-        </Suspense>
-      </ErrorBoundary>
-    </div>
-  );
-}
-
-const CLERK_PUB_KEY   = (import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined) ?? "";
-const CLERK_PROXY_URL = (import.meta.env.VITE_CLERK_PROXY_URL as string | undefined) ?? undefined;
-const basePath        = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-function stripBase(path: string): string {
-  return basePath && path.startsWith(basePath) ? path.slice(basePath.length) || "/" : path;
-}
-
-function ClerkSentrySync() {
-  const { user, isSignedIn } = useUser();
-  useEffect(() => {
-    isSignedIn && user ? Sentry.setUser({ id: user.id }) : Sentry.setUser(null);
-  }, [isSignedIn, user]);
-  return null;
-}
-
-function ClerkProviderWithRouter({ children }: { children: React.ReactNode }) {
-  const [, setLocation] = useLocation();
   return (
-    <ClerkProvider
-      publishableKey={CLERK_PUB_KEY}
-      proxyUrl={CLERK_PROXY_URL}
-      signInUrl={`${basePath}/sign-in`}
-      signUpUrl={`${basePath}/sign-up`}
-      afterSignOutUrl={`${basePath}/sign-in`}
-      routerPush={(to) => setLocation(stripBase(to))}
-      routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
-    >
-      <ClerkSentrySync />
-      {children}
-    </ClerkProvider>
+    <Suspense fallback={<PageSpinner />}>
+      <Switch><Route component={NotFound} /></Switch>
+    </Suspense>
   );
 }
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider delayDuration={400}>
         <WouterRouter base={basePath}>
-          <ClerkProviderWithRouter>
+          <InternalAuthProvider>
             <UpgradeModalProvider>
-              <InternalAuthProvider>
-                <Router />
-              </InternalAuthProvider>
+              <Router />
               <UpgradeModal />
             </UpgradeModalProvider>
-          </ClerkProviderWithRouter>
+          </InternalAuthProvider>
         </WouterRouter>
         <Toaster />
         <CookieConsentBanner />
