@@ -29,7 +29,7 @@ export function TimezoneLocaleSection({
   isAdmin: boolean;
 }) {
   const bc = useBrandColor();
-  const [timezone,   setTimezone]   = useState("America/New_York");
+  const [timezone,   setTimezone]   = useState("America/Chicago");
   const [dateFormat, setDateFormat] = useState("MM/DD/YYYY");
   const [tzSearch,   setTzSearch]   = useState("");
   const [isSaving,   setIsSaving]   = useState(false);

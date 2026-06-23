@@ -4,7 +4,7 @@ export interface OrgLocale {
 }
 
 const DEFAULT_LOCALE: OrgLocale = {
-  timezone:   "America/New_York",
+  timezone:   "America/Chicago",
   date_format: "MM/DD/YYYY",
 };
 
