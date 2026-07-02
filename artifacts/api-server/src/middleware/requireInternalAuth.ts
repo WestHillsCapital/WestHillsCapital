@@ -21,20 +21,25 @@ declare global {
 /**
  * Middleware that gates access to internal API routes.
  *
- * Expects:  Authorization: Bearer <session-token>
+ * Accepts two credential types:
  *
- * The session token is issued by POST /api/internal/auth/verify after a
- * successful Google ID-token verification. The client stores it in
- * localStorage and attaches it to every request to /api/internal/* and
- * /api/deals/*.
+ * 1. Google OAuth session token (human portal users)
+ *    Authorization: Bearer <session-token>
+ *    Issued by POST /api/internal/auth/verify after Google ID-token verification.
  *
- * Returns 401 if the token is missing or expired; 403 if the token is
+ * 2. Service API key (machine-to-machine, e.g. external Replit tools)
+ *    Authorization: Bearer <WHC_SERVICE_API_KEY>
+ *    Set WHC_SERVICE_API_KEY in Railway env vars. Keep it secret.
+ *    Service requests are attributed to email "service@westhillscapital.com", accountId=1.
+ *
+ * Returns 401 if the token is missing or invalid; 403 if the token is
  * valid but the route further restricts access.
  */
 // When GOOGLE_CLIENT_ID is not configured (local / Replit dev environment),
 // Google sign-in cannot work so there is no way to obtain a valid session token.
 // In that case skip auth entirely and default to WHC account (id=1).
-const AUTH_DISABLED = !process.env["GOOGLE_CLIENT_ID"];
+const AUTH_DISABLED    = !process.env["GOOGLE_CLIENT_ID"];
+const SERVICE_API_KEY  = (process.env["WHC_SERVICE_API_KEY"] ?? "").trim();
 
 export const requireInternalAuth: RequestHandler = async (req, res, next) => {
   if (AUTH_DISABLED) {
@@ -56,6 +61,15 @@ export const requireInternalAuth: RequestHandler = async (req, res, next) => {
     return void res.status(401).json({ error: "Empty session token." });
   }
 
+  // ── Service API key path ───────────────────────────────────────────────────
+  if (SERVICE_API_KEY && token === SERVICE_API_KEY) {
+    req.internalEmail     = "service@westhillscapital.com";
+    req.internalAccountId = 1;
+    logger.info({ path: req.path, method: req.method }, "[InternalAuth] Service API key accepted");
+    return next();
+  }
+
+  // ── Google OAuth session token path ────────────────────────────────────────
   let session: { email: string; accountId: number } | null = null;
   try {
     session = await validateSession(token);
