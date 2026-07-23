@@ -1,8 +1,9 @@
 import type { SpotData } from "../types";
 import { fmtMoney } from "../utils";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { getCachedOrg } from "@/hooks/useOrgSettings";
 import { formatOrgTime } from "@/lib/orgDateFormat";
+
+const CST_LOCALE = { timezone: "America/Chicago", date_format: "MM/DD/YYYY" };
 
 interface Props {
   spotData:      SpotData;
@@ -39,7 +40,7 @@ export function SpotSection({ spotData, isFetchingSpot, spotError, locked, onGet
           <div className="text-xs text-[#8A9BB8] mb-1">Spot Timestamp</div>
           <div className="text-sm text-[#374560] font-mono">
             {spotData.spotTimestamp
-              ? formatOrgTime(spotData.spotTimestamp, getCachedOrg())
+              ? formatOrgTime(spotData.spotTimestamp, CST_LOCALE, true)
               : "—"}
           </div>
         </div>

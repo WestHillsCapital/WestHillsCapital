@@ -60,6 +60,7 @@ export function formatOrgDate(
 export function formatOrgTime(
   iso: string | null | undefined,
   locale?: OrgLocale | null,
+  showTz = false,
 ): string {
   if (!iso) return "—";
   try {
@@ -71,11 +72,13 @@ export function formatOrgTime(
       hour:     "2-digit",
       minute:   "2-digit",
       hour12:   true,
+      ...(showTz ? { timeZoneName: "short" } : {}),
     }).formatToParts(date);
-    const hour      = timeParts.find((p) => p.type === "hour")?.value      ?? "12";
-    const minute    = timeParts.find((p) => p.type === "minute")?.value    ?? "00";
+    const hour      = timeParts.find((p) => p.type === "hour")?.value             ?? "12";
+    const minute    = timeParts.find((p) => p.type === "minute")?.value           ?? "00";
     const dayPeriod = timeParts.find((p) => p.type === "dayPeriod")?.value?.toLowerCase() ?? "am";
-    return `${hour}:${minute} ${dayPeriod}`;
+    const tzName    = timeParts.find((p) => p.type === "timeZoneName")?.value     ?? "";
+    return showTz ? `${hour}:${minute} ${dayPeriod} ${tzName}`.trim() : `${hour}:${minute} ${dayPeriod}`;
   } catch {
     return "—";
   }
