@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useInternalAuth } from "../../hooks/useInternalAuth";
@@ -42,8 +43,10 @@ function statusBadge(status: string) {
 export default function InternalAppointments() {
   const [, navigate] = useLocation();
   const { getAuthHeaders } = useInternalAuth();
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const rowRefs = useRef<(HTMLTableRowElement | null)[]>([]);
 
-  const { data, isLoading, error } = useQuery<{ appointments: Appointment[] }>({
+  const { data, isLoading, error, refetch } = useQuery<{ appointments: Appointment[] }>({
     queryKey: ["/api/internal/appointments"],
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/api/internal/appointments`, {
@@ -58,6 +61,56 @@ export default function InternalAppointments() {
 
   const appts = data?.appointments ?? [];
 
+  const openDeal = useCallback((appt: Appointment) => {
+    navigate(
+      `/internal/deal-builder?confirmationId=${encodeURIComponent(appt.confirmation_id)}${appt.lead_id ? `&leadId=${appt.lead_id}` : ""}`
+    );
+  }, [navigate]);
+
+  useEffect(() => {
+    if (focusedIndex !== null && rowRefs.current[focusedIndex]) {
+      rowRefs.current[focusedIndex]?.scrollIntoView({ block: "nearest" });
+    }
+  }, [focusedIndex]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (appts.length === 0) return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      switch (e.key) {
+        case "ArrowDown":
+        case "j":
+          e.preventDefault();
+          setFocusedIndex((i) => (i === null ? 0 : Math.min(i + 1, appts.length - 1)));
+          break;
+        case "ArrowUp":
+        case "k":
+          e.preventDefault();
+          setFocusedIndex((i) => (i === null ? 0 : Math.max(i - 1, 0)));
+          break;
+        case "Enter":
+          if (focusedIndex !== null && appts[focusedIndex]) {
+            e.preventDefault();
+            openDeal(appts[focusedIndex]);
+          }
+          break;
+        case "r":
+        case "R":
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            void refetch();
+          }
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [appts, focusedIndex, openDeal, refetch]);
+
   return (
     <div className="max-w-screen-xl mx-auto px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
@@ -67,6 +120,9 @@ export default function InternalAppointments() {
             {appts.length} scheduled call{appts.length !== 1 ? "s" : ""} · use Open Deal to start a deal for any contact
           </p>
         </div>
+        <p className="text-xs text-[#8A9BB8] hidden sm:block">
+          ↑↓ / J K &nbsp;navigate &nbsp;·&nbsp; Enter &nbsp;open deal &nbsp;·&nbsp; R &nbsp;refresh
+        </p>
       </div>
 
       {isLoading && (
@@ -96,42 +152,48 @@ export default function InternalAppointments() {
               </tr>
             </thead>
             <tbody>
-              {appts.map((appt) => (
-                <tr
-                  key={appt.id}
-                  className="border-b border-[#DDD5C4]/50 hover:bg-white/80 transition-colors"
-                >
-                  <td className="px-3 py-2.5 text-[#C49A38] font-mono text-xs">{appt.confirmation_id}</td>
-                  <td className="px-3 py-2.5 text-[#0F1C3F] font-medium whitespace-nowrap">
-                    {appt.first_name} {appt.last_name}
-                  </td>
-                  <td className="px-3 py-2.5 text-[#374560]">{appt.email}</td>
-                  <td className="px-3 py-2.5 text-[#6B7A99] whitespace-nowrap">{appt.phone}</td>
-                  <td className="px-3 py-2.5 text-[#6B7A99]">{appt.state}</td>
-                  <td className="px-3 py-2.5 text-[#374560] whitespace-nowrap">
-                    {appt.day_label} {appt.time_label}
-                  </td>
-                  <td className="px-3 py-2.5 text-[#6B7A99] max-w-[120px] truncate">
-                    {appt.allocation_type ?? "—"}
-                  </td>
-                  <td className="px-3 py-2.5">{statusBadge(appt.status)}</td>
-                  <td className="px-3 py-2.5 text-[#8A9BB8] text-xs">
-                    {appt.lead_id ?? "—"}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <button
-                      onClick={() =>
-                        navigate(
-                          `/internal/deal-builder?confirmationId=${encodeURIComponent(appt.confirmation_id)}${appt.lead_id ? `&leadId=${appt.lead_id}` : ""}`
-                        )
-                      }
-                      className="px-3 py-1 rounded text-xs font-medium bg-[#C49A38]/20 text-[#C49A38] hover:bg-[#C49A38]/30 transition-colors whitespace-nowrap"
-                    >
-                      Open Deal
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {appts.map((appt, i) => {
+                const isFocused = focusedIndex === i;
+                return (
+                  <tr
+                    key={appt.id}
+                    ref={(el) => { rowRefs.current[i] = el; }}
+                    onClick={() => { setFocusedIndex(i); openDeal(appt); }}
+                    onMouseEnter={() => setFocusedIndex(i)}
+                    className={`border-b border-[#DDD5C4]/50 transition-colors cursor-pointer ${
+                      isFocused
+                        ? "bg-[#C49A38]/10 outline-none ring-inset ring-1 ring-[#C49A38]/40"
+                        : "hover:bg-[#F7F4EE]"
+                    }`}
+                  >
+                    <td className="px-3 py-2.5 text-[#C49A38] font-mono text-xs">{appt.confirmation_id}</td>
+                    <td className="px-3 py-2.5 text-[#0F1C3F] font-medium whitespace-nowrap">
+                      {appt.first_name} {appt.last_name}
+                    </td>
+                    <td className="px-3 py-2.5 text-[#374560]">{appt.email}</td>
+                    <td className="px-3 py-2.5 text-[#6B7A99] whitespace-nowrap">{appt.phone}</td>
+                    <td className="px-3 py-2.5 text-[#6B7A99]">{appt.state}</td>
+                    <td className="px-3 py-2.5 text-[#374560] whitespace-nowrap">
+                      {appt.day_label} {appt.time_label}
+                    </td>
+                    <td className="px-3 py-2.5 text-[#6B7A99] max-w-[120px] truncate">
+                      {appt.allocation_type ?? "—"}
+                    </td>
+                    <td className="px-3 py-2.5">{statusBadge(appt.status)}</td>
+                    <td className="px-3 py-2.5 text-[#8A9BB8] text-xs">
+                      {appt.lead_id ?? "—"}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openDeal(appt); }}
+                        className="px-3 py-1 rounded text-xs font-medium bg-[#C49A38]/20 text-[#C49A38] hover:bg-[#C49A38]/30 transition-colors whitespace-nowrap"
+                      >
+                        Open Deal
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

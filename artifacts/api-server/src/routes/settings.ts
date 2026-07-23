@@ -267,7 +267,7 @@ router.get("/org", async (req, res) => {
         form_logo_url: row.form_logo_url ? buildFormLogoServingUrl(accountId) : null,
         brand_color: row.brand_color ?? "#C49A38",
         logo_on_white: row.logo_on_white !== false,
-        timezone:    (row.timezone    as string) || "America/New_York",
+        timezone:    (row.timezone    as string) || "America/Chicago",
         date_format: (row.date_format as string) || "MM/DD/YYYY",
         pkg_default_interview:      row.pkg_default_interview      !== false,
         pkg_default_csv:            row.pkg_default_csv            !== false,
@@ -515,7 +515,7 @@ router.patch("/org", requireAdminRole, async (req, res) => {
         form_logo_url: row.form_logo_url ? buildFormLogoServingUrl(accountId) : null,
         brand_color: row.brand_color ?? "#C49A38",
         logo_on_white: row.logo_on_white !== false,
-        timezone:    (row.timezone    as string) || "America/New_York",
+        timezone:    (row.timezone    as string) || "America/Chicago",
         date_format: (row.date_format as string) || "MM/DD/YYYY",
         pkg_default_interview:      row.pkg_default_interview      !== false,
         pkg_default_csv:            row.pkg_default_csv            !== false,
@@ -701,7 +701,7 @@ router.post(
           form_logo_url: row.form_logo_url ? buildFormLogoServingUrl(accountId) : null,
           brand_color: row.brand_color ?? "#C49A38",
           logo_on_white: row.logo_on_white !== false,
-          timezone:    (row.timezone    as string) || "America/New_York",
+          timezone:    (row.timezone    as string) || "America/Chicago",
           date_format: (row.date_format as string) || "MM/DD/YYYY",
         },
       });
@@ -774,7 +774,7 @@ router.post(
           form_logo_url: buildFormLogoServingUrl(accountId),
           brand_color: row.brand_color ?? "#C49A38",
           logo_on_white: row.logo_on_white !== false,
-          timezone:    (row.timezone    as string) || "America/New_York",
+          timezone:    (row.timezone    as string) || "America/Chicago",
           date_format: (row.date_format as string) || "MM/DD/YYYY",
         },
       });
@@ -3777,7 +3777,7 @@ router.get("/locale", async (req, res) => {
     if (!rows[0]) { res.status(404).json({ error: "Account not found" }); return; }
     const row = rows[0] as Record<string, unknown>;
     res.json({
-      timezone:   (row.timezone   as string) || "America/New_York",
+      timezone:   (row.timezone   as string) || "America/Chicago",
       dateFormat: (row.date_format as string) || "MM/DD/YYYY",
     });
   } catch (err) {
@@ -3802,7 +3802,7 @@ router.patch("/locale", requireAdminRole, async (req, res) => {
     const current = cur[0] as Record<string, unknown>;
 
     // Validate timezone using Intl (throws for unknown identifiers)
-    let timezone = (current.timezone as string) || "America/New_York";
+    let timezone = (current.timezone as string) || "America/Chicago";
     if ("timezone" in body) {
       const tz = typeof body.timezone === "string" ? body.timezone.trim() : "";
       try {

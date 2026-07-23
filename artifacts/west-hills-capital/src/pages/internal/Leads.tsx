@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useInternalAuth } from "../../hooks/useInternalAuth";
@@ -132,8 +133,11 @@ function buildPipelineRows(leads: Lead[], appointments: Appointment[]): Pipeline
 export default function InternalLeads() {
   const [, navigate] = useLocation();
   const { getAuthHeaders } = useInternalAuth();
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const rowRefs = useRef<(HTMLTableRowElement | null)[]>([]);
+  const tableRef = useRef<HTMLDivElement>(null);
 
-  const { data, isLoading, error } = useQuery<PipelineRow[]>({
+  const { data, isLoading, error, refetch } = useQuery<PipelineRow[]>({
     queryKey: ["/api/internal/prospecting-pipeline"],
     queryFn: async () => {
       const headers = { ...getAuthHeaders() };
@@ -155,12 +159,62 @@ export default function InternalLeads() {
 
   const prospects = data ?? [];
 
-  function openDeal(row: PipelineRow) {
+  const openDeal = useCallback((row: PipelineRow) => {
     const params = new URLSearchParams();
     if (row.leadId) params.set("leadId", String(row.leadId));
     if (row.confirmationId) params.set("confirmationId", row.confirmationId);
     navigate(`/internal/deal-builder?${params.toString()}`);
-  }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (focusedIndex !== null && rowRefs.current[focusedIndex]) {
+      rowRefs.current[focusedIndex]?.scrollIntoView({ block: "nearest" });
+    }
+  }, [focusedIndex]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (prospects.length === 0) return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      switch (e.key) {
+        case "ArrowDown":
+        case "j":
+          e.preventDefault();
+          setFocusedIndex((i) => {
+            const next = i === null ? 0 : Math.min(i + 1, prospects.length - 1);
+            return next;
+          });
+          break;
+        case "ArrowUp":
+        case "k":
+          e.preventDefault();
+          setFocusedIndex((i) => {
+            const next = i === null ? 0 : Math.max(i - 1, 0);
+            return next;
+          });
+          break;
+        case "Enter":
+          if (focusedIndex !== null && prospects[focusedIndex]) {
+            e.preventDefault();
+            openDeal(prospects[focusedIndex]);
+          }
+          break;
+        case "r":
+        case "R":
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            void refetch();
+          }
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [prospects, focusedIndex, openDeal, refetch]);
 
   return (
     <div className="max-w-screen-xl mx-auto px-4 py-8">
@@ -171,6 +225,9 @@ export default function InternalLeads() {
             {prospects.length} prospect{prospects.length !== 1 ? "s" : ""} · leads and scheduled calls in one workflow
           </p>
         </div>
+        <p className="text-xs text-[#8A9BB8] hidden sm:block">
+          ↑↓ / J K &nbsp;navigate &nbsp;·&nbsp; Enter &nbsp;open deal &nbsp;·&nbsp; R &nbsp;refresh
+        </p>
       </div>
 
       {isLoading && (
@@ -188,7 +245,7 @@ export default function InternalLeads() {
       )}
 
       {prospects.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-[#DDD5C4] shadow-sm bg-white">
+        <div ref={tableRef} className="overflow-x-auto rounded-lg border border-[#DDD5C4] shadow-sm bg-white">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#DDD5C4] bg-white">
@@ -200,38 +257,48 @@ export default function InternalLeads() {
               </tr>
             </thead>
             <tbody>
-              {prospects.map((prospect) => (
-                <tr
-                  key={prospect.key}
-                  className="border-b border-[#DDD5C4]/50 hover:bg-white/80 transition-colors"
-                >
-                  <td className="px-3 py-2.5 text-[#6B7A99] font-mono text-xs">{prospect.prospectId}</td>
-                  <td className="px-3 py-2.5 text-[#0F1C3F] font-medium whitespace-nowrap">
-                    {prospect.firstName} {prospect.lastName}
-                  </td>
-                  <td className="px-3 py-2.5 text-[#374560]">{prospect.email}</td>
-                  <td className="px-3 py-2.5 text-[#6B7A99] whitespace-nowrap">{prospect.phone ?? "—"}</td>
-                  <td className="px-3 py-2.5 text-[#6B7A99]">{prospect.state ?? "—"}</td>
-                  <td className="px-3 py-2.5 text-[#6B7A99] max-w-[140px] truncate">
-                    {prospect.allocationType ?? "—"}
-                  </td>
-                  <td className="px-3 py-2.5 text-[#374560] whitespace-nowrap">
-                    {prospect.scheduledLabel ?? "Not scheduled"}
-                  </td>
-                  <td className="px-3 py-2.5">{statusBadge(prospect.status)}</td>
-                  <td className="px-3 py-2.5 text-[#8A9BB8] text-xs whitespace-nowrap">
-                    {formatOrgDate(prospect.createdAt, getCachedOrg())}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <button
-                      onClick={() => openDeal(prospect)}
-                      className="px-3 py-1 rounded text-xs font-medium bg-[#C49A38]/20 text-[#C49A38] hover:bg-[#C49A38]/30 transition-colors whitespace-nowrap"
-                    >
-                      Open Deal
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {prospects.map((prospect, i) => {
+                const isFocused = focusedIndex === i;
+                return (
+                  <tr
+                    key={prospect.key}
+                    ref={(el) => { rowRefs.current[i] = el; }}
+                    onClick={() => { setFocusedIndex(i); openDeal(prospect); }}
+                    onMouseEnter={() => setFocusedIndex(i)}
+                    className={`border-b border-[#DDD5C4]/50 transition-colors cursor-pointer ${
+                      isFocused
+                        ? "bg-[#C49A38]/10 outline-none ring-inset ring-1 ring-[#C49A38]/40"
+                        : "hover:bg-[#F7F4EE]"
+                    }`}
+                  >
+                    <td className="px-3 py-2.5 text-[#6B7A99] font-mono text-xs">{prospect.prospectId}</td>
+                    <td className="px-3 py-2.5 text-[#0F1C3F] font-medium whitespace-nowrap">
+                      {prospect.firstName} {prospect.lastName}
+                    </td>
+                    <td className="px-3 py-2.5 text-[#374560]">{prospect.email}</td>
+                    <td className="px-3 py-2.5 text-[#6B7A99] whitespace-nowrap">{prospect.phone ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-[#6B7A99]">{prospect.state ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-[#6B7A99] max-w-[140px] truncate">
+                      {prospect.allocationType ?? "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-[#374560] whitespace-nowrap">
+                      {prospect.scheduledLabel ?? "Not scheduled"}
+                    </td>
+                    <td className="px-3 py-2.5">{statusBadge(prospect.status)}</td>
+                    <td className="px-3 py-2.5 text-[#8A9BB8] text-xs whitespace-nowrap">
+                      {formatOrgDate(prospect.createdAt, getCachedOrg())}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openDeal(prospect); }}
+                        className="px-3 py-1 rounded text-xs font-medium bg-[#C49A38]/20 text-[#C49A38] hover:bg-[#C49A38]/30 transition-colors whitespace-nowrap"
+                      >
+                        Open Deal
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
