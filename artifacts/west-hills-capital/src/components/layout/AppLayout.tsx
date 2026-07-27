@@ -121,6 +121,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Skip navigation */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-[#0E1D4A] focus:text-white focus:rounded-lg focus:shadow-lg focus:text-sm focus:font-semibold"
+      >
+        Skip to main content
+      </a>
       <header className="bg-white border-b border-gray-200 px-6 py-0 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto flex items-center justify-between h-14">
 
@@ -265,7 +272,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
       <OnboardingChecklist getAuthHeaders={getAuthHeaders} />
 
-      <main className="flex-1">
+      <main id="main-content" className="flex-1">
         {children}
       </main>
 

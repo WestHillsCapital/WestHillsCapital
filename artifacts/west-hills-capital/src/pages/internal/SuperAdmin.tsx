@@ -432,7 +432,12 @@ function DetailPanel({
   const trialDays = daysUntil(account.trial_end);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex justify-end"
+      onClick={onClose}
+      onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
+      role="presentation"
+    >
       <div
         className="relative h-full w-full max-w-md bg-white shadow-2xl border-l border-gray-200 overflow-y-auto flex flex-col"
         onClick={(e) => e.stopPropagation()}
@@ -918,8 +923,14 @@ function AffiliatesTab({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }
             ) : (
               <div className="divide-y divide-gray-100">
                 {affiliates.map((a) => (
-                  <div key={a.id} onClick={() => selectAffiliate(a)}
-                    className={`px-4 py-3 cursor-pointer transition-colors hover:bg-[#C49A38]/5 ${selected?.id === a.id ? "bg-[#C49A38]/10" : ""}`}>
+                  <div
+                    key={a.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => selectAffiliate(a)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectAffiliate(a); } }}
+                    aria-pressed={selected?.id === a.id}
+                    className={`px-4 py-3 cursor-pointer transition-colors hover:bg-[#C49A38]/5 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#C49A38]/50 ${selected?.id === a.id ? "bg-[#C49A38]/10" : ""}`}>
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">{a.name}</p>
@@ -1338,12 +1349,19 @@ export default function SuperAdmin() {
                 const trialDays = daysUntil(a.trial_end);
                 const showTrial = a.subscription_status === "trialing" && trialDays !== null && trialDays >= 0;
                 return (
-                  <tr key={a.id} onClick={() => setSelected(a)} className="hover:bg-[#C49A38]/5 cursor-pointer transition-colors group">
+                  <tr
+                    key={a.id}
+                    tabIndex={0}
+                    onClick={() => setSelected(a)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(a); } }}
+                    className="hover:bg-[#C49A38]/5 cursor-pointer transition-colors group focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#C49A38]/50"
+                  >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         {a.churn_risk && (
-                          <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" title="Churn risk: paid account with no recent submissions" />
+                          <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" title="Churn risk: paid account with no recent submissions" aria-hidden="true" />
                         )}
+                        {a.churn_risk && <span className="sr-only">Churn risk</span>}
                         <div>
                           <p className="font-medium text-gray-900 group-hover:text-[#C49A38] transition-colors">{a.name}</p>
                           <p className="text-[11px] text-gray-400 font-mono">{a.slug}</p>

@@ -189,8 +189,12 @@ function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
     return sortDir === "asc" ? cmp : -cmp;
   });
 
-  const thClass = "px-4 py-2.5 text-left font-semibold text-[#6B7A99] whitespace-nowrap cursor-pointer select-none hover:text-[#0F1C3F] transition-colors";
-  const thCenterClass = "px-4 py-2.5 text-center font-semibold text-[#6B7A99] whitespace-nowrap cursor-pointer select-none hover:text-[#0F1C3F] transition-colors";
+  const thClass = "px-4 py-2.5 text-left font-semibold text-[#6B7A99] whitespace-nowrap cursor-pointer select-none hover:text-[#0F1C3F] transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#C49A38]/50";
+  const thCenterClass = "px-4 py-2.5 text-center font-semibold text-[#6B7A99] whitespace-nowrap cursor-pointer select-none hover:text-[#0F1C3F] transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#C49A38]/50";
+  function ariaSortFor(col: SortCol): "ascending" | "descending" | "none" {
+    if (sortCol !== col) return "none";
+    return sortDir === "asc" ? "ascending" : "descending";
+  }
 
   return (
     <>
@@ -203,7 +207,9 @@ function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <label htmlFor="accounts-search" className="sr-only">Search accounts</label>
             <input
+              id="accounts-search"
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -217,7 +223,7 @@ function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
         </div>
 
         {loadError && (
-          <div className="px-6 py-3 bg-red-50 border-b border-red-100">
+          <div className="px-6 py-3 bg-red-50 border-b border-red-100" role="alert" aria-live="assertive">
             <p className="text-xs text-red-700">{loadError}</p>
           </div>
         )}
@@ -235,30 +241,19 @@ function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
             <table className="w-full text-xs">
               <thead className="bg-[#F8F6F0] border-b border-[#EFE8D8]">
                 <tr>
-                  <th className={thClass} onClick={() => handleSort("name")}>
-                    Account <SortIcon col="name" sortCol={sortCol} sortDir={sortDir} />
-                  </th>
-                  <th className={thClass} onClick={() => handleSort("plan_tier")}>
-                    Plan <SortIcon col="plan_tier" sortCol={sortCol} sortDir={sortDir} />
-                  </th>
-                  <th className={thCenterClass} onClick={() => handleSort("seat_count")}>
-                    Seats <SortIcon col="seat_count" sortCol={sortCol} sortDir={sortDir} />
-                  </th>
-                  <th className={thCenterClass} onClick={() => handleSort("package_count")}>
-                    Packages <SortIcon col="package_count" sortCol={sortCol} sortDir={sortDir} />
-                  </th>
-                  <th className={thCenterClass} onClick={() => handleSort("submission_count")}>
-                    Submissions <SortIcon col="submission_count" sortCol={sortCol} sortDir={sortDir} />
-                  </th>
-                  <th className={thClass} onClick={() => handleSort("subscription_status")}>
-                    Subscription <SortIcon col="subscription_status" sortCol={sortCol} sortDir={sortDir} />
-                  </th>
-                  <th className={thClass} onClick={() => handleSort("last_activity_at")}>
-                    Last activity <SortIcon col="last_activity_at" sortCol={sortCol} sortDir={sortDir} />
-                  </th>
-                  <th className={thClass} onClick={() => handleSort("created_at")}>
-                    Created <SortIcon col="created_at" sortCol={sortCol} sortDir={sortDir} />
-                  </th>
+                  {([ ["name","Account",thClass], ["plan_tier","Plan",thClass], ["seat_count","Seats",thCenterClass], ["package_count","Packages",thCenterClass], ["submission_count","Submissions",thCenterClass], ["subscription_status","Subscription",thClass], ["last_activity_at","Last activity",thClass], ["created_at","Created",thClass] ] as [SortCol, string, string][]).map(([col, label, cls]) => (
+                    <th
+                      key={col}
+                      scope="col"
+                      className={cls}
+                      tabIndex={0}
+                      aria-sort={ariaSortFor(col)}
+                      onClick={() => handleSort(col)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort(col); } }}
+                    >
+                      {label} <SortIcon col={col} sortCol={sortCol} sortDir={sortDir} />
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EFE8D8]">
@@ -268,8 +263,10 @@ function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
                   return (
                     <tr
                       key={acct.id}
+                      tabIndex={0}
                       onClick={() => openDetail(acct)}
-                      className="hover:bg-[#FAFAF8] transition-colors cursor-pointer"
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDetail(acct); } }}
+                      className="hover:bg-[#FAFAF8] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#C49A38]/60"
                     >
                       <td className="px-4 py-3 whitespace-nowrap">
                         <p className="font-medium text-[#0F1C3F] leading-tight">{acct.name}</p>
@@ -312,7 +309,12 @@ function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
 
       {/* Detail panel */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex justify-end" onClick={() => { setSelected(null); setDetail(null); }}>
+        <div
+          className="fixed inset-0 z-50 flex justify-end"
+          onClick={() => { setSelected(null); setDetail(null); }}
+          onKeyDown={(e) => { if (e.key === "Escape") { setSelected(null); setDetail(null); } }}
+          role="presentation"
+        >
           <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]" />
           <div
             className="relative bg-white w-full max-w-lg shadow-2xl flex flex-col overflow-y-auto"
@@ -693,16 +695,19 @@ function FieldLibraryInheritanceSection({
           <p className="text-[11px] text-[#8A9BB8] mb-3">
             If an Enterprise account has sent you an invite code, paste it below to start inheriting their field library.
           </p>
-          {acceptError && <p className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{acceptError}</p>}
-          {acceptSuccess && <p className="mb-2 rounded bg-green-50 border border-green-200 text-green-700 px-2 py-1 text-[11px]">{acceptSuccess}</p>}
+          {acceptError && <p id="field-library-accept-error" role="alert" aria-live="assertive" className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{acceptError}</p>}
+          {acceptSuccess && <p role="status" aria-live="polite" className="mb-2 rounded bg-green-50 border border-green-200 text-green-700 px-2 py-1 text-[11px]">{acceptSuccess}</p>}
           {!acceptSuccess && (
             <div className="flex gap-2">
+              <label htmlFor="field-library-invite-code" className="sr-only">Invite code</label>
               <input
+                id="field-library-invite-code"
                 type="text"
                 value={acceptCode}
                 onChange={(e) => setAcceptCode(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") void handleAcceptInvite(); }}
                 placeholder="Paste invite code…"
+                aria-describedby={acceptError ? "field-library-accept-error" : undefined}
                 className="flex-1 rounded-lg border border-[#DDD5C4] bg-[#FAFAF8] px-3 py-2 text-sm font-mono text-[#0F1C3F] placeholder:text-[#B0A898] focus:outline-none focus:ring-2 focus:ring-[#0F1C3F]/20 focus:border-[#0F1C3F]"
               />
               <button
@@ -755,8 +760,8 @@ function FieldLibraryInheritanceSection({
               Generate a one-time invite code and share it with the admin of the account you want to link.
               They paste it in their own Settings to accept. The code expires in 72 hours.
             </p>
-            {inviteError && <p className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{inviteError}</p>}
-            {unlinkError && <p className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{unlinkError}</p>}
+            {inviteError && <p role="alert" aria-live="assertive" className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{inviteError}</p>}
+            {unlinkError && <p role="alert" aria-live="assertive" className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{unlinkError}</p>}
             {info?.pendingInviteToken ? (
               <div className="rounded-lg border border-[#C8D7F5] bg-[#F3F6FE] p-3 space-y-2">
                 <p className="text-[11px] font-medium text-[#1B4FD8]">Pending invite code — share this with the child account admin:</p>
@@ -959,7 +964,7 @@ export default function Settings() {
             <p className="text-sm text-[#6B7A99] mt-0.5">Manage your organization's branding and preferences.</p>
           </div>
           <div className="flex items-center gap-2">
-            {statusMsg && <span className="text-xs text-green-700 font-medium">{statusMsg}</span>}
+            {statusMsg && <span role="status" aria-live="polite" className="text-xs text-green-700 font-medium">{statusMsg}</span>}
             <button
               type="button"
               onClick={() => { void handleSave(); }}
@@ -972,7 +977,7 @@ export default function Settings() {
         </div>
 
         {errorMsg && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMsg}</div>
+          <div role="alert" aria-live="assertive" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMsg}</div>
         )}
 
         {/* Organization section */}

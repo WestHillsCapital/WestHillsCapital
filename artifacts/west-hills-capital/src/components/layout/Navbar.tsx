@@ -170,15 +170,18 @@ export function Navbar() {
           <button
             className="md:hidden p-2 -mr-2 text-foreground"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-nav-menu"
           >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            {mobileMenuOpen ? <X className="w-6 h-6" aria-hidden="true" /> : <Menu className="w-6 h-6" aria-hidden="true" />}
           </button>
         </div>
       </div>
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden absolute top-full left-0 w-full bg-white border-b border-border shadow-xl animate-fade-in">
+        <div id="mobile-nav-menu" className="md:hidden absolute top-full left-0 w-full bg-white border-b border-border shadow-xl animate-fade-in">
           <div className="flex flex-col px-4 pt-4 pb-8 space-y-1">
             {navLinks.map((link) => (
               <div key={link.href}>

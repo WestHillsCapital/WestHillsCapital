@@ -524,7 +524,13 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                               const signingScrollRequired = s.signing_scroll_required === true;
                               const signingScrollConfirmed = signingScrollRequired && Boolean(s.signing_scroll_confirmed_at);
                               return (
-                                <tr key={s.token} className={`divide-x divide-[#F0EDE6] hover:bg-[#F4F1EA] transition-colors ${idx % 2 === 1 ? "bg-[#F5F2EC]" : "bg-white"} ${!isTerminal ? "cursor-pointer" : ""}`} onClick={!isTerminal ? () => openSession(s.token) : undefined}>
+                                <tr
+                                  key={s.token}
+                                  tabIndex={!isTerminal ? 0 : undefined}
+                                  onClick={!isTerminal ? () => openSession(s.token) : undefined}
+                                  onKeyDown={!isTerminal ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSession(s.token); } } : undefined}
+                                  className={`divide-x divide-[#F0EDE6] hover:bg-[#F4F1EA] transition-colors ${idx % 2 === 1 ? "bg-[#F5F2EC]" : "bg-white"} ${!isTerminal ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#C49A38]/50" : ""}`}
+                                >
                                   <td className="px-4 py-2 max-w-[220px]">
                                     <div className="text-sm text-[#0F1C3F] truncate" title={recipient}>{recipient}</div>
                                     {recipientEmail && (
@@ -593,7 +599,12 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
               Back to Sessions
             </button>
             {confirmLeave && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setConfirmLeave(false)}>
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+                onClick={() => setConfirmLeave(false)}
+                onKeyDown={(e) => { if (e.key === "Escape") setConfirmLeave(false); }}
+                role="presentation"
+              >
                 <div className="bg-white rounded-xl shadow-xl p-6 w-80 space-y-4" onClick={(e) => e.stopPropagation()}>
                   <h3 className="text-base font-semibold text-[#0F1C3F]">Unsaved changes</h3>
                   <p className="text-sm text-[#6B7A99]">You have unsaved changes to this interview. What would you like to do?</p>

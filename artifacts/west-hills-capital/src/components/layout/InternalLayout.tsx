@@ -28,6 +28,13 @@ export function InternalLayout({ children }: InternalLayoutProps) {
 
   return (
     <div className="min-h-screen bg-white text-[#0F1C3F] flex flex-col">
+      {/* Skip navigation */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-[#0F1C3F] focus:text-white focus:rounded-lg focus:shadow-lg focus:text-sm focus:font-semibold"
+      >
+        Skip to main content
+      </a>
       {/* Top nav bar */}
       <header className="bg-white" style={{ borderBottom: "1px solid #E2E8F0", boxShadow: "0 1px 3px 0 rgba(15,28,63,0.06)" }}>
         <div className="max-w-screen-xl mx-auto px-3 sm:px-4 h-14 flex items-center gap-2 sm:gap-6">
@@ -106,7 +113,7 @@ export function InternalLayout({ children }: InternalLayoutProps) {
       </header>
 
       {/* Page content */}
-      <main className="flex-1">
+      <main id="main-content" className="flex-1">
         {children}
       </main>
 

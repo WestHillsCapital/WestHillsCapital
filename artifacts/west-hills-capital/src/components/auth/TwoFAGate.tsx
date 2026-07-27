@@ -51,7 +51,9 @@ export function TwoFAGate({ verify2FA, onVerified, onSignOut }: TwoFAGateProps) 
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
+            <label htmlFor="totp-code-input" className="sr-only">Authentication code</label>
             <Input
+              id="totp-code-input"
               ref={inputRef}
               type="text"
               inputMode="numeric"
@@ -62,6 +64,8 @@ export function TwoFAGate({ verify2FA, onVerified, onSignOut }: TwoFAGateProps) 
               placeholder="000000"
               maxLength={32}
               disabled={loading}
+              aria-describedby={error ? "totp-error" : undefined}
+              aria-invalid={error ? "true" : undefined}
               className="text-center text-lg font-mono tracking-widest"
             />
           </div>
@@ -78,7 +82,7 @@ export function TwoFAGate({ verify2FA, onVerified, onSignOut }: TwoFAGateProps) 
           </label>
 
           {error && (
-            <p className="text-sm text-red-600 text-center">{error}</p>
+            <p id="totp-error" role="alert" aria-live="assertive" className="text-sm text-red-600 text-center">{error}</p>
           )}
 
           <button

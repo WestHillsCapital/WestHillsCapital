@@ -73,13 +73,16 @@ export function EmailCapture({
           onSubmit={handleSubmit}
           className="flex flex-col sm:flex-row gap-2 sm:shrink-0 w-full sm:w-auto"
         >
+          <label htmlFor="email-capture-input" className="sr-only">Email address</label>
           <input
+            id="email-capture-input"
             type="email"
             value={email}
             onChange={(e) => { setEmail(e.target.value); if (state === "error") setState("idle"); }}
             placeholder="your@email.com"
             required
-            className="border border-border/50 rounded-lg px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-primary/50 w-full sm:w-56"
+            aria-describedby={state === "error" ? "email-capture-error" : undefined}
+            className="border border-border/50 rounded-lg px-3.5 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/50 w-full sm:w-56"
           />
           <button
             type="submit"
@@ -91,7 +94,7 @@ export function EmailCapture({
         </form>
       </div>
       {state === "error" && errorMsg && (
-        <p className="mt-3 text-xs text-red-500">{errorMsg}</p>
+        <p id="email-capture-error" role="alert" aria-live="assertive" className="mt-3 text-xs text-red-500">{errorMsg}</p>
       )}
       <p className="mt-3 text-[11px] text-foreground/40 leading-relaxed">
         By submitting, you agree that we store your email address to send you

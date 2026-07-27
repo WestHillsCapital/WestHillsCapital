@@ -78,7 +78,7 @@ export default function InternalLogin() {
           )}
 
           {displayError && (
-            <div className="mt-4 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center">
+            <div role="alert" aria-live="assertive" className="mt-4 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center">
               {displayError}
             </div>
           )}
