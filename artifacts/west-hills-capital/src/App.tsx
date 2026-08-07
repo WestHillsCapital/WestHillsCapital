@@ -51,6 +51,8 @@ const LearnHubPage         = lazy(() => import("@/pages/seo/LearnHubPage"));
 const DepositoriesHubPage  = lazy(() => import("@/pages/seo/DepositoriesHubPage"));
 const DepositoryPage       = lazy(() => import("@/pages/seo/DepositoryPage"));
 
+const Radio                       = lazy(() => import("@/pages/Radio"));
+
 const InternalProspectingPipeline = lazy(() => import("@/pages/internal/Leads"));
 const InternalScheduledCalls      = lazy(() => import("@/pages/internal/Appointments"));
 const DealBuilder                 = lazy(() => import("@/pages/internal/DealBuilder"));
@@ -108,6 +110,7 @@ function Router() {
   const isInternal     = location.startsWith("/internal");
   const isCustomerForm = location.startsWith("/docuplete/public/");
   const isSandbox      = location === "/sandbox";
+  const isRadio        = location === "/radio";
 
   useEffect(() => {
     const ref = new URLSearchParams(window.location.search).get("ref");
@@ -141,6 +144,15 @@ function Router() {
       <ScrollToTop />
       <Suspense fallback={<PageSpinner />}>
         <Switch><Route path="/sandbox" component={SandboxLanding} /></Switch>
+      </Suspense>
+    </div>
+  );
+
+  if (isRadio) return (
+    <div>
+      <ScrollToTop />
+      <Suspense fallback={<PageSpinner />}>
+        <Switch><Route path="/radio" component={Radio} /></Switch>
       </Suspense>
     </div>
   );
