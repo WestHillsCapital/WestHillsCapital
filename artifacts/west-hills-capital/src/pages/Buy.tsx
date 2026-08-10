@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { useProductPrices, type ProductPrice } from "@/hooks/use-pricing";
 import { Card } from "@/components/ui/card";
@@ -31,9 +31,19 @@ interface FedExLocation {
 }
 
 interface SessionResult {
-  interviewUrl: string;
-  sessionToken: string;
   confirmationId: string;
+  sentTo: string;
+}
+
+interface CustomerInfo {
+  firstName: string;
+  lastName:  string;
+  email:     string;
+  phone:     string;
+  street:    string;
+  city:      string;
+  state:     string;
+  zip:       string;
 }
 
 type CartMap = Record<string, number>; // productId → quantity (0 = not in cart)
@@ -174,11 +184,15 @@ export default function Buy() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<FedExLocation | null>(null);
 
-  // Step 4 — Docuplete session
+  // Step 4 — customer info + signing
+  const [customer, setCustomer] = useState<CustomerInfo>({
+    firstName: "", lastName: "", email: "", phone: "",
+    street: "", city: "", state: "", zip: "",
+  });
+  const [step4View, setStep4View]             = useState<"form" | "review" | "sent">("form");
   const [creatingSession, setCreatingSession] = useState(false);
   const [sessionError, setSessionError]       = useState<string | null>(null);
   const [session, setSession]                 = useState<SessionResult | null>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // ── Derived cart totals ─────────────────────────────────────────────────────
   const selectedProducts = products.filter(p => (cart[p.id] ?? 0) > 0);
@@ -215,29 +229,21 @@ export default function Buy() {
     }
   }
 
-  // ── Create Docuplete session ─────────────────────────────────────────────────
-  async function createSession() {
-    if (selectedProducts.length === 0 || !selectedLocation) return;
-    setCreatingSession(true);
-    setSessionError(null);
-
-    // Build line-item summary for Docuplete prefill
+  // ── Build order prefill ───────────────────────────────────────────────────────
+  function buildPrefill() {
     const lineItems = selectedProducts.map(p => ({
-      name:     p.name,
-      qty:      cart[p.id],
-      unitOz:   parseOz(p.weight),
-      metal:    p.metal,
+      name:      p.name,
+      qty:       cart[p.id] ?? 0,
+      unitOz:    parseOz(p.weight),
+      metal:     p.metal,
       unitPrice: p.finalPrice,
       lineTotal: p.finalPrice * (cart[p.id] ?? 0),
     }));
-
     const orderSummaryText = lineItems
       .map(li => `${li.qty}× ${li.name} @ ${formatUSD(li.unitPrice)} = ${formatUSD(li.lineTotal)}`)
       .join("\n");
-
-    const totalGoldOz   = lineItems.filter(li => li.metal === "gold").reduce((s, li) => s + li.unitOz * (li.qty ?? 0), 0);
-    const totalSilverOz = lineItems.filter(li => li.metal === "silver").reduce((s, li) => s + li.unitOz * (li.qty ?? 0), 0);
-
+    const totalGoldOz   = lineItems.filter(li => li.metal === "gold").reduce((s, li) => s + li.unitOz * li.qty, 0);
+    const totalSilverOz = lineItems.filter(li => li.metal === "silver").reduce((s, li) => s + li.unitOz * li.qty, 0);
     const prefill: Record<string, string> = {
       ORDER_SUMMARY:          orderSummaryText,
       TOTAL_TROY_OZ_GOLD:     totalGoldOz.toFixed(3),
@@ -245,14 +251,12 @@ export default function Buy() {
       PRODUCT_SUBTOTAL:       subtotal.toFixed(2),
       SHIPPING_FEE:           shipping.toFixed(2),
       ESTIMATED_TOTAL:        total.toFixed(2),
-      FEDEX_LOCATION_NAME:    selectedLocation.name,
-      FEDEX_LOCATION_ADDRESS: selectedLocation.address,
-      FEDEX_LOCATION_CITY:    selectedLocation.city,
-      FEDEX_LOCATION_STATE:   selectedLocation.state,
-      FEDEX_LOCATION_ZIP:     selectedLocation.zip,
+      FEDEX_LOCATION_NAME:    selectedLocation?.name ?? "",
+      FEDEX_LOCATION_ADDRESS: selectedLocation?.address ?? "",
+      FEDEX_LOCATION_CITY:    selectedLocation?.city ?? "",
+      FEDEX_LOCATION_STATE:   selectedLocation?.state ?? "",
+      FEDEX_LOCATION_ZIP:     selectedLocation?.zip ?? "",
     };
-
-    // Individual line items for Docuplete fields (up to 10)
     lineItems.slice(0, 10).forEach((li, i) => {
       const n = i + 1;
       prefill[`LINE_ITEM_${n}_NAME`]  = li.name;
@@ -260,20 +264,27 @@ export default function Buy() {
       prefill[`LINE_ITEM_${n}_PRICE`] = li.unitPrice.toFixed(2);
       prefill[`LINE_ITEM_${n}_TOTAL`] = li.lineTotal.toFixed(2);
     });
+    return prefill;
+  }
 
+  // ── Send agreement (step 4 → sent) ───────────────────────────────────────────
+  async function sendAgreement() {
+    if (!customer.email || !customer.firstName) return;
+    setCreatingSession(true);
+    setSessionError(null);
     try {
       const res = await fetch(`${API_BASE}/api/buy/session`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prefill }),
+        body: JSON.stringify({ prefill: buildPrefill(), customer }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Could not start session");
+      if (!res.ok) throw new Error(data.error ?? "Could not send agreement");
       setSession(data as SessionResult);
-      setStep(4);
+      setStep4View("sent");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: unknown) {
-      setSessionError(err instanceof Error ? err.message : "Could not start your purchase session.");
+      setSessionError(err instanceof Error ? err.message : "Could not send your agreement.");
     } finally {
       setCreatingSession(false);
     }
@@ -549,83 +560,258 @@ export default function Buy() {
                 <ArrowLeft className="w-4 h-4" /> Back
               </Button>
               <Button
-                onClick={createSession}
-                disabled={!selectedLocation || creatingSession}
+                onClick={() => { setStep(4); setStep4View("form"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                disabled={!selectedLocation}
                 className="flex-1 h-12 text-base flex items-center gap-2"
               >
-                {creatingSession
-                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Starting your session…</>
-                  : <>Continue — Review &amp; Sign Agreement <ChevronRight className="w-4 h-4" /></>}
+                Continue — Your Information
+                <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
           </div>
         )}
 
-        {/* ── STEP 4: Docuplete embed ──────────────────────────────────────── */}
-        {step === 4 && session && (
-          <div className="animate-fade-in space-y-4">
-            <Card className="p-4 md:p-6">
-              <div className="flex items-center justify-between mb-4">
+        {/* ── STEP 4a: Customer info form ──────────────────────────────────── */}
+        {step === 4 && step4View === "form" && (
+          <Card className="p-6 md:p-10 animate-fade-in space-y-6">
+            <div>
+              <h2 className="text-2xl font-serif font-semibold mb-1">Your Information</h2>
+              <p className="text-foreground/60 text-sm">
+                This appears on your Purchase Agreement. Please enter your legal name and mailing address.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">First Name</label>
+                  <Input value={customer.firstName} onChange={e => setCustomer(c => ({ ...c, firstName: e.target.value }))} placeholder="Jane" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Last Name</label>
+                  <Input value={customer.lastName} onChange={e => setCustomer(c => ({ ...c, lastName: e.target.value }))} placeholder="Smith" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Email</label>
+                  <Input type="email" value={customer.email} onChange={e => setCustomer(c => ({ ...c, email: e.target.value }))} placeholder="jane@example.com" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Phone</label>
+                  <Input type="tel" value={customer.phone} onChange={e => setCustomer(c => ({ ...c, phone: e.target.value }))} placeholder="(555) 000-0000" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Street Address</label>
+                <Input value={customer.street} onChange={e => setCustomer(c => ({ ...c, street: e.target.value }))} placeholder="123 Main St" />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <div className="space-y-1.5 col-span-1 sm:col-span-1">
+                  <label className="text-sm font-medium">City</label>
+                  <Input value={customer.city} onChange={e => setCustomer(c => ({ ...c, city: e.target.value }))} placeholder="Los Angeles" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">State</label>
+                  <Input value={customer.state} onChange={e => setCustomer(c => ({ ...c, state: e.target.value.toUpperCase().slice(0, 2) }))} placeholder="CA" maxLength={2} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">ZIP</label>
+                  <Input value={customer.zip} onChange={e => setCustomer(c => ({ ...c, zip: e.target.value.replace(/\D/g, "").slice(0, 5) }))} placeholder="90210" maxLength={5} />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={goBack} className="flex items-center gap-2">
+                <ArrowLeft className="w-4 h-4" /> Back
+              </Button>
+              <Button
+                onClick={() => { setStep4View("review"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                disabled={!customer.firstName || !customer.lastName || !customer.email}
+                className="flex-1 h-12 text-base flex items-center gap-2"
+              >
+                Review My Agreement
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* ── STEP 4b: PA review ───────────────────────────────────────────── */}
+        {step === 4 && step4View === "review" && (
+          <div className="animate-fade-in space-y-6">
+            <Card className="p-6 md:p-10">
+              <h2 className="text-2xl font-serif font-semibold mb-1">Purchase Agreement</h2>
+              <p className="text-foreground/60 text-sm mb-6">
+                Review the agreement below. When ready, click <strong>Send for Signature</strong> — we'll
+                email you a secure link to verify your identity and sign.
+              </p>
+
+              {/* Agreement document */}
+              <div className="rounded-xl border border-border bg-white text-foreground text-sm leading-relaxed p-6 md:p-10 space-y-5 font-serif">
+                <div className="text-center border-b border-border pb-5">
+                  <p className="text-lg font-bold tracking-wide uppercase">Purchase Agreement</p>
+                  <p className="text-foreground/50 text-xs mt-1">West Hills Capital LLC</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs text-foreground/60 border-b border-border pb-4">
+                  <span>Date: <strong className="text-foreground">{new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</strong></span>
+                  <span className="text-right">ID: <strong className="text-foreground">Assigned on signing</strong></span>
+                </div>
+
+                <p>
+                  This Purchase Agreement ("<strong>Agreement</strong>") is entered into between{" "}
+                  <strong>West Hills Capital LLC</strong> ("<strong>Dealer</strong>") and{" "}
+                  <strong>{customer.firstName} {customer.lastName}</strong> ("<strong>Buyer</strong>"),
+                  located at {customer.street}, {customer.city}, {customer.state} {customer.zip}.
+                </p>
+
                 <div>
-                  <h2 className="text-xl font-serif font-semibold">Purchase Agreement</h2>
-                  <p className="text-foreground/55 text-sm">
-                    Confirmation ID: <strong className="text-foreground">{session.confirmationId}</strong>
+                  <p className="font-bold mb-2">1. Purchase</p>
+                  <p>Buyer agrees to purchase the following from Dealer:</p>
+                  <div className="mt-2 border border-border rounded-lg overflow-hidden">
+                    {selectedProducts.map(p => (
+                      <div key={p.id} className="flex justify-between px-4 py-2 even:bg-muted/30 text-xs">
+                        <span>{cart[p.id]}× {p.name}</span>
+                        <span className="font-semibold">{formatUSD(p.finalPrice * (cart[p.id] ?? 0))}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between px-4 py-2 bg-muted/30 text-xs">
+                      <span>Shipping &amp; Insurance</span>
+                      <span className="font-semibold">{shipping === 0 ? "Included" : formatUSD(shipping)}</span>
+                    </div>
+                    <div className="flex justify-between px-4 py-2.5 bg-primary/5 text-sm font-bold">
+                      <span>Estimated Total</span>
+                      <span>{formatUSD(total)}</span>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-xs text-foreground/60">
+                    Metals will be shipped via FedEx 2-Day, fully insured, to:
+                  </p>
+                  {selectedLocation && (
+                    <p className="text-xs font-semibold mt-1">
+                      {selectedLocation.name} — {selectedLocation.address}, {selectedLocation.city}, {selectedLocation.state} {selectedLocation.zip}
+                    </p>
+                  )}
+                  <p className="text-xs text-foreground/60 mt-1">Adult signature required at pickup.</p>
+                </div>
+
+                <div>
+                  <p className="font-bold mb-2">2. Payment</p>
+                  <p>
+                    Payment must be received by wire transfer no later than the <strong>end of the next
+                    business day</strong> following execution of this Agreement. Wire instructions will be
+                    included in your invoice, delivered by email upon completion of signing.
+                  </p>
+                </div>
+
+                <div>
+                  <p className="font-bold mb-2">3. Cancellation Fee</p>
+                  <p>
+                    If payment is not received by the deadline, West Hills Capital reserves the right to
+                    cancel this order and charge a fee equal to the <strong>greater of $125.00 or the
+                    actual market loss</strong> sustained by West Hills Capital as a result of executing
+                    and unwinding the corresponding trade with its supplier.
+                  </p>
+                </div>
+
+                <div>
+                  <p className="font-bold mb-2">4. Price</p>
+                  <p>
+                    The estimated total above reflects live market pricing at the time of this Agreement.
+                    Final price is confirmed at trade execution, which occurs upon confirmed receipt of
+                    cleared funds. Prices may vary slightly at execution.
+                  </p>
+                </div>
+
+                <div>
+                  <p className="font-bold mb-2">5. Terms</p>
+                  <p>
+                    This Agreement is subject to West Hills Capital's{" "}
+                    <a href="/terms" target="_blank" className="underline text-primary">Terms of Service</a>{" "}
+                    and{" "}
+                    <a href="/privacy" target="_blank" className="underline text-primary">Privacy Policy</a>.
+                  </p>
+                </div>
+
+                <div className="border-t border-border pt-4 text-xs text-foreground/50">
+                  By clicking <em>Send for Signature</em>, Buyer acknowledges they have read and agree
+                  to this Agreement. Electronic signature will be collected via a secure link sent to{" "}
+                  <strong className="text-foreground">{customer.email}</strong>.
+                </div>
+              </div>
+            </Card>
+
+            {sessionError && (
+              <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-4">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-red-800 text-sm">Could not send your agreement</p>
+                  <p className="text-red-700 text-sm mt-0.5">{sessionError}</p>
+                  <p className="text-red-600 text-sm mt-1">
+                    Please call{" "}
+                    <a href="tel:8008676768" className="font-semibold underline">(800) 867-6768</a>.
                   </p>
                 </div>
               </div>
+            )}
 
-              {/* Order recap before signing */}
-              {selectedProducts.length > 0 && selectedLocation && (
-                <div className="rounded-lg bg-muted/40 border border-border/50 p-4 mb-4">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-3">
-                    <div>
-                      <p className="text-foreground/50 text-xs mb-0.5">Items</p>
-                      <p className="font-medium text-foreground">{itemCount} unit{itemCount !== 1 ? "s" : ""}</p>
-                    </div>
-                    <div>
-                      <p className="text-foreground/50 text-xs mb-0.5">Estimated Total</p>
-                      <p className="font-medium text-foreground">{formatUSD(total)}</p>
-                    </div>
-                    <div>
-                      <p className="text-foreground/50 text-xs mb-0.5">Pickup</p>
-                      <p className="font-medium text-foreground truncate">{selectedLocation.name}</p>
-                    </div>
-                  </div>
-                  <div className="divide-y divide-border/50 border-t border-border/50 pt-2">
-                    {selectedProducts.map(p => (
-                      <p key={p.id} className="text-xs text-foreground/60 py-1">
-                        {cart[p.id]}× {p.name} — {formatUSD(p.finalPrice * (cart[p.id] ?? 0))}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <p className="text-sm text-foreground/60 mb-4">
-                Complete the form below to sign your Purchase Agreement. Your identity will be verified
-                and your agreement generated automatically. You will receive your invoice with wire
-                instructions by email immediately after signing.
-              </p>
-            </Card>
-
-            <div className="rounded-xl overflow-hidden border border-border shadow-sm">
-              <iframe
-                ref={iframeRef}
-                src={`${session.interviewUrl}?embed=1`}
-                className="w-full border-0"
-                style={{ height: "780px" }}
-                allow="camera; microphone"
-                title="Purchase Agreement"
-              />
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => setStep4View("form")} className="flex items-center gap-2">
+                <ArrowLeft className="w-4 h-4" /> Edit Info
+              </Button>
+              <Button
+                onClick={sendAgreement}
+                disabled={creatingSession}
+                className="flex-1 h-12 text-base flex items-center gap-2"
+              >
+                {creatingSession
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending…</>
+                  : <>Send for Signature <ChevronRight className="w-4 h-4" /></>}
+              </Button>
             </div>
 
             <p className="text-center text-xs text-foreground/40">
               Having trouble?{" "}
-              <a href="tel:8008676768" className="underline hover:text-foreground">
-                Call (800) 867-6768
-              </a>{" "}
+              <a href="tel:8008676768" className="underline hover:text-foreground">Call (800) 867-6768</a>{" "}
               and a specialist will assist you.
             </p>
+          </div>
+        )}
+
+        {/* ── STEP 4c: Sent confirmation ───────────────────────────────────── */}
+        {step === 4 && step4View === "sent" && session && (
+          <div className="animate-fade-in">
+            <Card className="p-8 md:p-12 text-center space-y-5">
+              <div className="flex justify-center">
+                <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+                  <CheckCircle2 className="w-9 h-9 text-green-600" />
+                </div>
+              </div>
+              <div>
+                <h2 className="text-2xl font-serif font-semibold mb-2">Check Your Inbox</h2>
+                <p className="text-foreground/60">
+                  We've sent your Purchase Agreement to{" "}
+                  <strong className="text-foreground">{session.sentTo}</strong>.
+                </p>
+              </div>
+              <div className="rounded-xl bg-muted/40 border border-border p-5 text-sm text-left space-y-2 max-w-md mx-auto">
+                <p className="font-semibold text-foreground mb-1">What happens next</p>
+                <p className="text-foreground/65">1. Open the email from West Hills Capital and click the signing link.</p>
+                <p className="text-foreground/65">2. Verify your identity — a one-time code will be sent to you.</p>
+                <p className="text-foreground/65">3. Review and sign the Purchase Agreement.</p>
+                <p className="text-foreground/65">4. Your invoice with wire instructions arrives by email immediately after signing.</p>
+                <p className="text-foreground/65">5. Wire funds by end of next business day to lock your price.</p>
+              </div>
+              <p className="text-xs text-foreground/45">
+                Confirmation ID: <strong className="text-foreground">{session.confirmationId}</strong>
+              </p>
+              <p className="text-xs text-foreground/40 pt-2">
+                Questions?{" "}
+                <a href="tel:8008676768" className="underline hover:text-foreground">(800) 867-6768</a>
+              </p>
+            </Card>
           </div>
         )}
 

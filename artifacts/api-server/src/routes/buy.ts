@@ -10,6 +10,7 @@ import { Router } from "express";
 import { randomBytes, createHmac } from "crypto";
 import { getDb } from "../db";
 import { searchFedExLocations } from "../lib/fedex";
+import { sendInterviewLinkEmail } from "../lib/email";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -66,12 +67,21 @@ router.post("/fedex-locations", async (req, res) => {
 
 // ── POST /api/buy/session ─────────────────────────────────────────────────────
 // Public. Creates a Docuplete interview session for the purchase agreement
-// package, pre-populated with product, pricing, and FedEx location data.
-// Returns { interviewUrl, sessionToken, confirmationId }.
+// package, pre-populated with order + customer data, then emails the customer
+// a signing link so Docuplete can handle OTP verification and e-signature.
+// Returns { confirmationId, sentTo }.
 router.post("/session", async (req, res) => {
   const embedKey = process.env.DOCUPLETE_PURCHASE_EMBED_KEY;
   if (!embedKey) {
     res.status(503).json({ error: "Purchase flow not configured" });
+    return;
+  }
+
+  const { prefill: callerPrefill = {}, customer = {} } = req.body ?? {};
+  const { firstName = "", lastName = "", email = "", phone = "", street = "", city = "", state = "", zip = "" } = customer as Record<string, string>;
+
+  if (!email) {
+    res.status(400).json({ error: "Customer email is required" });
     return;
   }
 
@@ -91,7 +101,7 @@ router.post("/session", async (req, res) => {
               a.custom_domain, a.custom_domain_status
          FROM docuplete_packages p
          JOIN accounts a ON a.id = p.account_id
-        WHERE p.embed_key = $1 AND p.enable_embed = true AND p.status = 'active'
+        WHERE p.embed_key = $1 AND p.status = 'active'
         LIMIT 1`,
       [embedKey],
     );
@@ -103,22 +113,29 @@ router.post("/session", async (req, res) => {
     }
 
     // Generate identifiers
-    const token         = randomBytes(32).toString("base64url");
+    const token          = randomBytes(32).toString("base64url");
     const confirmationId = `WHC-${Date.now().toString(36).toUpperCase()}`;
-    const expiresAt     = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const expiresAt      = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const fullName       = [firstName, lastName].filter(Boolean).join(" ");
 
-    // Merge caller prefill with server-generated fields
+    // Merge order prefill with customer info and server-generated fields
     const prefill: Record<string, string> = {
-      ...(req.body?.prefill ?? {}),
-      CONFIRMATION_ID:  confirmationId,
-      AGREEMENT_DATE:   new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+      ...callerPrefill,
+      BUYER_FIRST_NAME:  firstName,
+      BUYER_LAST_NAME:   lastName,
+      BUYER_FULL_NAME:   fullName,
+      BUYER_EMAIL:       email,
+      BUYER_PHONE:       phone,
+      BUYER_ADDRESS:     [street, city, state, zip].filter(Boolean).join(", "),
+      CONFIRMATION_ID:   confirmationId,
+      AGREEMENT_DATE:    new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
     };
 
     await db.query(
       `INSERT INTO docuplete_interview_sessions
          (token, package_id, package_version, transaction_scope, source, status,
-          test_mode, prefill, answers, expires_at, account_id)
-       VALUES ($1, $2, $3, $4, 'embed', 'draft', false, $5::jsonb, '{}'::jsonb, $6, $7)`,
+          test_mode, prefill, answers, expires_at, account_id, link_email_recipient)
+       VALUES ($1, $2, $3, $4, 'self-serve', 'draft', false, $5::jsonb, '{}'::jsonb, $6, $7, $8)`,
       [
         token,
         pkg.id,
@@ -127,6 +144,7 @@ router.post("/session", async (req, res) => {
         JSON.stringify(prefill),
         expiresAt,
         pkg.account_id,
+        email,
       ],
     );
 
@@ -137,12 +155,27 @@ router.post("/session", async (req, res) => {
       pkg.custom_domain && pkg.custom_domain_status === "active"
         ? `https://${pkg.custom_domain}`
         : appOrigin;
+    const interviewUrl = `${interviewOrigin}/docuplete/public/${token}`;
 
-    res.status(201).json({
-      interviewUrl: `${interviewOrigin}/docuplete/public/${token}`,
-      sessionToken: token,
-      confirmationId,
+    // Send the signing link email — Docuplete handles OTP + e-signature from here
+    await sendInterviewLinkEmail({
+      recipientEmail: email,
+      recipientName:  fullName || email,
+      interviewUrl,
+      orgName:        "West Hills Capital",
+      customMessage:  `Your Purchase Agreement is ready to review and sign. Confirmation ID: ${confirmationId}`,
+      mode:           "interview",
     });
+
+    // Update session to record that the link was emailed
+    await db.query(
+      `UPDATE docuplete_interview_sessions SET link_emailed_at = NOW() WHERE token = $1`,
+      [token],
+    );
+
+    logger.info({ confirmationId, sentTo: email }, "[Buy/Session] Agreement link sent");
+
+    res.status(201).json({ confirmationId, sentTo: email });
   } catch (err) {
     logger.error({ err }, "[Buy/Session] Session creation failed");
     res.status(500).json({ error: "Could not create session" });
