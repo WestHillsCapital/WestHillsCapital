@@ -15,7 +15,7 @@ import { logger } from "../lib/logger";
 const router = Router();
 
 // ── Shipping fee calculation ──────────────────────────────────────────────────
-const FLAT_SHIPPING_FEE_USD = parseFloat(process.env.SELF_SERVE_SHIPPING_FEE_USD ?? "35");
+const FLAT_SHIPPING_FEE_USD = parseFloat(process.env.SELF_SERVE_SHIPPING_FEE_USD ?? "25");
 const FREE_SHIPPING_GOLD_OZ  = parseFloat(process.env.FREE_SHIPPING_GOLD_OZ  ?? "15");
 const FREE_SHIPPING_SILVER_OZ = parseFloat(process.env.FREE_SHIPPING_SILVER_OZ ?? "300");
 

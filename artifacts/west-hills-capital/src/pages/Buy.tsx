@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { usePageMeta } from "@/hooks/use-page-meta";
-import { useProductPrices } from "@/hooks/use-pricing";
+import { useProductPrices, type ProductPrice } from "@/hooks/use-pricing";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,15 +37,38 @@ interface SessionResult {
   confirmationId: string;
 }
 
+type CartMap = Record<string, number>; // productId → quantity (0 = not in cart)
+
 // ── Shipping helpers ──────────────────────────────────────────────────────────
+const FLAT_FEE       = 25;
 const FREE_GOLD_OZ   = 15;
 const FREE_SILVER_OZ = 300;
-const FLAT_FEE       = 35;
 
-function calcShipping(metal: string, totalOz: number): number {
-  if (metal === "gold"   && totalOz >= FREE_GOLD_OZ)   return 0;
-  if (metal === "silver" && totalOz >= FREE_SILVER_OZ) return 0;
+function parseOz(weight: string): number {
+  return parseFloat(weight) || 1;
+}
+
+function calcShipping(cart: CartMap, products: ProductPrice[]): number {
+  let goldOz = 0;
+  let silverOz = 0;
+  for (const p of products) {
+    const qty = cart[p.id] ?? 0;
+    if (qty === 0) continue;
+    const oz = parseOz(p.weight) * qty;
+    if (p.metal === "gold")   goldOz   += oz;
+    if (p.metal === "silver") silverOz += oz;
+  }
+  if (goldOz   >= FREE_GOLD_OZ)   return 0;
+  if (silverOz >= FREE_SILVER_OZ) return 0;
   return FLAT_FEE;
+}
+
+function cartSubtotal(cart: CartMap, products: ProductPrice[]): number {
+  return products.reduce((sum, p) => sum + p.finalPrice * (cart[p.id] ?? 0), 0);
+}
+
+function cartItemCount(cart: CartMap): number {
+  return Object.values(cart).reduce((s, q) => s + q, 0);
 }
 
 function formatUSD(n: number): string {
@@ -87,6 +110,25 @@ function StepBar({ step }: { step: number }) {
   );
 }
 
+// ── Quantity stepper ──────────────────────────────────────────────────────────
+function QtyControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(0, value - 1))}
+        className="w-7 h-7 rounded border border-border flex items-center justify-center text-base leading-none hover:bg-muted transition-colors font-medium"
+      >−</button>
+      <span className="w-6 text-center text-sm font-semibold tabular-nums">{value}</span>
+      <button
+        type="button"
+        onClick={() => onChange(value + 1)}
+        className="w-7 h-7 rounded border border-border flex items-center justify-center text-base leading-none hover:bg-muted transition-colors font-medium"
+      >+</button>
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Buy() {
   usePageMeta({
@@ -98,9 +140,22 @@ export default function Buy() {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
   // Step 2 — product selection
-  const { data: products, isLoading: loadingProducts } = useProductPrices();
-  const [selectedCode, setSelectedCode] = useState<string>("");
-  const [quantity, setQuantity] = useState<number>(1);
+  const { data: pricingData, isLoading: loadingProducts } = useProductPrices();
+  const products: ProductPrice[] = pricingData?.products ?? [];
+  const [cart, setCart] = useState<CartMap>({});
+
+  // Reset cart when products change and are non-empty (first load)
+  useEffect(() => {
+    if (products.length > 0 && Object.keys(cart).length === 0) {
+      const initial: CartMap = {};
+      products.forEach(p => { initial[p.id] = 0; });
+      setCart(initial);
+    }
+  }, [products]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function setQty(id: string, qty: number) {
+    setCart(c => ({ ...c, [id]: Math.max(0, qty) }));
+  }
 
   // Step 3 — FedEx location
   const [zip, setZip] = useState("");
@@ -115,22 +170,12 @@ export default function Buy() {
   const [session, setSession]                 = useState<SessionResult | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Auto-select first product once loaded
-  useEffect(() => {
-    if (products?.prices?.length && !selectedCode) {
-      setSelectedCode(products.prices[0].code);
-    }
-  }, [products, selectedCode]);
-
-  // ── Derived pricing ─────────────────────────────────────────────────────────
-  const selectedProduct = products?.prices?.find(p => p.code === selectedCode);
-  const unitPrice   = selectedProduct?.finalPrice ?? 0;
-  const unitOz      = selectedProduct?.unitOz ?? 1;
-  const metal       = selectedProduct?.metal ?? "gold";
-  const totalOz     = unitOz * quantity;
-  const subtotal    = unitPrice * quantity;
-  const shipping    = selectedProduct ? calcShipping(metal, totalOz) : FLAT_FEE;
-  const total       = subtotal + shipping;
+  // ── Derived cart totals ─────────────────────────────────────────────────────
+  const selectedProducts = products.filter(p => (cart[p.id] ?? 0) > 0);
+  const subtotal  = cartSubtotal(cart, products);
+  const shipping  = selectedProducts.length > 0 ? calcShipping(cart, products) : FLAT_FEE;
+  const total     = subtotal + shipping;
+  const itemCount = cartItemCount(cart);
 
   // ── FedEx search ─────────────────────────────────────────────────────────────
   async function searchLocations() {
@@ -162,21 +207,34 @@ export default function Buy() {
 
   // ── Create Docuplete session ─────────────────────────────────────────────────
   async function createSession() {
-    if (!selectedProduct || !selectedLocation) return;
+    if (selectedProducts.length === 0 || !selectedLocation) return;
     setCreatingSession(true);
     setSessionError(null);
 
-    const addr = selectedLocation.address;
+    const addr   = selectedLocation.address;
     const street = addr.streetLines?.[0] ?? "";
 
+    // Build line-item summary for Docuplete prefill
+    const lineItems = selectedProducts.map(p => ({
+      name:     p.name,
+      qty:      cart[p.id],
+      unitOz:   parseOz(p.weight),
+      metal:    p.metal,
+      unitPrice: p.finalPrice,
+      lineTotal: p.finalPrice * (cart[p.id] ?? 0),
+    }));
+
+    const orderSummaryText = lineItems
+      .map(li => `${li.qty}× ${li.name} @ ${formatUSD(li.unitPrice)} = ${formatUSD(li.lineTotal)}`)
+      .join("\n");
+
+    const totalGoldOz   = lineItems.filter(li => li.metal === "gold").reduce((s, li) => s + li.unitOz * (li.qty ?? 0), 0);
+    const totalSilverOz = lineItems.filter(li => li.metal === "silver").reduce((s, li) => s + li.unitOz * (li.qty ?? 0), 0);
+
     const prefill: Record<string, string> = {
-      PRODUCT_NAME:           selectedProduct.name,
-      QUANTITY:               String(quantity),
-      UNIT_WEIGHT:            String(unitOz),
-      METAL_TYPE:             metal.charAt(0).toUpperCase() + metal.slice(1),
-      TOTAL_TROY_OZ:          totalOz.toFixed(3),
-      PER_UNIT_PRICE:         unitPrice.toFixed(2),
-      SPOT_PRICE_AT_SUBMISSION: String(unitPrice),
+      ORDER_SUMMARY:          orderSummaryText,
+      TOTAL_TROY_OZ_GOLD:     totalGoldOz.toFixed(3),
+      TOTAL_TROY_OZ_SILVER:   totalSilverOz.toFixed(3),
       PRODUCT_SUBTOTAL:       subtotal.toFixed(2),
       SHIPPING_FEE:           shipping.toFixed(2),
       ESTIMATED_TOTAL:        total.toFixed(2),
@@ -186,6 +244,15 @@ export default function Buy() {
       FEDEX_LOCATION_STATE:   addr.stateOrProvinceCode,
       FEDEX_LOCATION_ZIP:     addr.postalCode,
     };
+
+    // Individual line items for Docuplete fields (up to 10)
+    lineItems.slice(0, 10).forEach((li, i) => {
+      const n = i + 1;
+      prefill[`LINE_ITEM_${n}_NAME`]  = li.name;
+      prefill[`LINE_ITEM_${n}_QTY`]   = String(li.qty);
+      prefill[`LINE_ITEM_${n}_PRICE`] = li.unitPrice.toFixed(2);
+      prefill[`LINE_ITEM_${n}_TOTAL`] = li.lineTotal.toFixed(2);
+    });
 
     try {
       const res = await fetch(`${API_BASE}/api/buy/session`, {
@@ -287,80 +354,73 @@ export default function Buy() {
           <Card className="p-6 md:p-10 animate-fade-in space-y-8">
             <div>
               <h2 className="text-2xl font-serif font-semibold mb-1">Select Your Metals</h2>
-              <p className="text-foreground/60 text-sm">Live pricing — refreshes every 5 seconds.</p>
+              <p className="text-foreground/60 text-sm">Live pricing — add as many products as you'd like.</p>
             </div>
 
             {loadingProducts ? (
               <div className="flex items-center justify-center py-12 text-foreground/50 gap-3">
                 <Loader2 className="w-5 h-5 animate-spin" /> Loading live prices…
               </div>
+            ) : products.length === 0 ? (
+              <div className="flex items-center justify-center py-12 text-foreground/50 gap-3">
+                <AlertCircle className="w-5 h-5" />
+                <span>Live pricing is temporarily unavailable. Please <a href="tel:8008676768" className="underline font-medium">call us</a> to place your order.</span>
+              </div>
             ) : (
               <div className="space-y-6">
-                {/* Product picker */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Product</label>
-                  <div className="grid grid-cols-1 gap-3">
-                    {products?.prices?.map(p => (
-                      <button
-                        key={p.code}
-                        type="button"
-                        onClick={() => setSelectedCode(p.code)}
-                        className={`flex items-center justify-between p-4 rounded-xl border-2 text-left transition-all
-                          ${selectedCode === p.code
-                            ? "border-primary bg-primary/5"
-                            : "border-border/60 hover:border-primary/40 bg-card"}`}
-                      >
-                        <div>
-                          <p className="font-semibold text-foreground">{p.name}</p>
-                          <p className="text-sm text-foreground/55">{p.unitOz} troy oz · {p.metal.charAt(0).toUpperCase() + p.metal.slice(1)}</p>
+                {/* Product list */}
+                <div className="divide-y divide-border rounded-xl border border-border overflow-hidden">
+                  {products.map(p => {
+                    const qty = cart[p.id] ?? 0;
+                    const lineTotal = p.finalPrice * qty;
+                    return (
+                      <div key={p.id} className={`flex items-center gap-4 px-4 py-4 transition-colors
+                        ${qty > 0 ? "bg-primary/5" : "bg-card hover:bg-muted/30"}`}>
+                        {/* Coin image */}
+                        {p.imageUrl && (
+                          <img src={p.imageUrl} alt={p.name}
+                            className="w-10 h-10 object-contain flex-shrink-0 rounded-full" />
+                        )}
+                        {/* Name + meta */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-foreground">{p.name}</span>
+                            {qty > 0 && (
+                              <span className="text-xs bg-primary/15 text-primary font-medium px-2 py-0.5 rounded-full">
+                                {qty} selected
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-foreground/50 mt-0.5">{p.weight} · {p.metal.charAt(0).toUpperCase() + p.metal.slice(1)}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="font-semibold text-lg text-foreground">{formatUSD(p.finalPrice)}</p>
-                          <p className="text-xs text-foreground/45">per unit</p>
+                        {/* Price */}
+                        <div className="text-right flex-shrink-0 min-w-[80px]">
+                          <p className="font-semibold text-foreground">{formatUSD(p.finalPrice)}</p>
+                          {qty > 0 && (
+                            <p className="text-xs text-foreground/45">{formatUSD(lineTotal)}</p>
+                          )}
                         </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Quantity */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Quantity</label>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                      className="w-10 h-10 rounded-lg border border-border flex items-center justify-center text-xl font-medium hover:bg-muted transition-colors"
-                    >−</button>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={999}
-                      value={quantity}
-                      onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-24 text-center text-lg font-semibold"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setQuantity(q => q + 1)}
-                      className="w-10 h-10 rounded-lg border border-border flex items-center justify-center text-xl font-medium hover:bg-muted transition-colors"
-                    >+</button>
-                    <span className="text-sm text-foreground/55">{totalOz.toFixed(totalOz % 1 === 0 ? 0 : 3)} troy oz total</span>
-                  </div>
+                        {/* Qty stepper */}
+                        <QtyControl value={qty} onChange={v => setQty(p.id, v)} />
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Order summary */}
-                {selectedProduct && (
+                {itemCount > 0 && (
                   <div className="rounded-xl border border-border bg-card overflow-hidden">
                     <div className="bg-muted/40 px-4 py-2 text-xs font-semibold text-foreground/50 uppercase tracking-wider">
                       Order Summary
                     </div>
                     <div className="divide-y divide-border">
-                      <div className="flex justify-between px-4 py-3 text-sm">
-                        <span className="text-foreground/60">{selectedProduct.name} × {quantity}</span>
-                        <span className="font-medium">{formatUSD(subtotal)}</span>
-                      </div>
-                      <div className="flex justify-between px-4 py-3 text-sm">
+                      {selectedProducts.map(p => (
+                        <div key={p.id} className="flex justify-between px-4 py-2.5 text-sm">
+                          <span className="text-foreground/60">{p.name} × {cart[p.id]}</span>
+                          <span className="font-medium">{formatUSD(p.finalPrice * (cart[p.id] ?? 0))}</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between px-4 py-2.5 text-sm">
                         <span className="text-foreground/60">
                           Shipping &amp; Insurance
                           {shipping === 0 && <span className="ml-1 text-green-600 font-medium">(complimentary)</span>}
@@ -386,7 +446,7 @@ export default function Buy() {
               </Button>
               <Button
                 onClick={() => { setStep(3); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-                disabled={!selectedProduct || quantity < 1}
+                disabled={itemCount === 0}
                 className="flex-1 h-12 text-base flex items-center gap-2"
               >
                 Continue — Choose Pickup Location
@@ -507,35 +567,39 @@ export default function Buy() {
               </div>
 
               {/* Order recap before signing */}
-              {selectedProduct && selectedLocation && (
-                <div className="rounded-lg bg-muted/40 border border-border/50 p-4 mb-4 text-sm grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div>
-                    <p className="text-foreground/50 text-xs mb-0.5">Product</p>
-                    <p className="font-medium text-foreground">{selectedProduct.name}</p>
+              {selectedProducts.length > 0 && selectedLocation && (
+                <div className="rounded-lg bg-muted/40 border border-border/50 p-4 mb-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-3">
+                    <div>
+                      <p className="text-foreground/50 text-xs mb-0.5">Items</p>
+                      <p className="font-medium text-foreground">{itemCount} unit{itemCount !== 1 ? "s" : ""}</p>
+                    </div>
+                    <div>
+                      <p className="text-foreground/50 text-xs mb-0.5">Estimated Total</p>
+                      <p className="font-medium text-foreground">{formatUSD(total)}</p>
+                    </div>
+                    <div>
+                      <p className="text-foreground/50 text-xs mb-0.5">Pickup</p>
+                      <p className="font-medium text-foreground truncate">{selectedLocation.name}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-foreground/50 text-xs mb-0.5">Quantity</p>
-                    <p className="font-medium text-foreground">{quantity}</p>
-                  </div>
-                  <div>
-                    <p className="text-foreground/50 text-xs mb-0.5">Total</p>
-                    <p className="font-medium text-foreground">{formatUSD(total)}</p>
-                  </div>
-                  <div>
-                    <p className="text-foreground/50 text-xs mb-0.5">Pickup</p>
-                    <p className="font-medium text-foreground truncate">{selectedLocation.name}</p>
+                  <div className="divide-y divide-border/50 border-t border-border/50 pt-2">
+                    {selectedProducts.map(p => (
+                      <p key={p.id} className="text-xs text-foreground/60 py-1">
+                        {cart[p.id]}× {p.name} — {formatUSD(p.finalPrice * (cart[p.id] ?? 0))}
+                      </p>
+                    ))}
                   </div>
                 </div>
               )}
 
               <p className="text-sm text-foreground/60 mb-4">
-                Complete the form below to sign your Purchase Agreement.
-                Your identity will be verified and your agreement generated automatically.
-                You will receive your invoice with wire instructions by email immediately after signing.
+                Complete the form below to sign your Purchase Agreement. Your identity will be verified
+                and your agreement generated automatically. You will receive your invoice with wire
+                instructions by email immediately after signing.
               </p>
             </Card>
 
-            {/* Docuplete iframe — fills the rest of the viewport */}
             <div className="rounded-xl overflow-hidden border border-border shadow-sm">
               <iframe
                 ref={iframeRef}
@@ -551,8 +615,8 @@ export default function Buy() {
               Having trouble?{" "}
               <a href="tel:8008676768" className="underline hover:text-foreground">
                 Call (800) 867-6768
-              </a>
-              {" "}and a specialist will assist you.
+              </a>{" "}
+              and a specialist will assist you.
             </p>
           </div>
         )}
