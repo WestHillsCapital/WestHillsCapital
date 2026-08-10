@@ -244,9 +244,9 @@ export default function Schedule() {
                     <label className="text-sm font-medium text-foreground">Timeline</label>
                     <Select {...form.register("timeline")}>
                       <option value="" disabled hidden>Select timeline...</option>
-                      <option value="ready">Ready to move forward now</option>
-                      <option value="within_30_days">Planning within next 30 days</option>
                       <option value="researching">Just researching options</option>
+                      <option value="within_30_days">Planning within next 30 days</option>
+                      <option value="ready">Ready to move forward now</option>
                     </Select>
                     {form.formState.errors.timeline && (
                       <span className="text-destructive text-xs">{form.formState.errors.timeline.message}</span>
