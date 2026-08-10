@@ -113,17 +113,27 @@ function StepBar({ step }: { step: number }) {
 // ── Quantity stepper ──────────────────────────────────────────────────────────
 function QtyControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1">
       <button
         type="button"
         onClick={() => onChange(Math.max(0, value - 1))}
-        className="w-7 h-7 rounded border border-border flex items-center justify-center text-base leading-none hover:bg-muted transition-colors font-medium"
+        className="w-7 h-7 rounded border border-border flex items-center justify-center text-base leading-none hover:bg-muted transition-colors font-medium flex-shrink-0"
       >−</button>
-      <span className="w-6 text-center text-sm font-semibold tabular-nums">{value}</span>
+      <input
+        type="number"
+        min={0}
+        max={999}
+        value={value}
+        onChange={e => {
+          const v = parseInt(e.target.value, 10);
+          onChange(isNaN(v) || v < 0 ? 0 : v);
+        }}
+        className="w-12 text-center text-sm font-semibold tabular-nums border border-border rounded px-1 py-0.5 bg-background focus:outline-none focus:ring-1 focus:ring-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      />
       <button
         type="button"
         onClick={() => onChange(value + 1)}
-        className="w-7 h-7 rounded border border-border flex items-center justify-center text-base leading-none hover:bg-muted transition-colors font-medium"
+        className="w-7 h-7 rounded border border-border flex items-center justify-center text-base leading-none hover:bg-muted transition-colors font-medium flex-shrink-0"
       >+</button>
     </div>
   );
