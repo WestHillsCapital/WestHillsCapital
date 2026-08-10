@@ -124,6 +124,7 @@ function QtyControl({ value, onChange }: { value: number; onChange: (v: number) 
         min={0}
         max={999}
         value={value}
+        onFocus={e => e.target.select()}
         onChange={e => {
           const v = parseInt(e.target.value, 10);
           onChange(isNaN(v) || v < 0 ? 0 : v);
