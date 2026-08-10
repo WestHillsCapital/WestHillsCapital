@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,6 +20,8 @@ import {
   Calendar as CalendarIcon,
   PhoneCall,
   AlertCircle,
+  ShoppingCart,
+  ArrowRight,
 } from "lucide-react";
 
 const US_STATES = [
@@ -140,6 +143,7 @@ export default function Schedule() {
     canonical: "https://westhillscapital.com/schedule",
   });
 
+  const [, navigate] = useLocation();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [formData, setFormData] = useState<PrequalFormValues | null>(null);
   const [leadError, setLeadError] = useState<string | null>(null);
@@ -161,6 +165,8 @@ export default function Schedule() {
       timeline: undefined,
     },
   });
+
+  const timeline = form.watch("timeline");
 
   const onSubmitPrequal = async (data: PrequalFormValues) => {
     setSubmitting(true);
@@ -234,6 +240,53 @@ export default function Schedule() {
                 <h2 className="text-xl font-semibold border-b border-border pb-2">About Your Interest</h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm font-medium text-foreground">Timeline</label>
+                    <Select {...form.register("timeline")}>
+                      <option value="" disabled hidden>Select timeline...</option>
+                      <option value="ready">Ready to move forward now</option>
+                      <option value="within_30_days">Planning within next 30 days</option>
+                      <option value="researching">Just researching options</option>
+                    </Select>
+                    {form.formState.errors.timeline && (
+                      <span className="text-destructive text-xs">{form.formState.errors.timeline.message}</span>
+                    )}
+                  </div>
+
+                  {/* Self-serve prompt — shown immediately when user selects "ready" */}
+                  {timeline === "ready" && (
+                    <div className="md:col-span-2 rounded-xl border border-primary/30 bg-primary/5 p-5">
+                      <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <ShoppingCart className="w-5 h-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-foreground mb-1">Ready to lock in your purchase now?</p>
+                          <p className="text-sm text-foreground/65 mb-4">
+                            Skip the call — select your metals, review pricing, sign the purchase agreement, and receive your invoice. Funds are due by end of next business day.
+                          </p>
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <Button
+                              type="button"
+                              onClick={() => navigate("/buy")}
+                              className="flex items-center gap-2"
+                            >
+                              Buy Now — Skip the Call
+                              <ArrowRight className="w-4 h-4" />
+                            </Button>
+                            <button
+                              type="button"
+                              className="text-sm text-foreground/55 hover:text-foreground underline underline-offset-4 self-center"
+                              onClick={() => {/* user continues filling the form below */}}
+                            >
+                              I'd still like to schedule a call
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground">Intended Structure</label>
                     <Select {...form.register("allocationType")}>
@@ -258,19 +311,6 @@ export default function Schedule() {
                     </Select>
                     {form.formState.errors.allocationRange && (
                       <span className="text-destructive text-xs">{form.formState.errors.allocationRange.message}</span>
-                    )}
-                  </div>
-
-                  <div className="space-y-2 md:col-span-2">
-                    <label className="text-sm font-medium text-foreground">Timeline</label>
-                    <Select {...form.register("timeline")}>
-                      <option value="" disabled hidden>Select timeline...</option>
-                      <option value="ready">Ready to move forward now</option>
-                      <option value="within_30_days">Planning within next 30 days</option>
-                      <option value="researching">Just researching options</option>
-                    </Select>
-                    {form.formState.errors.timeline && (
-                      <span className="text-destructive text-xs">{form.formState.errors.timeline.message}</span>
                     )}
                   </div>
                 </div>

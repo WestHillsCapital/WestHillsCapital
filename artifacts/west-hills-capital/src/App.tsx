@@ -52,6 +52,7 @@ const DepositoriesHubPage  = lazy(() => import("@/pages/seo/DepositoriesHubPage"
 const DepositoryPage       = lazy(() => import("@/pages/seo/DepositoryPage"));
 
 const Radio                       = lazy(() => import("@/pages/Radio"));
+const Buy                         = lazy(() => import("@/pages/Buy"));
 
 const InternalProspectingPipeline = lazy(() => import("@/pages/internal/Leads"));
 const InternalScheduledCalls      = lazy(() => import("@/pages/internal/Appointments"));
@@ -165,6 +166,7 @@ function Router() {
           <Route path="/"                              component={Home}              />
           <Route path="/pricing"                       component={LivePricing}       />
           <Route path="/schedule"                      component={Schedule}          />
+          <Route path="/buy"                           component={Buy}               />
           <Route path="/ira"                           component={IRA}               />
           <Route path="/about"                         component={About}             />
           <Route path="/disclosures"                   component={Disclosures}       />
