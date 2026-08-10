@@ -438,7 +438,7 @@ export default function Buy() {
                           Shipping &amp; Insurance
                           {shipping === 0 && <span className="ml-1 text-green-600 font-medium">(included)</span>}
                         </span>
-                        <span className="font-medium">{shipping === 0 ? "Included" : formatUSD(shipping)}</span>
+                        <span className="font-medium">{shipping === 0 ? "$0" : formatUSD(shipping)}</span>
                       </div>
                       <div className="flex justify-between px-4 py-3 bg-primary/5">
                         <span className="font-semibold text-foreground">Estimated Total</span>
@@ -679,7 +679,7 @@ export default function Buy() {
                     ))}
                     <div className="flex justify-between px-4 py-2 bg-muted/30 text-xs">
                       <span>Shipping &amp; Insurance</span>
-                      <span className="font-semibold">{shipping === 0 ? "Included" : formatUSD(shipping)}</span>
+                      <span className="font-semibold">{shipping === 0 ? "$0" : formatUSD(shipping)}</span>
                     </div>
                     <div className="flex justify-between px-4 py-2.5 bg-primary/5 text-sm font-bold">
                       <span>Estimated Total</span>
