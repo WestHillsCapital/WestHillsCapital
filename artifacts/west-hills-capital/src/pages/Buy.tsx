@@ -396,11 +396,6 @@ export default function Buy() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-foreground">{p.name}</span>
-                            {qty > 0 && (
-                              <span className="text-xs bg-primary/15 text-primary font-medium px-2 py-0.5 rounded-full">
-                                {qty} selected
-                              </span>
-                            )}
                           </div>
                           <p className="text-xs text-foreground/50 mt-0.5">{p.weight} · {p.metal.charAt(0).toUpperCase() + p.metal.slice(1)}</p>
                         </div>
