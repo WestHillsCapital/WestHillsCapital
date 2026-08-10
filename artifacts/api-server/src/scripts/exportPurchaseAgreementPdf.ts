@@ -16,8 +16,6 @@ const TW = W - ML - MR;               // 512 pt usable width
 const INK    = rgb(0.07, 0.07, 0.07); // foreground
 const GRAY   = rgb(0.48, 0.48, 0.48); // foreground/60
 const LGRAY  = rgb(0.74, 0.74, 0.74); // border
-const BGROW  = rgb(0.95, 0.95, 0.95); // muted/30 row tint
-const BGTOT  = rgb(0.98, 0.97, 0.94); // primary/5 total row tint
 const WHITE  = rgb(1, 1, 1);
 
 // ── Drawing helpers ───────────────────────────────────────────────────────────
@@ -134,8 +132,8 @@ async function build(): Promise<Uint8Array> {
 
   // Draw table background fills first
   fillRect(p, TBL_X, OS_BOT,   TBL_W, OS_H,   WHITE);
-  fillRect(p, TBL_X, SHIP_BOT, TBL_W, SHIP_H, BGROW);
-  fillRect(p, TBL_X, TOT_BOT,  TBL_W, TOT_H,  BGTOT);
+  fillRect(p, TBL_X, SHIP_BOT, TBL_W, SHIP_H, WHITE);
+  fillRect(p, TBL_X, TOT_BOT,  TBL_W, TOT_H,  WHITE);
 
   // Table border and row separators
   p.drawRectangle({ x: TBL_X, y: TOT_BOT, width: TBL_W, height: TBL_H, borderColor: LGRAY, borderWidth: 0.6, opacity: 0 });
