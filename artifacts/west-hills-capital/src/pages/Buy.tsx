@@ -672,16 +672,16 @@ export default function Buy() {
                   <p>Buyer agrees to purchase the following from Dealer:</p>
                   <div className="mt-2 border border-border rounded-lg overflow-hidden">
                     {selectedProducts.map(p => (
-                      <div key={p.id} className="flex justify-between px-4 py-2 even:bg-muted/30 text-xs">
+                      <div key={p.id} className="flex justify-between px-4 py-2 text-xs">
                         <span>{cart[p.id]}× {p.name}</span>
                         <span className="font-semibold">{formatUSD(p.finalPrice * (cart[p.id] ?? 0))}</span>
                       </div>
                     ))}
-                    <div className="flex justify-between px-4 py-2 bg-muted/30 text-xs">
+                    <div className="flex justify-between px-4 py-2 text-xs">
                       <span>Shipping &amp; Insurance</span>
                       <span className="font-semibold">{shipping === 0 ? "$0" : formatUSD(shipping)}</span>
                     </div>
-                    <div className="flex justify-between px-4 py-2.5 bg-primary/5 text-sm font-bold">
+                    <div className="flex justify-between px-4 py-2.5 text-sm font-bold">
                       <span>Estimated Total</span>
                       <span>{formatUSD(total)}</span>
                     </div>
