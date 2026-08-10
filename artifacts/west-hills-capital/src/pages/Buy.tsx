@@ -19,16 +19,15 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface FedExLocation {
-  locationId?: string;
-  name: string;
-  address: {
-    streetLines?: string[];
-    city: string;
-    stateOrProvinceCode: string;
-    postalCode: string;
-  };
-  hoursOfOperation?: string;
-  distanceInMiles?: number;
+  name:         string;
+  locationType: string;
+  address:      string;
+  city:         string;
+  state:        string;
+  zip:          string;
+  distance:     string;
+  phone:        string;
+  hours:        string;
 }
 
 interface SessionResult {
@@ -222,9 +221,6 @@ export default function Buy() {
     setCreatingSession(true);
     setSessionError(null);
 
-    const addr   = selectedLocation.address;
-    const street = addr.streetLines?.[0] ?? "";
-
     // Build line-item summary for Docuplete prefill
     const lineItems = selectedProducts.map(p => ({
       name:     p.name,
@@ -250,10 +246,10 @@ export default function Buy() {
       SHIPPING_FEE:           shipping.toFixed(2),
       ESTIMATED_TOTAL:        total.toFixed(2),
       FEDEX_LOCATION_NAME:    selectedLocation.name,
-      FEDEX_LOCATION_ADDRESS: street,
-      FEDEX_LOCATION_CITY:    addr.city,
-      FEDEX_LOCATION_STATE:   addr.stateOrProvinceCode,
-      FEDEX_LOCATION_ZIP:     addr.postalCode,
+      FEDEX_LOCATION_ADDRESS: selectedLocation.address,
+      FEDEX_LOCATION_CITY:    selectedLocation.city,
+      FEDEX_LOCATION_STATE:   selectedLocation.state,
+      FEDEX_LOCATION_ZIP:     selectedLocation.zip,
     };
 
     // Individual line items for Docuplete fields (up to 10)
@@ -496,12 +492,11 @@ export default function Buy() {
               {locations.length > 0 && (
                 <div className="space-y-3">
                   {locations.map((loc, i) => {
-                    const addr = loc.address;
-                    const street = addr.streetLines?.[0] ?? "";
                     const isSelected = selectedLocation === loc;
+                    const fullAddress = [loc.address, loc.city, loc.state, loc.zip].filter(Boolean).join(", ");
                     return (
                       <button
-                        key={loc.locationId ?? i}
+                        key={`${loc.name}-${i}`}
                         type="button"
                         onClick={() => setSelectedLocation(loc)}
                         className={`w-full flex items-start gap-4 p-4 rounded-xl border-2 text-left transition-all
@@ -510,17 +505,24 @@ export default function Buy() {
                             : "border-border/60 hover:border-primary/40 bg-card"}`}
                       >
                         <MapPin className={`w-5 h-5 flex-shrink-0 mt-0.5 ${isSelected ? "text-primary" : "text-foreground/40"}`} />
-                        <div className="min-w-0">
-                          <p className="font-semibold text-foreground">{loc.name}</p>
-                          <p className="text-sm text-foreground/60">{[street, addr.city, addr.stateOrProvinceCode, addr.postalCode].filter(Boolean).join(", ")}</p>
-                          {loc.hoursOfOperation && (
-                            <p className="text-xs text-foreground/45 mt-1">{loc.hoursOfOperation}</p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="font-semibold text-foreground">{loc.name}</p>
+                            {loc.distance && (
+                              <span className="text-xs text-foreground/45 whitespace-nowrap flex-shrink-0">{loc.distance}</span>
+                            )}
+                          </div>
+                          {fullAddress && (
+                            <p className="text-sm text-foreground/60 mt-0.5">{fullAddress}</p>
                           )}
-                          {loc.distanceInMiles != null && (
-                            <p className="text-xs text-foreground/45 mt-0.5">{loc.distanceInMiles.toFixed(1)} mi away</p>
+                          {loc.phone && (
+                            <p className="text-xs text-foreground/50 mt-1">{loc.phone}</p>
+                          )}
+                          {loc.hours && (
+                            <p className="text-xs text-foreground/45 mt-0.5 leading-relaxed">{loc.hours}</p>
                           )}
                         </div>
-                        {isSelected && <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 ml-auto mt-0.5" />}
+                        {isSelected && <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />}
                       </button>
                     );
                   })}
