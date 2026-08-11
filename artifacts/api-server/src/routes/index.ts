@@ -21,7 +21,6 @@ import { requireProductAuth } from "../middleware/requireProductAuth";
 import { requireAccountId } from "../middleware/requireAccountId";
 import { requireApiKeyAuth } from "../middleware/requireApiKeyAuth";
 import affiliatesAdminRouter, { publicAffiliateRouter } from "./affiliates";
-import buyRouter from "./buy";
 import headlessSessionsRouter from "./headlessSessions";
 import developerRouter from "./developer";
 import sandboxRouter from "./sandbox";
@@ -47,7 +46,6 @@ router.use("/content",           publicContentRouter);
 
 // ── Public affiliate application ──────────────────────────────────────────────
 router.use("/affiliates", publicAffiliateRouter);
-router.use("/buy",        buyRouter);
 
 // ── Internal auth (public sign-in/signout endpoints) ──────────────────────────
 router.use("/internal/auth", internalAuthRouter);

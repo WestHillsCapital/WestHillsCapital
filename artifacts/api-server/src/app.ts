@@ -8,6 +8,7 @@ import pinoHttp from "pino-http";
 import path from "node:path";
 import { clerkMiddleware } from "@clerk/express";
 import router from "./routes";
+import buyRouter from "./routes/buy";
 import sitemapRouter from "./routes/sitemap";
 import { logger } from "./lib/logger";
 import { errorHandler } from "./middleware/errorHandler";
@@ -274,6 +275,12 @@ app.get("/healthz", (_req, res) => {
     dryRun: process.env.FIZTRADE_DRY_RUN === "true",
   });
 });
+
+// ── Public buy routes (must be before clerkMiddleware — no auth required) ─────
+// These serve the self-serve purchase flow on the WHC marketing site.
+// Clerk middleware throws when its publishable key is absent (dev env), so
+// these routes are hoisted here to skip it entirely.
+app.use("/api/buy", buyRouter);
 
 // ── Clerk middleware (attaches auth state to every request) ───────────────────
 app.use(clerkMiddleware());
