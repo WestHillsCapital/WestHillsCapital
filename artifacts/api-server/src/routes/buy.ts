@@ -128,7 +128,7 @@ router.post("/session", async (req, res) => {
 
     if (!response.ok) {
       const body = await response.text();
-      logger.error({ status: response.status, body }, "[Buy/Session] Docuplete API error");
+      logger.error(`[Buy/Session] Docuplete API error — status=${response.status} body=${body}`);
       res.status(502).json({ error: "Could not create signing session — please try again" });
       return;
     }
