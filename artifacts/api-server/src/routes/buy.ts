@@ -139,12 +139,79 @@ router.post("/session", async (req, res) => {
       expiresAt: string | null;
     };
 
-    logger.info({ confirmationId, sentTo: email, token: result.sessionToken }, "[Buy/Session] Agreement session created");
+    logger.info({ confirmationId, token: result.sessionToken }, "[Buy/Session] Session created — sending link");
 
-    res.status(201).json({ confirmationId, sentTo: email });
+    // Docuplete does not auto-email on session creation; we must call send-link explicitly.
+    const sendRes = await fetch(`${baseUrl}/api/v1/sessions/${result.sessionToken}/send-link`, {
+      method:  "POST",
+      headers: {
+        Authorization:  `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ recipientEmail: email, name: fullName || email }),
+    });
+
+    if (!sendRes.ok) {
+      const sendBody = await sendRes.text();
+      logger.error({ status: sendRes.status, body: sendBody }, "[Buy/Session] send-link failed");
+      // Session exists but email failed — still return success so the user can be told to check inbox;
+      // staff notification below will alert WHC to resend manually if needed.
+    } else {
+      logger.info({ confirmationId, sentTo: email }, "[Buy/Session] Signing link sent");
+    }
+
+    res.status(201).json({ confirmationId, sentTo: email, sessionToken: result.sessionToken });
   } catch (err) {
     logger.error({ err }, "[Buy/Session] Session creation failed");
     res.status(500).json({ error: "Could not create session" });
+  }
+});
+
+// ── POST /api/buy/resend ──────────────────────────────────────────────────────
+// Resend the signing link for an existing Docuplete session token.
+// Used by WHC staff when a customer says they never received the email.
+router.post("/resend", async (req, res) => {
+  const apiKey  = process.env.DOCUPLETE_API_KEY;
+  const baseUrl = process.env.DOCUPLETE_API_BASE_URL ?? "https://docuplete.app";
+
+  if (!apiKey) {
+    res.status(503).json({ error: "Purchase flow not configured" });
+    return;
+  }
+
+  const { sessionToken, email, name = "" } = (req.body ?? {}) as {
+    sessionToken?: string;
+    email?: string;
+    name?: string;
+  };
+
+  if (!sessionToken || !email) {
+    res.status(400).json({ error: "sessionToken and email are required" });
+    return;
+  }
+
+  try {
+    const sendRes = await fetch(`${baseUrl}/api/v1/sessions/${sessionToken}/send-link`, {
+      method:  "POST",
+      headers: {
+        Authorization:  `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ recipientEmail: email, name: name || email }),
+    });
+
+    if (!sendRes.ok) {
+      const body = await sendRes.text();
+      logger.error({ status: sendRes.status, body }, "[Buy/Resend] send-link failed");
+      res.status(502).json({ error: "Docuplete could not resend the link" });
+      return;
+    }
+
+    logger.info({ sessionToken, sentTo: email }, "[Buy/Resend] Signing link resent");
+    res.json({ sent: true, sentTo: email });
+  } catch (err) {
+    logger.error({ err }, "[Buy/Resend] Resend failed");
+    res.status(500).json({ error: "Could not resend signing link" });
   }
 });
 
