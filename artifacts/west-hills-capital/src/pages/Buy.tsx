@@ -278,8 +278,10 @@ export default function Buy() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prefill: buildPrefill(), customer }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Could not send agreement");
+      const text = await res.text();
+      let data: Record<string, string> = {};
+      try { data = JSON.parse(text); } catch { /* non-JSON response — server/proxy error */ }
+      if (!res.ok) throw new Error(data.error ?? "Could not send your agreement. Please try again or call (800) 867-6768.");
       setSession(data as SessionResult);
       setStep4View("sent");
       window.scrollTo({ top: 0, behavior: "smooth" });
