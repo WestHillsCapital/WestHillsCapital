@@ -2276,11 +2276,26 @@ export async function sendEsignOtpEmail(params: {
   otpCode: string;
   packageName: string;
   orgName: string | null;
+  orgLogoUrl?: string | null;
   orgBrandColor?: string | null;
   emailSettings?: OrgEmailSettings | null;
 }): Promise<void> {
   const org        = params.orgName ?? "Docuplete";
   const brandColor = params.orgBrandColor ?? "#0F1C3F";
+  const logoBlock  = params.orgLogoUrl
+    ? `<tr>
+         <td align="center" style="padding:28px 40px 20px;background:#f8f7f5;">
+           <img src="${params.orgLogoUrl}" alt="${org}" height="40"
+                style="display:block;max-height:40px;height:auto;border:0;">
+         </td>
+       </tr>
+       <tr><td style="padding:0 40px;background:#f8f7f5;"><div style="height:1px;background:#e5ddd0;"></div></td></tr>`
+    : `<tr>
+         <td align="center" style="padding:28px 40px 20px;background:#f8f7f5;">
+           <p style="margin:0;font-family:'Playfair Display',Georgia,serif;font-size:20px;font-weight:bold;color:#1a1a1a;">${org}</p>
+         </td>
+       </tr>
+       <tr><td style="padding:0 40px;background:#f8f7f5;"><div style="height:1px;background:#e5ddd0;"></div></td></tr>`;
   await sendEmail({
     to: params.to,
     subject: `Your verification code — ${params.packageName}`,
@@ -2297,11 +2312,7 @@ export async function sendEsignOtpEmail(params: {
   <tr><td align="center" style="padding:40px 16px;">
     <table role="presentation" width="560" cellpadding="0" cellspacing="0"
            style="max-width:560px;width:100%;background:#ffffff;border-radius:4px;overflow:hidden;border:1px solid #e5e7eb;">
-      <tr>
-        <td style="background:${brandColor};padding:24px 32px;">
-          <p style="margin:0;font-size:18px;font-weight:700;color:#ffffff;letter-spacing:-0.01em;">${org}</p>
-        </td>
-      </tr>
+      ${logoBlock}
       <tr>
         <td style="padding:32px;">
           <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#111827;line-height:1.3;">

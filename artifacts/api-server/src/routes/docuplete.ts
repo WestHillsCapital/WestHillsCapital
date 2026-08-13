@@ -6690,11 +6690,13 @@ publicDocupleteRouter.post("/sessions/:token/request-otp", async (req, res) => {
     ).catch((err) => logger.warn({ err, token: req.params.token, accountId: pkgAccountId }, "[Docuplete] OTP sent signing event insert failed"));
     // Send OTP email
     const emailSettings = pkgAccountId ? await getOrgEmailSettings(pkgAccountId).catch(() => null) : null;
+    const otpOrigin = process.env.APP_ORIGIN ?? "";
     await sendEsignOtpEmail({
       to: email,
       otpCode: code,
       packageName:   String(session.package_name ?? "Document Package"),
       orgName:       String(session.org_name ?? "Docuplete"),
+      orgLogoUrl:    typeof session.org_logo_url === "string" ? `${otpOrigin}${session.org_logo_url}` : null,
       orgBrandColor: typeof session.org_brand_color === "string" ? session.org_brand_color : null,
       emailSettings,
     });
