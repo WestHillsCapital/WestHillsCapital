@@ -13,7 +13,12 @@ import * as pdfjsLib from "pdfjs-dist";
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
 const PDFJS_STANDARD_FONT_DATA_URL = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/standard_fonts/`;
 
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+// If the interview URL contains ?apiBase=..., use that so the SPA always calls
+// the backend that owns the session (e.g. ccfc when serving a WHC-branded domain).
+const _urlApiBase = typeof window !== "undefined"
+  ? new URLSearchParams(window.location.search).get("apiBase")
+  : null;
+const API_BASE = _urlApiBase ?? (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SESSION_BASE = `${API_BASE}/api/v1/docuplete/public/sessions`;
 
 /** Turn camelCase / snake_case keys into readable labels: "firstName" → "First Name" */
