@@ -102,6 +102,7 @@ export default function DealBuilder() {
     setIsFedexSearching:       s.setIsFedexSearching,
     setFedexLocation:          s.setFedexLocation,
     setFedexLocationHours:     s.setFedexLocationHours,
+    setFedexLocationPhone:     s.setFedexLocationPhone,
     setFedexLocationSelected:  s.setFedexLocationSelected,
     setShipToLine1:            s.setShipToLine1,
     setShipToCity:             s.setShipToCity,

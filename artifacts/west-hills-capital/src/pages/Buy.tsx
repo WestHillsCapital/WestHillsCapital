@@ -256,6 +256,7 @@ export default function Buy() {
       FEDEX_LOCATION_CITY:    selectedLocation?.city ?? "",
       FEDEX_LOCATION_STATE:   selectedLocation?.state ?? "",
       FEDEX_LOCATION_ZIP:     selectedLocation?.zip ?? "",
+      FEDEX_LOCATION_PHONE:   selectedLocation?.phone ?? "",
     };
     lineItems.slice(0, 10).forEach((li, i) => {
       const n = i + 1;

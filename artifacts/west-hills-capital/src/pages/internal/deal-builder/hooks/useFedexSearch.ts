@@ -14,6 +14,7 @@ interface FedexSearchParams {
   setIsFedexSearching:      (b: boolean) => void;
   setFedexLocation:         (s: string) => void;
   setFedexLocationHours:    (s: string) => void;
+  setFedexLocationPhone:    (s: string) => void;
   setFedexLocationSelected: (b: boolean) => void;
   setShipToLine1:           (s: string) => void;
   setShipToCity:            (s: string) => void;
@@ -32,6 +33,7 @@ export function useFedexSearch({
   setIsFedexSearching,
   setFedexLocation,
   setFedexLocationHours,
+  setFedexLocationPhone,
   setFedexLocationSelected,
   setShipToLine1,
   setShipToCity,
@@ -69,14 +71,15 @@ export function useFedexSearch({
   const selectFedexLocation = useCallback((loc: FedExLocationResult) => {
     setFedexLocation(loc.name);
     setFedexLocationHours(loc.hours || "");
+    setFedexLocationPhone(loc.phone || "");
     setShipToLine1(loc.address);
     setShipToCity(loc.city);
     setShipToState(loc.state);
     setShipToZip(loc.zip);
     setFedexResults([]);
     setFedexLocationSelected(true);
-  }, [setFedexLocation, setFedexLocationHours, setShipToLine1, setShipToCity,
-      setShipToState, setShipToZip, setFedexResults, setFedexLocationSelected]);
+  }, [setFedexLocation, setFedexLocationHours, setFedexLocationPhone, setShipToLine1,
+      setShipToCity, setShipToState, setShipToZip, setFedexResults, setFedexLocationSelected]);
 
   // Auto-fire search when fedexSearchZip becomes a valid 5-digit code
   useEffect(() => {

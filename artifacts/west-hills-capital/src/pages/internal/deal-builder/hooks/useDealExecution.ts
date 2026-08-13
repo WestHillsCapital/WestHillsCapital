@@ -153,6 +153,15 @@ export function useDealExecution(
                 depositoryId:    s.customer.depositoryId,
                 iraAccountNumber: s.customer.iraAccountNumber,
                 dealId,
+                // FedEx pickup location
+                FEDEX_LOCATION_NAME:    s.fedexLocation    || "",
+                FEDEX_LOCATION_ADDRESS: s.shipToLine1      || "",
+                FEDEX_LOCATION_CITY:    s.shipToCity       || "",
+                FEDEX_LOCATION_STATE:   s.shipToState      || "",
+                FEDEX_LOCATION_ZIP:     s.shipToZip        || "",
+                FEDEX_LOCATION_PHONE:   s.fedexLocationPhone || "",
+                // Invoice
+                INVOICE_URL:            invoiceUrl         || "",
               },
             }),
           });

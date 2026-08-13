@@ -33,6 +33,7 @@ export function useDealState(
   const [deliveryMethod,     setDeliveryMethod]     = useState<"fedex_hold" | "home_delivery">("fedex_hold");
   const [fedexLocation,      setFedexLocation]      = useState("");
   const [fedexLocationHours, setFedexLocationHours] = useState("");
+  const [fedexLocationPhone, setFedexLocationPhone] = useState("");
   const [shipToLine1,        setShipToLine1]        = useState("");
   const [shipToCity,         setShipToCity]         = useState("");
   const [shipToState,        setShipToState]        = useState("");
@@ -267,6 +268,7 @@ export function useDealState(
     deliveryMethod, setDeliveryMethod,
     fedexLocation, setFedexLocation,
     fedexLocationHours, setFedexLocationHours,
+    fedexLocationPhone, setFedexLocationPhone,
     shipToLine1, setShipToLine1,
     shipToCity, setShipToCity,
     shipToState, setShipToState,
