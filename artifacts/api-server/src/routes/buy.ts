@@ -106,10 +106,7 @@ router.post("/session", async (req, res) => {
     BUYER_FULL_NAME:  fullName,
     BUYER_EMAIL:      email,
     BUYER_PHONE:      phone,
-    BUYER_ADDRESS:    street,
-    BUYER_CITY:       city,
-    BUYER_STATE:      state,
-    BUYER_ZIP:        zip,
+    BUYER_ADDRESS:    [fullName, street, city, state, zip].filter(Boolean).join(", "),
     CONFIRMATION_ID:  confirmationId,
     AGREEMENT_DATE:   agreementDate,
   };
