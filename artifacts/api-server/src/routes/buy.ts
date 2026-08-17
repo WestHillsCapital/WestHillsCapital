@@ -103,7 +103,7 @@ router.post("/session", async (req, res) => {
     ...(callerPrefill as Record<string, string>),
     BUYER_FIRST_NAME: firstName,
     BUYER_LAST_NAME:  lastName,
-    BUYER_FULL_NAME:  fullName,
+    BUYER_FULL_NAME:  fullName ? `${fullName},` : "",
     BUYER_EMAIL:      email,
     BUYER_PHONE:      phone,
     BUYER_ADDRESS:    [fullName, street, city, state, zip].filter(Boolean).join(", "),
