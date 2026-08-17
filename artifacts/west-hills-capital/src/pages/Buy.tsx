@@ -252,10 +252,12 @@ export default function Buy() {
       SHIPPING_FEE:           shipping.toFixed(2),
       ESTIMATED_TOTAL:        total.toFixed(2),
       FEDEX_LOCATION_NAME:    selectedLocation?.name ?? "",
-      FEDEX_LOCATION_ADDRESS: selectedLocation?.address ?? "",
-      FEDEX_LOCATION_CITY:    selectedLocation?.city ?? "",
-      FEDEX_LOCATION_STATE:   selectedLocation?.state ?? "",
-      FEDEX_LOCATION_ZIP:     selectedLocation?.zip ?? "",
+      FEDEX_LOCATION_ADDRESS: [
+        selectedLocation?.address,
+        selectedLocation?.city,
+        selectedLocation?.state,
+        selectedLocation?.zip,
+      ].filter(Boolean).join(", "),
       FEDEX_LOCATION_PHONE:   selectedLocation?.phone ?? "",
     };
     lineItems.slice(0, 10).forEach((li, i) => {
