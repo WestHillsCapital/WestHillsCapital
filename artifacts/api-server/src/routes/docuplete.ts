@@ -6980,6 +6980,50 @@ publicDocupleteRouter.post("/sessions/:token/generate", async (req, res) => {
         }
       }
 
+      // ── Google Drive upload (sync fallback) ────────────────────────────────
+      // REDIS_URL is optional, so this path is commonly used in smaller
+      // deployments. Keep it functionally equivalent to the queue worker.
+      let driveResult: { fileId: string; webViewLink: string } | null = null;
+      const generatedAt = new Date().toISOString();
+      const rootFolderId = process.env.GOOGLE_DRIVE_DEALS_FOLDER_ID;
+      if (rootFolderId) {
+        try {
+          const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
+          driveResult = await saveDocupletePacketToDrive(pdfBuffer, {
+            dealId:      Number(session.deal_id) || null,
+            firstName:   cleanText(prefill.firstName),
+            lastName:    cleanText(prefill.lastName),
+            packageName: String(session.package_name ?? "Docuplete"),
+            generatedAt,
+          }, rootFolderId);
+        } catch (err) {
+          logger.error({ err, sessionToken }, "[GeneratePdf/sync] Shared Drive upload failed (non-fatal)");
+        }
+      }
+
+      if (!driveResult && session.enable_gdrive === true) {
+        const storageProvider     = typeof session.storage_provider      === "string" ? session.storage_provider      : null;
+        const storageAccessToken  = typeof session.storage_access_token  === "string" ? session.storage_access_token  : null;
+        const storageRefreshToken = typeof session.storage_refresh_token === "string" ? session.storage_refresh_token : null;
+        const storageFolderId     = typeof session.storage_folder_id     === "string" ? session.storage_folder_id     : null;
+        const accessToken  = storageAccessToken  ?? (typeof session.gdrive_access_token  === "string" ? session.gdrive_access_token  : null);
+        const refreshToken = storageRefreshToken ?? (typeof session.gdrive_refresh_token === "string" ? session.gdrive_refresh_token : null);
+        const folderId     = storageFolderId     ?? (typeof session.gdrive_folder_id     === "string" ? session.gdrive_folder_id     : null);
+        const provider     = storageProvider     ?? (accessToken && refreshToken && folderId ? "gdrive" : null);
+        if (provider && accessToken && refreshToken && folderId) {
+          try {
+            const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
+            driveResult = await uploadToStorageProvider(
+              { storage_provider: provider, storage_access_token: accessToken, storage_refresh_token: refreshToken, storage_folder_id: folderId },
+              pdfBuffer,
+              { firstName: cleanText(prefill.firstName), lastName: cleanText(prefill.lastName), packageName: String(session.package_name ?? "Docuplete"), generatedAt },
+            );
+          } catch (err) {
+            logger.error({ err, sessionToken, provider }, "[GeneratePdf/sync] Per-account storage upload failed (non-fatal)");
+          }
+        }
+      }
+
       // ── Object storage ───────────────────────────────────────────────────
       try {
         pdfStorageKey = await objectStorage.uploadBuffer(
@@ -6995,20 +7039,24 @@ publicDocupleteRouter.post("/sessions/:token/generate", async (req, res) => {
       await db.query(
         `UPDATE docuplete_interview_sessions
             SET status='generated',
+                generated_pdf_drive_id=$2,
+                generated_pdf_url=$3,
+                generated_pdf_saved_at=CASE WHEN $3::text IS NULL THEN generated_pdf_saved_at ELSE NOW() END,
                 submitted_at=CASE WHEN submitted_at IS NULL THEN NOW() ELSE submitted_at END,
-                signer_email=$2,
-                signer_name=$3,
-                signed_at=$4,
-                pdf_sha256=$5,
-                tsa_token_b64=$6,
-                tsa_url=$7,
-                generated_pdf_storage_key=$8,
-                signer_ip=COALESCE(signer_ip, $9),
-                signer_ua=COALESCE(signer_ua, $10),
-                signer_geo=COALESCE(signer_geo, $11),
+                signer_email=$4,
+                signer_name=$5,
+                signed_at=$6,
+                pdf_sha256=$7,
+                tsa_token_b64=$8,
+                tsa_url=$9,
+                generated_pdf_storage_key=$10,
+                signer_ip=COALESCE(signer_ip, $11),
+                signer_ua=COALESCE(signer_ua, $12),
+                signer_geo=COALESCE(signer_geo, $13),
                 updated_at=NOW()
           WHERE token=$1`,
-        [sessionToken, esignEmail, esignSignerName, signedAt, pdfSha256, tsaTokenB64, tsaUrlUsed, pdfStorageKey,
+        [sessionToken, driveResult?.fileId ?? null, driveResult?.webViewLink ?? null,
+         esignEmail, esignSignerName, signedAt, pdfSha256, tsaTokenB64, tsaUrlUsed, pdfStorageKey,
          esignEmail ? (signerIp ?? null) : null,
          esignEmail ? (signerUa ?? null) : null,
          esignEmail ? (signerGeo ?? null) : null],
@@ -7477,48 +7525,6 @@ export function registerGeneratePdfProcessor(): Worker<GeneratePdfJobPayload> | 
       });
       const generatedAt = new Date().toISOString();
 
-      // ── Google Drive upload (root/shared folder) ───────────────────────────
-      let driveResult: { fileId: string; webViewLink: string } | null = null;
-      const rootFolderId = process.env.GOOGLE_DRIVE_DEALS_FOLDER_ID;
-      if (rootFolderId) {
-        try {
-          const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
-          driveResult = await saveDocupletePacketToDrive(pdfBuffer, {
-            dealId:      Number(session.deal_id) || null,
-            firstName:   cleanText(prefill.firstName),
-            lastName:    cleanText(prefill.lastName),
-            packageName: String(session.package_name ?? "Docuplete"),
-            generatedAt,
-          }, rootFolderId);
-        } catch (err) {
-          logger.error({ err, sessionToken }, "[GeneratePdf] Shared Drive upload failed (non-fatal)");
-        }
-      }
-
-      // ── Per-account cloud storage upload ──────────────────────────────────
-      if (!driveResult && session.enable_gdrive === true) {
-        const storageProvider    = typeof session.storage_provider     === "string" ? session.storage_provider     : null;
-        const storageAccessToken = typeof session.storage_access_token  === "string" ? session.storage_access_token  : null;
-        const storageRefreshToken = typeof session.storage_refresh_token === "string" ? session.storage_refresh_token : null;
-        const storageFolderId    = typeof session.storage_folder_id    === "string" ? session.storage_folder_id    : null;
-        const accessToken  = storageAccessToken  ?? (typeof session.gdrive_access_token  === "string" ? session.gdrive_access_token  : null);
-        const refreshToken = storageRefreshToken ?? (typeof session.gdrive_refresh_token === "string" ? session.gdrive_refresh_token : null);
-        const folderId     = storageFolderId     ?? (typeof session.gdrive_folder_id     === "string" ? session.gdrive_folder_id     : null);
-        const provider     = storageProvider     ?? (accessToken && refreshToken && folderId ? "gdrive" : null);
-        if (provider && accessToken && refreshToken && folderId) {
-          try {
-            const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
-            driveResult = await uploadToStorageProvider(
-              { storage_provider: provider, storage_access_token: accessToken, storage_refresh_token: refreshToken, storage_folder_id: folderId },
-              pdfBuffer,
-              { firstName: cleanText(prefill.firstName), lastName: cleanText(prefill.lastName), packageName: String(session.package_name ?? "Docuplete"), generatedAt },
-            );
-          } catch (err) {
-            logger.error({ err, sessionToken, provider }, "[GeneratePdf] Per-account storage upload failed (non-fatal)");
-          }
-        }
-      }
-
       // ── HubSpot contact upsert ─────────────────────────────────────────────
       if (session.enable_hubspot === true) {
         const hsAccessToken  = typeof session.hubspot_access_token  === "string" ? session.hubspot_access_token  : null;
@@ -7574,6 +7580,48 @@ export function registerGeneratePdfProcessor(): Worker<GeneratePdfJobPayload> | 
           logger.info({ tsaUrl: tsaUrlUsed, sessionToken }, "[GeneratePdf] RFC 3161 timestamp obtained");
         } catch (tsaErr) {
           logger.warn({ tsaErr, sessionToken }, "[GeneratePdf] RFC 3161 timestamp failed — proceeding without TSA token");
+        }
+      }
+
+      // ── Google Drive upload (final packet, after the signing certificate) ─
+      let driveResult: { fileId: string; webViewLink: string } | null = null;
+      const rootFolderId = process.env.GOOGLE_DRIVE_DEALS_FOLDER_ID;
+      if (rootFolderId) {
+        try {
+          const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
+          driveResult = await saveDocupletePacketToDrive(pdfBuffer, {
+            dealId:      Number(session.deal_id) || null,
+            firstName:   cleanText(prefill.firstName),
+            lastName:    cleanText(prefill.lastName),
+            packageName: String(session.package_name ?? "Docuplete"),
+            generatedAt,
+          }, rootFolderId);
+        } catch (err) {
+          logger.error({ err, sessionToken }, "[GeneratePdf] Shared Drive upload failed (non-fatal)");
+        }
+      }
+
+      // ── Per-account cloud storage upload ──────────────────────────────────
+      if (!driveResult && session.enable_gdrive === true) {
+        const storageProvider     = typeof session.storage_provider      === "string" ? session.storage_provider      : null;
+        const storageAccessToken  = typeof session.storage_access_token  === "string" ? session.storage_access_token  : null;
+        const storageRefreshToken = typeof session.storage_refresh_token === "string" ? session.storage_refresh_token : null;
+        const storageFolderId     = typeof session.storage_folder_id     === "string" ? session.storage_folder_id     : null;
+        const accessToken  = storageAccessToken  ?? (typeof session.gdrive_access_token  === "string" ? session.gdrive_access_token  : null);
+        const refreshToken = storageRefreshToken ?? (typeof session.gdrive_refresh_token === "string" ? session.gdrive_refresh_token : null);
+        const folderId     = storageFolderId     ?? (typeof session.gdrive_folder_id     === "string" ? session.gdrive_folder_id     : null);
+        const provider     = storageProvider     ?? (accessToken && refreshToken && folderId ? "gdrive" : null);
+        if (provider && accessToken && refreshToken && folderId) {
+          try {
+            const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
+            driveResult = await uploadToStorageProvider(
+              { storage_provider: provider, storage_access_token: accessToken, storage_refresh_token: refreshToken, storage_folder_id: folderId },
+              pdfBuffer,
+              { firstName: cleanText(prefill.firstName), lastName: cleanText(prefill.lastName), packageName: String(session.package_name ?? "Docuplete"), generatedAt },
+            );
+          } catch (err) {
+            logger.error({ err, sessionToken, provider }, "[GeneratePdf] Per-account storage upload failed (non-fatal)");
+          }
         }
       }
 
