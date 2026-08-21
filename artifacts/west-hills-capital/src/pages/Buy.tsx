@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { useProductPrices, type ProductPrice } from "@/hooks/use-pricing";
 import { Card } from "@/components/ui/card";
@@ -194,6 +194,12 @@ export default function Buy() {
   const [sessionError, setSessionError]       = useState<string | null>(null);
   const [session, setSession]                 = useState<SessionResult | null>(null);
 
+  // ── Scroll to top on every step / sub-view change ──────────────────────────
+  const stepTopRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    stepTopRef.current?.scrollIntoView({ behavior: "instant", block: "start" });
+  }, [step, step4View]);
+
   // ── Derived cart totals ─────────────────────────────────────────────────────
   const selectedProducts = products.filter(p => (cart[p.id] ?? 0) > 0);
   const subtotal  = cartSubtotal(cart, products);
@@ -252,13 +258,10 @@ export default function Buy() {
       SHIPPING_FEE:           shipping.toFixed(2),
       ESTIMATED_TOTAL:        total.toFixed(2),
       FEDEX_LOCATION_NAME:    selectedLocation?.name ?? "",
-      FEDEX_LOCATION_ADDRESS: [
-        selectedLocation?.address,
-        selectedLocation?.city,
-        selectedLocation?.state,
-        selectedLocation?.zip,
-      ].filter(Boolean).join(", "),
-      FEDEX_LOCATION_PHONE:   selectedLocation?.phone ?? "",
+      FEDEX_LOCATION_ADDRESS: selectedLocation?.address ?? "",
+      FEDEX_LOCATION_CITY:    selectedLocation?.city ?? "",
+      FEDEX_LOCATION_STATE:   selectedLocation?.state ?? "",
+      FEDEX_LOCATION_ZIP:     selectedLocation?.zip ?? "",
     };
     lineItems.slice(0, 10).forEach((li, i) => {
       const n = i + 1;
@@ -281,13 +284,10 @@ export default function Buy() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prefill: buildPrefill(), customer }),
       });
-      const text = await res.text();
-      let data: Record<string, string> = {};
-      try { data = JSON.parse(text); } catch { /* non-JSON response — server/proxy error */ }
-      if (!res.ok) throw new Error(data.error ?? "Could not send your agreement. Please try again or call (800) 867-6768.");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not send agreement");
       setSession(data as SessionResult);
       setStep4View("sent");
-      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: unknown) {
       setSessionError(err instanceof Error ? err.message : "Could not send your agreement.");
     } finally {
@@ -297,12 +297,11 @@ export default function Buy() {
 
   function goBack() {
     setStep(s => (s > 1 ? (s - 1) as typeof step : s));
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="w-full min-h-[calc(100vh-200px)] bg-background pt-12 pb-24">
+    <div ref={stepTopRef} className="w-full min-h-[calc(100vh-200px)] bg-background pt-12 pb-24 overflow-x-hidden">
       <div className="max-w-3xl mx-auto px-4 sm:px-6">
 
         <div className="text-center mb-10">
@@ -364,7 +363,7 @@ export default function Buy() {
               </div>
             </div>
 
-            <Button onClick={() => { setStep(2); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+            <Button onClick={() => setStep(2)}
               className="w-full h-12 text-base flex items-center gap-2">
               I Understand — Continue
               <ChevronRight className="w-4 h-4" />
@@ -397,29 +396,38 @@ export default function Buy() {
                     const qty = cart[p.id] ?? 0;
                     const lineTotal = p.finalPrice * qty;
                     return (
-                      <div key={p.id} className={`flex items-center gap-4 px-4 py-4 transition-colors
+                      <div key={p.id} className={`px-4 py-4 transition-colors
                         ${qty > 0 ? "bg-primary/5" : "bg-card hover:bg-muted/30"}`}>
-                        {/* Coin image */}
-                        {p.imageUrl && (
-                          <img src={p.imageUrl} alt={p.name}
-                            className="w-10 h-10 object-contain flex-shrink-0 rounded-full" />
-                        )}
-                        {/* Name + meta */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-foreground">{p.name}</span>
+                        {/* Row 1: image + name + [sm: price] + qty stepper */}
+                        <div className="flex items-center gap-3">
+                          {/* Coin image */}
+                          {p.imageUrl && (
+                            <img src={p.imageUrl} alt={p.name}
+                              className="w-10 h-10 object-contain flex-shrink-0 rounded-full" />
+                          )}
+                          {/* Name + metal/weight */}
+                          <div className="flex-1 min-w-0">
+                            <span className="font-semibold text-foreground text-sm leading-snug">{p.name}</span>
+                            <p className="text-xs text-foreground/50 mt-0.5">{p.weight} · {p.metal.charAt(0).toUpperCase() + p.metal.slice(1)}</p>
                           </div>
-                          <p className="text-xs text-foreground/50 mt-0.5">{p.weight} · {p.metal.charAt(0).toUpperCase() + p.metal.slice(1)}</p>
+                          {/* Price — visible only on sm+ next to the stepper */}
+                          <div className="hidden sm:block text-right flex-shrink-0 min-w-[80px]">
+                            <p className="font-semibold text-foreground">{formatUSD(p.finalPrice)}</p>
+                            {qty > 0 && <p className="text-xs text-foreground/45">{formatUSD(lineTotal)}</p>}
+                          </div>
+                          {/* Qty stepper */}
+                          <QtyControl value={qty} onChange={v => setQty(p.id, v)} />
                         </div>
-                        {/* Price */}
-                        <div className="text-right flex-shrink-0 min-w-[80px]">
-                          <p className="font-semibold text-foreground">{formatUSD(p.finalPrice)}</p>
+                        {/* Row 2 (mobile only): price below, indented to align with name */}
+                        <div className="sm:hidden flex items-baseline justify-between mt-2 pl-[52px]">
+                          <span className="text-sm font-semibold text-foreground">
+                            {formatUSD(p.finalPrice)}
+                            <span className="text-xs font-normal text-foreground/50 ml-1">each</span>
+                          </span>
                           {qty > 0 && (
-                            <p className="text-xs text-foreground/45">{formatUSD(lineTotal)}</p>
+                            <span className="text-xs text-foreground/50 font-medium">{formatUSD(lineTotal)} total</span>
                           )}
                         </div>
-                        {/* Qty stepper */}
-                        <QtyControl value={qty} onChange={v => setQty(p.id, v)} />
                       </div>
                     );
                   })}
@@ -433,9 +441,9 @@ export default function Buy() {
                     </div>
                     <div className="divide-y divide-border">
                       {selectedProducts.map(p => (
-                        <div key={p.id} className="flex justify-between px-4 py-2.5 text-sm">
-                          <span className="text-foreground/60">{p.name} × {cart[p.id]}</span>
-                          <span className="font-medium">{formatUSD(p.finalPrice * (cart[p.id] ?? 0))}</span>
+                        <div key={p.id} className="flex justify-between gap-2 px-4 py-2.5 text-sm">
+                          <span className="text-foreground/60 min-w-0 flex-1">{p.name} × {cart[p.id]}</span>
+                          <span className="font-medium flex-shrink-0 pl-2">{formatUSD(p.finalPrice * (cart[p.id] ?? 0))}</span>
                         </div>
                       ))}
                       <div className="flex justify-between px-4 py-2.5 text-sm">
@@ -463,7 +471,7 @@ export default function Buy() {
                 <ArrowLeft className="w-4 h-4" /> Back
               </Button>
               <Button
-                onClick={() => { setStep(3); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                onClick={() => setStep(3)}
                 disabled={itemCount === 0}
                 className="flex-1 h-12 text-base flex items-center gap-2"
               >
@@ -565,7 +573,7 @@ export default function Buy() {
                 <ArrowLeft className="w-4 h-4" /> Back
               </Button>
               <Button
-                onClick={() => { setStep(4); setStep4View("form"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                onClick={() => { setStep(4); setStep4View("form"); }}
                 disabled={!selectedLocation}
                 className="flex-1 h-12 text-base flex items-center gap-2"
               >
@@ -612,7 +620,7 @@ export default function Buy() {
                 <Input value={customer.street} onChange={e => setCustomer(c => ({ ...c, street: e.target.value }))} placeholder="123 Main St" />
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                <div className="space-y-1.5 col-span-1 sm:col-span-1">
+                <div className="space-y-1.5 col-span-2 sm:col-span-1">
                   <label className="text-sm font-medium">City</label>
                   <Input value={customer.city} onChange={e => setCustomer(c => ({ ...c, city: e.target.value }))} placeholder="Los Angeles" />
                 </div>
@@ -632,7 +640,7 @@ export default function Buy() {
                 <ArrowLeft className="w-4 h-4" /> Back
               </Button>
               <Button
-                onClick={() => { setStep4View("review"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                onClick={() => setStep4View("review")}
                 disabled={!customer.firstName || !customer.lastName || !customer.email}
                 className="flex-1 h-12 text-base flex items-center gap-2"
               >
