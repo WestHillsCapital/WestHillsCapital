@@ -7,8 +7,9 @@ import { ArrowRight, Phone } from "lucide-react";
 
 function StickyMobileCTA() {
   const [location] = useLocation();
-  // Hide on the schedule page (the action is already there) and on all internal pages
-  if (location === "/schedule" || location.startsWith("/internal")) return null;
+  // Hide on the schedule page (the action is already there), on all internal pages,
+  // and on the buy page (customers are mid-checkout — the CTA bar obscures their buttons)
+  if (location === "/schedule" || location.startsWith("/internal") || location === "/buy") return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 sm:hidden">

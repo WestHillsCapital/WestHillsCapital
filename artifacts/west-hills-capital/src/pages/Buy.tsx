@@ -475,8 +475,9 @@ export default function Buy() {
                 disabled={itemCount === 0}
                 className="flex-1 h-12 text-base flex items-center gap-2"
               >
-                Continue — Choose Pickup Location
-                <ChevronRight className="w-4 h-4" />
+                <span className="sm:hidden">Continue</span>
+                <span className="hidden sm:inline">Continue — Choose Pickup Location</span>
+                <ChevronRight className="w-4 h-4 flex-shrink-0" />
               </Button>
             </div>
           </Card>
@@ -577,8 +578,9 @@ export default function Buy() {
                 disabled={!selectedLocation}
                 className="flex-1 h-12 text-base flex items-center gap-2"
               >
-                Continue — Your Information
-                <ChevronRight className="w-4 h-4" />
+                <span className="sm:hidden">Continue</span>
+                <span className="hidden sm:inline">Continue — Your Information</span>
+                <ChevronRight className="w-4 h-4 flex-shrink-0" />
               </Button>
             </div>
           </div>
@@ -644,8 +646,9 @@ export default function Buy() {
                 disabled={!customer.firstName || !customer.lastName || !customer.email}
                 className="flex-1 h-12 text-base flex items-center gap-2"
               >
-                Review My Agreement
-                <ChevronRight className="w-4 h-4" />
+                <span className="sm:hidden">Review</span>
+                <span className="hidden sm:inline">Review My Agreement</span>
+                <ChevronRight className="w-4 h-4 flex-shrink-0" />
               </Button>
             </div>
           </Card>
@@ -781,7 +784,7 @@ export default function Buy() {
               >
                 {creatingSession
                   ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending…</>
-                  : <>Send for Signature <ChevronRight className="w-4 h-4" /></>}
+                  : <><span className="sm:hidden">Sign &amp; Send</span><span className="hidden sm:inline">Send for Signature</span> <ChevronRight className="w-4 h-4 flex-shrink-0" /></>}
               </Button>
             </div>
 
