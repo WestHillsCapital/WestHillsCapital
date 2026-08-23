@@ -277,7 +277,10 @@ export default function Schedule() {
                             <button
                               type="button"
                               className="text-sm text-foreground/55 hover:text-foreground underline underline-offset-4 self-center"
-                              onClick={() => {/* user continues filling the form below */}}
+                              onClick={() => {
+                                document.getElementById("schedule-contact-section")
+                                  ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                              }}
                             >
                               I'd still like to schedule a call
                             </button>
@@ -316,7 +319,7 @@ export default function Schedule() {
                 </div>
               </div>
 
-              <div className="space-y-6">
+              <div id="schedule-contact-section" className="space-y-6">
                 <h2 className="text-xl font-semibold border-b border-border pb-2">Contact Information</h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
