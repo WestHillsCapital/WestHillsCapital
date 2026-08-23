@@ -10,15 +10,11 @@ import { HowItWorksAnimation } from "@/components/HowItWorksAnimation";
 import { SandboxKeyModal } from "@/components/SandboxKeyModal";
 import * as pdfjsLib from "pdfjs-dist";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
+// Use the CDN worker — more reliable in production Vite builds than new URL(..., import.meta.url)
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 const PDFJS_STANDARD_FONT_DATA_URL = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/standard_fonts/`;
 
-// If the interview URL contains ?apiBase=..., use that so the SPA always calls
-// the backend that owns the session (e.g. ccfc when serving a WHC-branded domain).
-const _urlApiBase = typeof window !== "undefined"
-  ? new URLSearchParams(window.location.search).get("apiBase")
-  : null;
-const API_BASE = _urlApiBase ?? (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SESSION_BASE = `${API_BASE}/api/v1/docuplete/public/sessions`;
 
 /** Turn camelCase / snake_case keys into readable labels: "firstName" → "First Name" */
@@ -1277,14 +1273,14 @@ export default function DocupleteCustomer() {
             {(() => {
               const orgName = session!.org_name ?? "your organization";
               const rawLogoUrl = session!.org_form_logo_url ?? session!.org_logo_url ?? null;
-              const logoSrc = rawLogoUrl ? `${API_BASE}${rawLogoUrl}` : null;
+              const logoSrc = rawLogoUrl ? (rawLogoUrl.startsWith("http") ? rawLogoUrl : `${API_BASE}${rawLogoUrl}`) : null;
               const bColor = session!.org_brand_color ?? "#C49A38";
               const logoOnWhite = session!.org_logo_on_white !== false;
               const initial = orgName.charAt(0).toUpperCase();
               return (
                 <>
                   <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden" style={{ backgroundColor: logoSrc ? (logoOnWhite ? "#ffffff" : bColor) : "transparent" }}>
-                    {logoSrc ? <img src={logoSrc} alt={orgName} className="w-full h-full object-contain" /> : (
+                    {logoSrc ? <img src={logoSrc} alt={orgName} className="w-full h-full object-contain" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : (
                       <svg viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
                         <rect width="180" height="180" rx="38" fill="#0E1D4A"/>
                         <path d="M38 28h74l30 30v94H38V28z" fill="white" opacity="0.95"/>
@@ -1698,14 +1694,14 @@ export default function DocupleteCustomer() {
             {(() => {
               const orgName = session!.org_name ?? "your organization";
               const rawLogoUrl = session!.org_form_logo_url ?? session!.org_logo_url ?? null;
-              const logoSrc = rawLogoUrl ? `${API_BASE}${rawLogoUrl}` : null;
+              const logoSrc = rawLogoUrl ? (rawLogoUrl.startsWith("http") ? rawLogoUrl : `${API_BASE}${rawLogoUrl}`) : null;
               const logoOnWhite = session!.org_logo_on_white !== false;
               const initial = orgName.charAt(0).toUpperCase();
               return (
                 <>
                   <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden"
                     style={{ backgroundColor: logoSrc ? (logoOnWhite ? "#ffffff" : brandColor) : "transparent" }}>
-                    {logoSrc ? <img src={logoSrc} alt={orgName} className="w-full h-full object-contain" /> : (
+                    {logoSrc ? <img src={logoSrc} alt={orgName} className="w-full h-full object-contain" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : (
                       <svg viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
                         <rect width="180" height="180" rx="38" fill="#0E1D4A"/>
                         <path d="M38 28h74l30 30v94H38V28z" fill="white" opacity="0.95"/>
@@ -1892,7 +1888,7 @@ export default function DocupleteCustomer() {
           {(() => {
             const orgName = session!.org_name ?? "your organization";
             const rawLogoUrl2 = session!.org_form_logo_url ?? session!.org_logo_url ?? null;
-            const logoSrc = rawLogoUrl2 ? `${API_BASE}${rawLogoUrl2}` : null;
+            const logoSrc = rawLogoUrl2 ? (rawLogoUrl2.startsWith("http") ? rawLogoUrl2 : `${API_BASE}${rawLogoUrl2}`) : null;
             const brandColor = session!.org_brand_color ?? "#C49A38";
             const logoOnWhite2 = session!.org_logo_on_white !== false;
             const initial = orgName.charAt(0).toUpperCase();
@@ -1903,7 +1899,7 @@ export default function DocupleteCustomer() {
                   style={{ backgroundColor: logoSrc ? (logoOnWhite2 ? "#ffffff" : brandColor) : "transparent" }}
                 >
                   {logoSrc ? (
-                    <img src={logoSrc} alt={orgName} className="w-full h-full object-contain" />
+                    <img src={logoSrc} alt={orgName} className="w-full h-full object-contain" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                   ) : (
                     <svg viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
                       <rect width="180" height="180" rx="38" fill="#0E1D4A"/>
