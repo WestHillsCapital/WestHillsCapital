@@ -14,7 +14,34 @@ import * as pdfjsLib from "pdfjs-dist";
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 const PDFJS_STANDARD_FONT_DATA_URL = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/standard_fonts/`;
 
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+// Branded interview links include the backend that owns the session. This is
+// required because forms.westhillscapital.com is a separate Vercel frontend,
+// while WHC signing sessions live in the ccfc Railway Docuplete database.
+// Only accept the known Docuplete backend so a crafted link cannot redirect
+// signer data to an arbitrary host.
+const TRUSTED_INTERVIEW_API_HOSTS = new Set([
+  "app-production-ccfc.up.railway.app",
+]);
+
+function getInterviewApiBase(): string {
+  const configuredBase = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+  if (typeof window === "undefined") return configuredBase;
+
+  const requestedBase = new URLSearchParams(window.location.search).get("apiBase");
+  if (!requestedBase) return configuredBase;
+
+  try {
+    const url = new URL(requestedBase);
+    if (url.protocol === "https:" && TRUSTED_INTERVIEW_API_HOSTS.has(url.hostname)) {
+      return url.origin;
+    }
+  } catch {
+    // Ignore malformed apiBase values and use the configured/same-origin API.
+  }
+  return configuredBase;
+}
+
+const API_BASE = getInterviewApiBase();
 const SESSION_BASE = `${API_BASE}/api/v1/docuplete/public/sessions`;
 
 /** Turn camelCase / snake_case keys into readable labels: "firstName" → "First Name" */
