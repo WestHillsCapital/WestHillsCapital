@@ -278,19 +278,45 @@ export default function Buy() {
     if (!customer.email || !customer.firstName) return;
     setCreatingSession(true);
     setSessionError(null);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 25_000);
     try {
       const res = await fetch(`${API_BASE}/api/buy/session`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prefill: buildPrefill(), customer }),
+        signal: controller.signal,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Could not send agreement");
+
+      const contentType = res.headers.get("content-type") ?? "";
+      const data = contentType.includes("application/json")
+        ? await res.json()
+        : null;
+
+      if (!res.ok) {
+        const message = data && typeof data.error === "string"
+          ? data.error
+          : res.status >= 500
+            ? "The signing service is temporarily unavailable. Your information is saved on this page—please try again."
+            : "We could not send the agreement. Please review your information and try again.";
+        throw new Error(message);
+      }
+      if (!data?.confirmationId || !data?.sentTo) {
+        throw new Error("The signing service returned an unexpected response. Please try again.");
+      }
       setSession(data as SessionResult);
       setStep4View("sent");
     } catch (err: unknown) {
-      setSessionError(err instanceof Error ? err.message : "Could not send your agreement.");
+      const message = err instanceof DOMException && err.name === "AbortError"
+        ? "The signing service took too long to respond. Your information is still here—please try again."
+        : err instanceof TypeError
+          ? "We could not reach the signing service. Check your connection and try again."
+          : err instanceof Error
+            ? err.message
+            : "Could not send your agreement. Please try again.";
+      setSessionError(message);
     } finally {
+      window.clearTimeout(timeoutId);
       setCreatingSession(false);
     }
   }
@@ -762,13 +788,24 @@ export default function Buy() {
             {sessionError && (
               <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-4">
                 <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                <div>
+                <div className="flex-1">
                   <p className="font-semibold text-red-800 text-sm">Could not send your agreement</p>
                   <p className="text-red-700 text-sm mt-0.5">{sessionError}</p>
-                  <p className="text-red-600 text-sm mt-1">
-                    Please call{" "}
-                    <a href="tel:8008676768" className="font-semibold underline">(800) 867-6768</a>.
-                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={sendAgreement}
+                      disabled={creatingSession}
+                    >
+                      {creatingSession
+                        ? <><Loader2 className="w-4 h-4 animate-spin" /> Trying again…</>
+                        : "Try Again"}
+                    </Button>
+                    <a href="tel:8008676768" className="text-red-700 text-sm font-semibold underline">
+                      Or call (800) 867-6768
+                    </a>
+                  </div>
                 </div>
               </div>
             )}
