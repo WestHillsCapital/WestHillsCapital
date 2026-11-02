@@ -1,0 +1,1 @@
+- [Merlin scope](merlin-scope.md) — Merlin is intentionally excluded; do not reintroduce staff or customer AI chat.

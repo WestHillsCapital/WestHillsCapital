@@ -2,7 +2,6 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { useProductAuth } from "@/hooks/useProductAuth";
 import { OnboardingChecklist } from "@/components/OnboardingChecklist";
-import { MerlinWidget } from "@/components/MerlinWidget";
 import { HelpDrawer } from "@/components/HelpDrawer";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
@@ -276,7 +275,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
         {children}
       </main>
 
-      <MerlinWidget getAuthHeaders={getAuthHeaders} brandColor={orgBrandColor} />
       <HelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );

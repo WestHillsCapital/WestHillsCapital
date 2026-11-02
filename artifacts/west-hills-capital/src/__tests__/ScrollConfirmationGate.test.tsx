@@ -18,14 +18,11 @@ vi.mock("pdfjs-dist", () => {
     getPage: vi.fn(async () => mockPage),
   };
   return {
+    version: "test",
     GlobalWorkerOptions: { workerSrc: "" },
     getDocument: vi.fn(() => ({ promise: Promise.resolve(mockDoc) })),
   };
 });
-
-vi.mock("@/components/MerlinCustomerChat", () => ({
-  MerlinCustomerChat: () => null,
-}));
 
 vi.mock("@/components/SignaturePad", () => ({
   default: React.forwardRef(() => <canvas data-testid="sig-pad" />),

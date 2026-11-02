@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { validateFieldValue, fieldFormatHint, buildSensitiveMask } from "@/lib/validateField";
 import { ESIGN_FIELD_ID_SIGNATURE, ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_DATE } from "@/lib/docuplete-redaction";
 import SignaturePad, { type SignaturePadRef } from "@/components/SignaturePad";
-import { MerlinCustomerChat } from "@/components/MerlinCustomerChat";
 import { HowItWorksAnimation } from "@/components/HowItWorksAnimation";
 import { SandboxKeyModal } from "@/components/SandboxKeyModal";
 import * as pdfjsLib from "pdfjs-dist";
@@ -428,11 +427,6 @@ export default function DocupleteCustomer() {
   const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
   // ZIP → city soft-check: maps a valid ZIP to the list of place names returned by zippopotam.us
   const [zipCityLookup, setZipCityLookup] = useState<Record<string, string[]>>({});
-  // Merlin chat mode: when true, show the AI interview assistant instead of the raw form
-  const [merlinMode, setMerlinMode]                 = useState(false);
-  // Tracks whether Merlin was ever used — used to enforce a review gate before submit
-  const [merlinWasUsed, setMerlinWasUsed]           = useState(false);
-  const [merlinReviewConfirmed, setMerlinReviewConfirmed] = useState(false);
 
   // Revoke preview blob URL when it changes or component unmounts to free memory
   useEffect(() => {
@@ -1691,8 +1685,7 @@ export default function DocupleteCustomer() {
                   disabled={
                     pageStatus === "submitting" ||
                     !signerName.trim() ||
-                    (sigMode === "draw" && !sigPadHasContent) ||
-                    (merlinWasUsed && !merlinReviewConfirmed)
+                    (sigMode === "draw" && !sigPadHasContent)
                   }
                   className="flex-1"
                 >
@@ -1951,96 +1944,17 @@ export default function DocupleteCustomer() {
       </header>}
 
       <main className={`max-w-2xl mx-auto px-4 space-y-6 ${isEmbed ? "py-6" : "py-8"}`}>
-        {/* Title + Merlin toggle */}
+        {/* Form title */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-2xl font-semibold text-[#0F1C3F]">{session!.package_name}</h1>
             <p className="text-sm text-[#6B7A99] mt-1">
-              {merlinMode
-                ? "Answer questions with Merlin — your form fills in automatically."
-                : `Please complete the form below. Your answers are saved automatically as you type.${requiredCount > 0 ? ` ${answeredCount} of ${requiredCount} required fields answered.` : ""}`}
+              {`Please complete the form below. Your answers are saved automatically as you type.${requiredCount > 0 ? ` ${answeredCount} of ${requiredCount} required fields answered.` : ""}`}
             </p>
           </div>
-          <button
-            onClick={() => {
-              setMerlinMode((m) => {
-                if (!m) { setMerlinWasUsed(true); setMerlinReviewConfirmed(false); }
-                return !m;
-              });
-            }}
-            className="shrink-0 flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors"
-            style={merlinMode
-              ? { backgroundColor: brandColor, color: brandTextColor, borderColor: brandColor }
-              : { backgroundColor: "white", color: "#4A5B7A", borderColor: "#E2E8F0" }}
-            title={merlinMode ? "Switch to self-fill form" : "Let Merlin guide you"}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
-              <path d="M15 4V2m0 13v-2M8 9H2m13.5-1.5L14 9M3 3l18 18M8.5 14.5 3 20m9-9 7.5-7.5" />
-            </svg>
-            {merlinMode ? "Form view" : "Ask Merlin"}
-          </button>
         </div>
 
-        {/* Merlin chat — full-width, replaces fields when in chat mode */}
-        {merlinMode && (
-          <MerlinCustomerChat
-            token={token}
-            fields={session!.fields}
-            answers={answers}
-            brandColor={brandColor}
-            packageName={session!.package_name}
-            onFieldUpdate={(updates) => {
-              if (!session) return;
-              const fieldMap = new Map(session.fields.map((f) => [f.id, f]));
-              const validated: Record<string, string> = {};
-              for (const [id, rawVal] of Object.entries(updates)) {
-                const field = fieldMap.get(id);
-                if (!field) continue;
-                if (field.interviewMode === "readonly" || field.interviewMode === "omitted") continue;
-                const val = String(rawVal ?? "");
-                if ((field.type === "radio" || field.type === "dropdown") && Array.isArray(field.options)) {
-                  const match = field.options.find(
-                    (o) => o.toLowerCase() === val.toLowerCase(),
-                  );
-                  if (!match) continue;
-                  validated[id] = match;
-                } else if (field.type === "checkbox") {
-                  validated[id] = val.toLowerCase() === "true" || val.toLowerCase() === "yes" ? "true" : "false";
-                } else {
-                  validated[id] = val;
-                }
-              }
-              if (Object.keys(validated).length === 0) return;
-              setAnswers((prev) => {
-                const next = { ...prev, ...validated };
-                scheduleAutoSave(next);
-                return next;
-              });
-            }}
-            onSwitchToForm={() => setMerlinMode(false)}
-          />
-        )}
-
-        {/* Merlin review gate — shown when switching back to form view after Merlin was used */}
-        {!merlinMode && merlinWasUsed && (
-          <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
-            <p className="text-sm font-semibold text-[#0F1C3F] mb-0.5">Merlin has pre-filled your answers</p>
-            <p className="text-xs text-[#6B7A99] mb-3">
-              Please review each field carefully before submitting. Merlin's answers are saved automatically — you can edit any field below.
-            </p>
-            <label className="flex items-start gap-2.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                className="mt-0.5 accent-[#0F1C3F]"
-                checked={merlinReviewConfirmed}
-                onChange={(e) => setMerlinReviewConfirmed(e.target.checked)}
-              />
-              <span className="text-sm text-[#0F1C3F]">I've reviewed my answers and they are correct</span>
-            </label>
-          </div>
-        )}
-
-        {/* Progress bar — shown in both modes */}
+        {/* Form progress */}
         {requiredCount > 0 && (
           <div className="space-y-1">
             <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
@@ -2112,8 +2026,8 @@ export default function DocupleteCustomer() {
           </div>
         )}
 
-        {/* Form fields — hidden when Merlin is guiding */}
-        <div className="space-y-4" style={{ display: merlinMode ? "none" : undefined }}>
+        {/* Form fields */}
+        <div className="space-y-4">
           {visibleFields.map((field) => {
             const val = currentValue(field, answers, session!.prefill);
             const isReadonly = field.interviewMode === "readonly";
@@ -2262,7 +2176,7 @@ export default function DocupleteCustomer() {
         </div>
 
         {/* Sum group progress banners — live allocation tracker */}
-        {sumGroupFields.size > 0 && !merlinMode && Array.from(sumGroupFields.entries()).map(([sg, sgFields]) => {
+        {sumGroupFields.size > 0 && Array.from(sumGroupFields.entries()).map(([sg, sgFields]) => {
           const total = sumGroupTotals.get(sg) ?? 0;
           const roundedTotal = Math.round(total * 10) / 10;
           const isComplete = Math.round(total * 100) === 10000;
@@ -2357,7 +2271,7 @@ export default function DocupleteCustomer() {
             <Button
               type="button"
               variant={(session!.require_preview || session!.require_scroll_confirmation) ? "default" : "outline"}
-              disabled={hasErrors || missingRequiredCount > 0 || (merlinWasUsed && !merlinReviewConfirmed)}
+              disabled={hasErrors || missingRequiredCount > 0}
               style={(session!.require_preview || session!.require_scroll_confirmation) ? { backgroundColor: brandColor, color: brandTextColor } : undefined}
               className={(session!.require_preview || session!.require_scroll_confirmation)
                 ? "flex-1 disabled:opacity-60 py-3 hover:opacity-90"
@@ -2391,7 +2305,7 @@ export default function DocupleteCustomer() {
               <Button
                 type="button"
                 onClick={() => void handleSubmit()}
-                disabled={pageStatus === "submitting" || hasErrors || missingRequiredCount > 0 || (merlinWasUsed && !merlinReviewConfirmed)}
+                disabled={pageStatus === "submitting" || hasErrors || missingRequiredCount > 0}
                 style={{ backgroundColor: brandColor, color: brandTextColor }}
                 className="flex-1 disabled:opacity-60 py-3 hover:opacity-90"
               >

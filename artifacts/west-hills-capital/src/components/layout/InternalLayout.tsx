@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
 import { useOrgSettings } from "@/hooks/useOrgSettings";
-import { MerlinWidget } from "@/components/MerlinWidget";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
@@ -117,7 +116,6 @@ export function InternalLayout({ children }: InternalLayoutProps) {
         {children}
       </main>
 
-      <MerlinWidget getAuthHeaders={getAuthHeaders} brandColor={org?.brand_color ?? "#0F1C3F"} chatUrl={`${import.meta.env.VITE_API_URL ?? ""}/api/internal/merlin/chat`} />
     </div>
   );
 }

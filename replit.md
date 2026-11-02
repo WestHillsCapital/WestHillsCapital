@@ -57,7 +57,6 @@ The project is structured as a pnpm monorepo using TypeScript, comprising severa
 
 *   **Submission Bank:** Enables accounts to purchase extra submission packs (one-off, monthly, annual). Bank credits roll over for 12 months. Enforces usage limits by drawing from the plan pool then the submission bank. Stripe webhooks handle deposits for purchases.
 
-*   **Merlin (AI Assistant):** A Claude-powered assistant. Internal Merlin (staff) provides a floating chat widget with tool access for session/package management and billing. Customer Merlin (Phase 2) offers conversational interview guidance, extracting field values to auto-fill forms.
 
 *   **Multi-Tenancy:** Achieved through `accounts` and `account_users` tables, ensuring data isolation via `account_id` scoping.
 

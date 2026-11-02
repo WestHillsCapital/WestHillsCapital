@@ -15,7 +15,6 @@ import productAuthRouter   from "./product-auth";
 import storageRouter       from "./storage";
 import settingsRouter      from "./settings";
 import docsRouter          from "./docs";
-import merlinRouter, { publicMerlinRouter } from "./merlin";
 import { requireInternalAuth } from "../middleware/requireInternalAuth";
 import { requireProductAuth } from "../middleware/requireProductAuth";
 import { requireAccountId } from "../middleware/requireAccountId";
@@ -66,10 +65,6 @@ router.use("/fedex", requireInternalAuth, fedexRouter);
 // guard: if account resolution somehow fails, reject rather than fall through.
 router.use("/internal/docuplete", requireInternalAuth, requireAccountId, docupleteRouter);
 
-// ── Merlin: WHC internal (session token) ──────────────────────────────────────
-// Same auth chain as internal docuplete: internal session token + account guard.
-router.use("/internal/merlin", requireInternalAuth, requireAccountId, merlinRouter);
-
 // ── Content engine (internal tool — also require auth) ────────────────────────
 router.use("/internal/content", requireInternalAuth, contentRouter);
 
@@ -85,7 +80,6 @@ router.use("/internal/affiliates", requireInternalAuth, affiliatesAdminRouter);
 const v1Router: IRouter = Router();
 
 v1Router.use("/docuplete/public",  publicDocupleteRouter);
-v1Router.use("/docuplete/public",  publicMerlinRouter);
 v1Router.use("/product/docuplete", requireProductAuth, requireAccountId, docupleteRouter);
 // Backward compat: /api/v1/product/docuplete → /api/v1/product/docuplete (301)
 v1Router.use("/product/docuplete",  v1Redirect("/product/docuplete"));
@@ -93,7 +87,6 @@ v1Router.use("/product/docuplete",  v1Redirect("/product/docuplete"));
 v1Router.use("/docuplete/public",   v1Redirect("/docuplete/public"));
 v1Router.use("/product/auth",      productAuthRouter);
 v1Router.use("/product/settings",  requireProductAuth, settingsRouter);
-v1Router.use("/product/merlin",    requireProductAuth, requireAccountId, merlinRouter);
 v1Router.use("/packages",          requireApiKeyAuth,  requireAccountId, apiKeyDocupleteRouter);
 v1Router.use("/sessions",              headlessSessionsRouter);
 v1Router.use("/account/custom-domain", customDomainRouter);
