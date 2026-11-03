@@ -1,1 +1,2 @@
 - [Merlin scope](merlin-scope.md) — Merlin is intentionally excluded; do not reintroduce staff or customer AI chat.
+- [Analytics privacy](analytics-privacy.md) — marketing analytics require consent; keep private/signing sessions and sensitive URL parameters out of tracking.

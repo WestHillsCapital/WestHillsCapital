@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect, lazy, Suspense } from "react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
+import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { UpgradeModalProvider } from "@/hooks/useUpgradeModal";
 import { UpgradeModal } from "@/components/UpgradeModal";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -233,6 +234,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider delayDuration={400}>
           <WouterRouter base={basePath}>
+            <GoogleAnalytics />
             <InternalAuthProvider>
               <UpgradeModalProvider>
                 <Router />

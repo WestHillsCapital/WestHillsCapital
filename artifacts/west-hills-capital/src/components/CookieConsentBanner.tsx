@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { CONSENT_CHANGED_EVENT } from "@/lib/google-analytics";
 
 const COOKIE_NAME = "whc_cookie_consent";
 const COOKIE_MAX_AGE = 365 * 24 * 60 * 60; // 1 year in seconds
@@ -20,6 +21,7 @@ function getStoredConsent(): ConsentValue | null {
 
 function setStoredConsent(value: ConsentValue): void {
   document.cookie = `${COOKIE_NAME}=${value}; max-age=${COOKIE_MAX_AGE}; path=/; SameSite=Lax`;
+  window.dispatchEvent(new Event(CONSENT_CHANGED_EVENT));
 }
 
 export function CookieConsentBanner() {
