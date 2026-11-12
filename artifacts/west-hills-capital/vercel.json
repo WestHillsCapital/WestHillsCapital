@@ -5,16 +5,32 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/api/v1/docuplete/public/:path*",
-      "destination": "https://app-production-ccfc.up.railway.app/api/v1/docuplete/public/:path*"
+      "source": "/api/:path*",
+      "destination": "https://app-production-ccfc.up.railway.app/api/:path*"
     },
     {
-      "source": "/api/:path*",
-      "destination": "https://workspaceapi-server-production-987b.up.railway.app/api/:path*"
+      "source": "/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/pricing",
+      "destination": "/pricing/index.html"
+    },
+    {
+      "source": "/ira",
+      "destination": "/ira/index.html"
+    },
+    {
+      "source": "/faq",
+      "destination": "/faq/index.html"
+    },
+    {
+      "source": "/buy",
+      "destination": "/buy/index.html"
     },
     {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/spa.html"
     }
   ]
 }

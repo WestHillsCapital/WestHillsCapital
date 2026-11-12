@@ -10,6 +10,7 @@ import { COINS } from "./src/data/seo/coins";
 import { US_STATES } from "./src/data/seo/states";
 import { CUSTODIANS } from "./src/data/seo/custodians";
 import { COMPARISONS } from "./src/data/seo/comparisons";
+import { PUBLIC_SITE_ORIGIN } from "./src/lib/site-url";
 
 // PORT and BASE_PATH are required in Replit but optional elsewhere (e.g. Vercel).
 // Defaults allow `vite build` to succeed without those env vars being set.
@@ -26,13 +27,14 @@ const apiUrl =
     ? ""
     : (process.env.VITE_API_URL ?? "");
 
-const SITE_BASE = "https://westhillscapital.com";
+const SITE_BASE = PUBLIC_SITE_ORIGIN;
 
 const STATIC_PAGES = [
   { loc: "/",               changefreq: "weekly",  priority: "1.0" },
   { loc: "/faq",            changefreq: "monthly", priority: "0.8" },
   { loc: "/about",          changefreq: "monthly", priority: "0.8" },
   { loc: "/pricing",        changefreq: "daily",   priority: "0.9" },
+  { loc: "/buy",            changefreq: "monthly", priority: "0.9" },
   { loc: "/ira",            changefreq: "monthly", priority: "0.8" },
   { loc: "/ira/rollovers",  changefreq: "monthly", priority: "0.9" },
   { loc: "/ira/custodians", changefreq: "monthly", priority: "0.9" },

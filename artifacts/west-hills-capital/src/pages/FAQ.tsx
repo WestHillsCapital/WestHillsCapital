@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Children, isValidElement, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { usePageMeta } from "@/hooks/use-page-meta";
 
@@ -159,73 +159,34 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
 ];
 
 function FAQAccordion({ item }: { item: FAQItem }) {
-  const [open, setOpen] = useState(false);
   return (
-    <div className="border-b border-border/40 last:border-0">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-full text-left flex items-start gap-4 py-5 group"
-        aria-expanded={open}
-      >
+    <details className="group border-b border-border/40 last:border-0">
+      <summary className="w-full cursor-pointer list-none text-left flex items-start gap-4 py-5 [&::-webkit-details-marker]:hidden">
         <ChevronDown
-          className={`w-4 h-4 mt-1 shrink-0 text-primary/60 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          aria-hidden="true"
+          className="w-4 h-4 mt-1 shrink-0 text-primary/60 transition-transform duration-200 group-open:rotate-180"
         />
         <span className="font-medium text-foreground group-hover:text-primary transition-colors text-[15px] leading-snug">
           {item.q}
         </span>
-      </button>
-      {open && (
+      </summary>
         <div className="pl-8 pb-5 pr-2 text-[15px] text-foreground/70 leading-relaxed">
           {item.a}
         </div>
-      )}
-    </div>
+    </details>
   );
 }
 
-// ── FAQ JSON-LD schema data (plain text for structured data / AI search) ──────
-const FAQ_SCHEMA_ITEMS = [
-  {
-    q: "What does West Hills Capital actually do?",
-    a: "West Hills Capital helps clients allocate a portion of their savings into physical gold and silver — coins they own outright and can take delivery of or hold in an IRA. The firm does not sell financial products, manage portfolios, or give investment advice. The focus is disciplined, transparent execution of physical metal purchases.",
-  },
-  {
-    q: "What happens on the first call?",
-    a: "West Hills Capital discusses your situation, walks through current pricing, and answers any questions. If it makes sense to move forward, the commitment happens on the call itself. The firm blocks 45 minutes, though calls can be shorter or longer. There is no pressure.",
-  },
-  {
-    q: "How is pricing determined?",
-    a: "All pricing is based on the live spot price of gold or silver at the time of your trade. West Hills Capital sources metal through its wholesale supplier and adds a flat commission on top of its cost. The per-unit breakdown is always shown before commitment.",
-  },
-  {
-    q: "What commission does West Hills Capital charge?",
-    a: "West Hills Capital charges a flat percentage over its cost: 2% for gold and 5% for silver. There are no hidden fees or handling add-ons. The commission is built into the per-unit price quoted on the call.",
-  },
-  {
-    q: "When is pricing locked in?",
-    a: "Pricing is locked at the moment of your verbal commitment on the call. Spot prices move continuously, so locking in requires a live conversation — one of the reasons orders are not taken online.",
-  },
-  {
-    q: "What payment methods do you accept?",
-    a: "West Hills Capital accepts wire transfer, cashier's check, and personal check. Wire transfer is recommended as the safest method. Credit cards and ACH transfers are not accepted.",
-  },
-  {
-    q: "How is metal shipped?",
-    a: "All shipments go out via FedEx 2-Day, fully insured, with adult signature required at delivery. Standard postal services are not used. Directing shipments to a FedEx Office or Ship Center is recommended over home delivery.",
-  },
-  {
-    q: "Can I buy gold or silver inside my IRA?",
-    a: "Yes. West Hills Capital works with clients on self-directed IRA rollovers that allow physical precious metals to be held as IRA assets. The metal is stored with an approved depository — the client owns it outright and it stays at the custodian until distributions are taken.",
-  },
-  {
-    q: "Why does West Hills Capital focus on only three products?",
-    a: "West Hills Capital carries the 1 oz American Gold Eagle, the 1 oz American Gold Buffalo, and the 1 oz American Silver Eagle. These are the most liquid, most widely recognized bullion coins in the world and the easiest to resell. Other products, especially proof coins and collectibles, carry premiums that often cannot be recovered on resale.",
-  },
-  {
-    q: "What is the difference between a Gold Eagle and a Gold Buffalo?",
-    a: "Both are 1 oz government-minted U.S. coins. The Gold Eagle is .9167 fine, alloyed with silver and copper for durability, and has been in continuous production since 1986. The Gold Buffalo is .9999 fine 24-karat gold, minted since 2006. Both are IRA-eligible and highly liquid.",
-  },
-];
+// Use the displayed answers for structured data so the two cannot drift.
+function answerText(node: ReactNode): string {
+  return Children.toArray(node).map((child) => {
+    if (typeof child === "string" || typeof child === "number") return String(child);
+    if (!isValidElement<{ children?: ReactNode }>(child)) return "";
+    const text = answerText(child.props.children);
+    return typeof child.type === "string" && ["p", "li", "ul", "br"].includes(child.type)
+      ? ` ${text} ` : text;
+  }).join("").replace(/\s+/g, " ").trim();
+}
 
 export default function FAQ() {
   usePageMeta({
@@ -240,12 +201,12 @@ export default function FAQ() {
   const faqJsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    "mainEntity": FAQ_SCHEMA_ITEMS.map((item) => ({
+    "mainEntity": SECTIONS.flatMap((section) => section.items).map((item) => ({
       "@type": "Question",
       "name": item.q,
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": item.a,
+        "text": answerText(item.a),
       },
     })),
   };
@@ -254,7 +215,7 @@ export default function FAQ() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd).replace(/</g, "\\u003c") }}
       />
     <div className="w-full bg-background pt-12 pb-24">
       <div className="max-w-3xl mx-auto px-4 sm:px-6">

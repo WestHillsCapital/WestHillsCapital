@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
-    "build": "vite build --config vite.config.ts",
+    "build": "node scripts/build.mjs",
+    "test:aeo": "pnpm run build && vitest run --config vitest.config.ts src/__tests__/aeo.test.tsx src/__tests__/google-analytics.test.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "test:docufill-selection": "tsx src/pages/internal/deal-builder/utils.test.ts",
     "test": "vitest run --config vitest.config.ts",

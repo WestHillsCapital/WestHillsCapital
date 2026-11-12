@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { createContext, useContext, useEffect } from "react";
+import { canonicalSiteUrl } from "@/lib/site-url";
 
-interface PageMeta {
+export interface PageMeta {
   title: string;
   description: string;
   ogTitle?: string;
@@ -8,6 +9,9 @@ interface PageMeta {
   ogImage?: string;
   canonical?: string;
 }
+
+// Build-only renderer collects the actual page's metadata, not a duplicate map.
+export const PageMetaCollector = createContext<((meta: PageMeta) => void) | null>(null);
 
 function getMetaContent(name: string, property = false): string {
   const attr = property ? "property" : "name";
@@ -37,6 +41,10 @@ function setCanonical(href: string) {
 }
 
 export function usePageMeta({ title, description, ogTitle, ogDescription, ogImage, canonical }: PageMeta) {
+  const collect = useContext(PageMetaCollector);
+  canonical = canonical ? canonicalSiteUrl(canonical) : undefined;
+  collect?.({ title, description, ogTitle, ogDescription, ogImage, canonical });
+
   useEffect(() => {
     const prevCanonical = document.querySelector('link[rel="canonical"]')?.getAttribute("href") ?? "";
 
@@ -46,6 +54,7 @@ export function usePageMeta({ title, description, ogTitle, ogDescription, ogImag
       ogTitle: getMetaContent("og:title", true),
       ogDescription: getMetaContent("og:description", true),
       ogImage: getMetaContent("og:image", true),
+      ogUrl: getMetaContent("og:url", true),
       twitterTitle: getMetaContent("twitter:title"),
       twitterDescription: getMetaContent("twitter:description"),
       twitterImage: getMetaContent("twitter:image"),
@@ -63,6 +72,7 @@ export function usePageMeta({ title, description, ogTitle, ogDescription, ogImag
     setMetaTag("twitter:description", ogDescription ?? description);
     if (canonical) {
       setCanonical(canonical);
+      setMetaTag("og:url", canonical, true);
     }
 
     return () => {
@@ -79,6 +89,7 @@ export function usePageMeta({ title, description, ogTitle, ogDescription, ogImag
       if (canonical && prevCanonical) {
         setCanonical(prevCanonical);
       }
+      setMetaTag("og:url", prev.ogUrl, true);
     };
   }, [title, description, ogTitle, ogDescription, ogImage, canonical]);
 }
