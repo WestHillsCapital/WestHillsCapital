@@ -3,6 +3,8 @@ import { render, cleanup } from "@testing-library/react";
 import { existsSync, readFileSync } from "node:fs";
 import FAQ from "@/pages/FAQ";
 import { canonicalSiteUrl } from "@/lib/site-url";
+import { PricingExplainer } from "@/components/education/PricingExplainer";
+import { IraEssentials } from "@/components/education/IraEssentials";
 
 afterEach(cleanup);
 
@@ -77,5 +79,42 @@ describe("canonical host normalization", () => {
       .toBe("https://www.westhillscapital.com/faq");
     expect(canonicalSiteUrl("/pricing")).toBe("https://www.westhillscapital.com/pricing");
     expect(canonicalSiteUrl("https://example.com/faq")).toBe("https://example.com/faq");
+  });
+});
+
+describe("sourced buyer education", () => {
+  it("distinguishes commission from premium using explicitly hypothetical numbers", () => {
+    const { container } = render(<PricingExplainer />);
+    expect(container.textContent).toContain("Illustrative calculation — not a quote");
+    expect(container.textContent).toContain("$2,142");
+    expect(container.textContent).toContain("7.1%");
+    expect(2100 * 1.02).toBe(2142);
+    expect((2142 - 2000) / 2000 * 100).toBeCloseTo(7.1);
+    expect(container.querySelector('a[href^="https://www.cftc.gov/"]')).not.toBeNull();
+  });
+
+  it("explains the IRA roles, transfer differences, storage and risks with primary sources", () => {
+    const { container } = render(<IraEssentials />);
+    for (const text of ["metals dealer", "custodian", "depository", "60 days", "one-IRA-rollover-per-year", "taxes or penalties", "Neither an IRA nor physical ownership guarantees a return"]) {
+      expect(container.textContent).toContain(text);
+    }
+    expect(container.querySelectorAll('a[href^="https://www.irs.gov/"]')).toHaveLength(2);
+    for (const link of container.querySelectorAll("a")) {
+      expect(link.rel).toContain("noopener");
+      expect(link.rel).toContain("noreferrer");
+    }
+  });
+
+  it.skipIf(!existsSync("dist/public/ira/index.html"))("includes the explanations and citations in initial HTML", () => {
+    const pricing = readFileSync("dist/public/pricing/index.html", "utf8");
+    const ira = readFileSync("dist/public/ira/index.html", "utf8");
+    expect(pricing).toContain('id="pricing-explained"');
+    expect(pricing).toContain("Metals10Things.html");
+    expect(ira).toContain('id="ira-essentials"');
+    expect(ira).toContain("qualified-plan-accounts");
+    expect(ira).not.toContain("initiate a tax-free rollover");
+    expect(ira).not.toContain("are not commingled with other accounts");
+    expect(readFileSync("dist/public/robots.txt", "utf8"))
+      .toContain("Sitemap: https://www.westhillscapital.com/sitemap.xml");
   });
 });

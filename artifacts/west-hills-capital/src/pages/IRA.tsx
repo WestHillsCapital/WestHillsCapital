@@ -1,3 +1,4 @@
+import { IraEssentials } from "@/components/education/IraEssentials";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -81,10 +82,12 @@ export default function IRA() {
             Precious Metals IRA Allocation
           </h1>
           <p className="text-lg text-white/70 leading-relaxed max-w-2xl mx-auto">
-            IRA allocations require proper custodial coordination. We guide you through the process step-by-step — from rollover or transfer to depository delivery — without the sales pressure.
+            West Hills Capital helps source eligible physical gold and silver for self-directed IRAs. We coordinate the metal purchase and delivery with your IRA custodian and depository; your account provider administers the IRA. Eligibility, tax treatment, fees, and storage depend on your account and the arrangements you choose.
           </p>
         </div>
       </section>
+
+      <IraEssentials />
 
       {/* ROLLOVER FROM YOUR ACCOUNT TYPE */}
       <section className="py-16 bg-white border-t border-border/20">
@@ -180,7 +183,7 @@ export default function IRA() {
               <div>
                 <h2 className="text-3xl font-serif font-semibold mb-5">How the Process Works</h2>
                 <p className="text-foreground/65 mb-8 leading-relaxed">
-                  The IRS specifies which physical metals qualify for IRA inclusion, and requires those metals to be held by an approved custodian at a registered depository. Our role is to source compliant metals at wholesale pricing and coordinate logistics between your custodian and the vault.
+                  IRA rules limit which metals and custody arrangements qualify. Our role is to source eligible metals and coordinate delivery with your custodian and depository. Confirm the specific products, account requirements, and storage arrangement with your custodian before funding a purchase.
                 </p>
 
                 <div className="space-y-7">
@@ -191,7 +194,7 @@ export default function IRA() {
                     <div>
                       <h3 className="text-lg font-bold mb-1.5">1. Custodial Setup & Funding</h3>
                       <p className="text-foreground/65 text-sm leading-relaxed">
-                        Establish an account with a directed IRA custodian, then initiate a tax-free rollover or transfer from your existing retirement account. We can refer you to custodians familiar with physical metals if needed.
+                        Establish an account with a self-directed IRA custodian, then confirm whether a direct transfer or eligible rollover is appropriate for your existing retirement account. Tax treatment depends on the accounts and transaction. We can refer you to custodians familiar with physical metals if needed.
                       </p>
                     </div>
                   </div>
@@ -224,7 +227,7 @@ export default function IRA() {
 
               <div className="p-6 rounded-xl border border-border/50 bg-muted/30">
                 <p className="text-sm text-foreground/65 leading-relaxed">
-                  <strong className="text-foreground">Important:</strong> IRA allocations execute only after funds are received and cleared by the custodian. Physical metals vaulted under your IRA remain yours — they are held in your name at a registered depository and are not commingled with other accounts.
+                  <strong className="text-foreground">Important:</strong> IRA allocations execute only after funds are received and cleared by the custodian. Metals are held for your IRA under its custodial arrangement. Confirm the depository, insurance, and allocated or segregated storage terms with the custodian; do not assume every provider uses the same storage arrangement.
                 </p>
               </div>
             </div>

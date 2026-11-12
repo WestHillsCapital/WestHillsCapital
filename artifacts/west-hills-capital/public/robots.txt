@@ -19,4 +19,4 @@ User-agent: Googlebot
 Allow: /
 Disallow: /internal/
 
-Sitemap: https://westhillscapital.com/sitemap.xml
+Sitemap: https://www.westhillscapital.com/sitemap.xml

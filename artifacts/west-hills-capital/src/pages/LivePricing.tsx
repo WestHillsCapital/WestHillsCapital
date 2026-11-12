@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { usePageMeta } from "@/hooks/use-page-meta";
+import { PricingExplainer } from "@/components/education/PricingExplainer";
 import { useProductPrices, useBuybackPrices, useSpotPrices } from "@/hooks/use-pricing";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -572,6 +573,8 @@ export default function LivePricing() {
         </div>
 
       </div>
+
+      <div className="px-4 sm:px-6 lg:px-8"><PricingExplainer /></div>
 
       {/* ZOOM LIGHTBOX */}
       <ZoomDialog product={zoomProduct} onClose={() => setZoomProduct(null)} />
