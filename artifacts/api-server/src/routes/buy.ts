@@ -103,10 +103,10 @@ router.post("/session", async (req, res) => {
     ...(callerPrefill as Record<string, string>),
     BUYER_FIRST_NAME: firstName,
     BUYER_LAST_NAME:  lastName,
-    BUYER_FULL_NAME:  fullName,
+    BUYER_FULL_NAME:  fullName ? `${fullName},` : "",
     BUYER_EMAIL:      email,
     BUYER_PHONE:      phone,
-    BUYER_ADDRESS:    [street, city, state, zip].filter(Boolean).join(", "),
+    BUYER_ADDRESS:    [fullName, street, city, state, zip].filter(Boolean).join(", "),
     CONFIRMATION_ID:  confirmationId,
     AGREEMENT_DATE:   agreementDate,
   };
@@ -128,7 +128,7 @@ router.post("/session", async (req, res) => {
 
     if (!response.ok) {
       const body = await response.text();
-      logger.error({ status: response.status, body }, "[Buy/Session] Docuplete API error");
+      logger.error(`[Buy/Session] Docuplete API error — status=${response.status} body=${body}`);
       res.status(502).json({ error: "Could not create signing session — please try again" });
       return;
     }
