@@ -5,6 +5,7 @@
  */
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import type { PDFFont, PDFPage, Color } from "pdf-lib";
+import { PURCHASE_AGREEMENT_PRICE_TERMS, PURCHASE_AGREEMENT_SIGNING_NOTICE, PURCHASE_AGREEMENT_PICKUP_NOTICE } from "./purchaseAgreementTerms";
 
 // ── Page & margin constants ───────────────────────────────────────────────────
 const PW = 612, PH = 792;
@@ -199,7 +200,7 @@ export async function generatePurchaseAgreementPdf(data: PurchaseAgreementData):
   const fedexLine = `${data.fedexLocationName}  \u2014  ${data.fedexLocationAddress}, ${data.fedexLocationCity}, ${data.fedexLocationState} ${data.fedexLocationZip}`;
   dt(p, fedexLine, ML, y, 9, bold);
   y -= 13;
-  dt(p, "Adult signature required at pickup.", ML, y, 8.5, ital, GRAY);
+  dt(p, PURCHASE_AGREEMENT_PICKUP_NOTICE, ML, y, 8.5, ital, GRAY);
   y -= LH + 8;
 
   // ── SECTION 2: PAYMENT ─────────────────────────────────────────────────────
@@ -222,9 +223,7 @@ export async function generatePurchaseAgreementPdf(data: PurchaseAgreementData):
   // ── SECTION 4: PRICE ───────────────────────────────────────────────────────
   dt(p, "4. Price", ML, y, BSZ, bold); y -= LH;
   y = wrap(p,
-    "The estimated total above reflects live market pricing at the time of this Agreement. " +
-    "Final price is confirmed at trade execution, which occurs upon confirmed receipt of cleared " +
-    "funds. Prices may vary slightly at execution.",
+    PURCHASE_AGREEMENT_PRICE_TERMS,
     ML, y, TW, reg, BSZ, LH) - 8;
 
   // ── SECTION 5: TERMS ───────────────────────────────────────────────────────
@@ -238,15 +237,11 @@ export async function generatePurchaseAgreementPdf(data: PurchaseAgreementData):
   hr(p, y + 6);
   y -= 4;
 
-  inline(p, [
-    { t: "By clicking ",       f: ital,  c: GRAY },
-    { t: "Send for Signature", f: boldI, c: GRAY },
-    { t: ", Buyer acknowledges they have read and agree to this Agreement.", f: ital, c: GRAY },
-  ], ML, y, 8.5);
+  dt(p, PURCHASE_AGREEMENT_SIGNING_NOTICE, ML, y, 8.5, ital, GRAY);
   y -= 12;
 
   inline(p, [
-    { t: "Electronic signature will be collected via a secure link sent to ", f: ital,  c: GRAY },
+    { t: "Secure signing link sent to: ", f: ital,  c: GRAY },
     { t: data.buyerEmail, f: boldI, c: GRAY },
     { t: ".",             f: ital,  c: GRAY },
   ], ML, y, 8.5);

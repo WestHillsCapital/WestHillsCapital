@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle2, Phone, Star, ShieldCheck } from "lucide-react";
 import { usePageMeta } from "@/hooks/use-page-meta";
+import { PURCHASE_CHANNELS, SELF_SERVE_PRICE_LOCK } from "@/lib/purchase-policy";
 import logoSrc from "@/assets/logo.webp";
 
 const TESTIMONIALS = [
@@ -137,7 +138,7 @@ export default function Radio() {
             <div className="text-center max-w-2xl mx-auto mb-14">
               <h2 className="text-3xl lg:text-4xl font-serif font-semibold mb-5">A Grounded Approach</h2>
               <p className="text-foreground/60 text-lg leading-relaxed">
-                We help long-term investors buy physical gold and silver — for direct delivery to your home or vault, or through an IRA rollover or transfer. Transparent pricing. No pressure.
+                We help long-term investors buy physical gold and silver online or by phone — with staffed FedEx pickup for non-IRA orders, or depository delivery through an IRA. Transparent pricing. No pressure.
               </p>
             </div>
 
@@ -150,7 +151,7 @@ export default function Radio() {
                     </svg>
                   ),
                   title: "Transparent Pricing",
-                  desc: "Pricing is based on live market conditions with a consistent, disclosed spread. Final pricing is confirmed at the time of execution — no surprises.",
+                  desc: SELF_SERVE_PRICE_LOCK,
                 },
                 {
                   icon: (
@@ -159,7 +160,7 @@ export default function Radio() {
                     </svg>
                   ),
                   title: "Delivery or IRA",
-                  desc: "Buy for physical delivery to your home or vault, or allocate through a tax-advantaged IRA rollover or transfer.",
+                  desc: "Non-IRA orders require staffed FedEx pickup. IRA purchases are delivered to the depository under your custodian's arrangement.",
                 },
                 {
                   icon: (
@@ -303,9 +304,10 @@ export default function Radio() {
               Ready to discuss your purchase?
             </h2>
             <p className="text-foreground/60 text-lg mb-10 max-w-2xl mx-auto leading-relaxed">
-              Every purchase begins with a private call to review your objectives, confirm current pricing, and establish delivery or IRA logistics. No automated execution. No pressure.
+              {PURCHASE_CHANNELS} Non-IRA purchases require staffed FedEx pickup. Schedule a private call if you'd like help with your purchase or IRA logistics. No pressure.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4 justify-center">
+              <Link href="/buy"><Button size="lg" className="h-12 px-8 text-base">Buy Online</Button></Link>
               <Link href="/schedule?src=radio">
                 <Button size="lg" className="h-12 px-10 text-base shadow-md group">
                   Schedule Your Call

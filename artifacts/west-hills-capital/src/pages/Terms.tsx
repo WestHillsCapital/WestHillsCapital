@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { usePageMeta } from "@/hooks/use-page-meta";
+import { PURCHASE_CHANNELS, NON_IRA_DELIVERY, IRA_DELIVERY, SELF_SERVE_PRICE_LOCK } from "@/lib/purchase-policy";
 
 export default function Terms() {
   usePageMeta({
@@ -13,7 +14,7 @@ export default function Terms() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
 
         <h1 className="text-4xl font-serif font-semibold mb-4">Terms of Service</h1>
-        <p className="text-sm text-foreground/50 mb-12">Effective Date: January 1, 2025 &nbsp;·&nbsp; Version 1.1</p>
+        <p className="text-sm text-foreground/50 mb-12">Applies to self-serve and representative-assisted purchases.</p>
 
         <div className="space-y-12 text-foreground/80 leading-relaxed">
 
@@ -39,9 +40,9 @@ export default function Terms() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-serif font-semibold text-foreground mb-4">4. No Automated Transactions</h2>
+            <h2 className="text-2xl font-serif font-semibold text-foreground mb-4">4. Purchase Channels and Commitment</h2>
             <p>
-              West Hills Capital does not execute automated purchases or sales through this website or any digital interface. All transactions are initiated and confirmed verbally on a recorded telephone line by an authorized client or their designated representative. No order is binding until verbally confirmed on a recorded call and accepted by West Hills Capital.
+              {PURCHASE_CHANNELS} For self-serve purchases, requesting a signing link is not a binding purchase; the purchase becomes binding when you sign the purchase agreement. Phone-assisted transactions are confirmed on a recorded telephone line by an authorized client or their designated representative and accepted by West Hills Capital. IRA purchases remain subject to custodial funding and execution requirements.
             </p>
           </section>
 
@@ -55,7 +56,7 @@ export default function Terms() {
           <section>
             <h2 className="text-2xl font-serif font-semibold text-foreground mb-4">6. Pricing and Market Data</h2>
             <p>
-              Spot price data and product pricing displayed on our website are provided for informational purposes only and are subject to change without notice. All pricing is indicative and not a binding offer to buy or sell at any displayed price. Actual transaction prices are established at the time of verbal confirmation on a recorded line and are based on real-time market data at that moment. West Hills Capital is not responsible for errors in displayed pricing resulting from data provider outages or third-party feed delays.
+              Spot price data and website product prices are indicative before commitment and can change with market conditions. {SELF_SERVE_PRICE_LOCK} For phone-assisted transactions, the confirmed price and terms are established with your representative. West Hills Capital is not responsible for errors in displayed pricing resulting from data provider outages or third-party feed delays.
             </p>
           </section>
 
@@ -69,28 +70,28 @@ export default function Terms() {
           <section>
             <h2 className="text-2xl font-serif font-semibold text-foreground mb-4">8. Funding, Payment, and Settlement</h2>
             <p>
-              West Hills Capital enforces a strict cleared-funds policy. Transactions are executed, and prices are locked, only after full payment has been received and cleared through our banking institution. We do not extend credit, offer margin, or execute orders on the basis of promises of future funding. Wire transfer is the required method of payment for all transactions. Pricing discussed prior to funds clearing is indicative only and is not a committed price. All wire transfers must be sent in U.S. dollars to our designated banking institution.
+              For self-serve purchases, the agreement price is binding at signing and wire payment must be received by the end of the next business day. Shipment requires receipt of cleared funds; clearance does not reprice the signed order. Phone-assisted and IRA purchases follow their confirmed funding and execution terms, with IRA trades subject to custodian funds clearance. We do not extend credit or offer margin. Wire transfers must be sent in U.S. dollars to our designated banking institution.
             </p>
           </section>
 
           <section>
             <h2 className="text-2xl font-serif font-semibold text-foreground mb-4">9. Trade Execution and Confirmation</h2>
             <p>
-              Upon verbal confirmation of a transaction on a recorded line, the trade is binding on both parties. A written confirmation, including quantity, product description, price, and total, will be provided to the client following execution. West Hills Capital will use commercially reasonable efforts to execute confirmed transactions at the agreed price; however, in the event of a force majeure event, systems failure, or market suspension, execution may be delayed or modified, and West Hills Capital will promptly notify the client.
+              Self-serve purchases become binding when the purchase agreement is signed. Phone-assisted purchases become binding upon confirmation on a recorded line and acceptance by West Hills Capital. A written confirmation, including quantity, product description, price, and total, will be provided to the client. West Hills Capital will use commercially reasonable efforts to execute confirmed transactions at the agreed price; however, in the event of a force majeure event, systems failure, or market suspension, execution may be delayed or modified, and West Hills Capital will promptly notify the client.
             </p>
           </section>
 
           <section>
             <h2 className="text-2xl font-serif font-semibold text-foreground mb-4">10. Delivery and Shipping</h2>
             <p>
-              Physical delivery of metals is made via insured carrier (currently FedEx) to the address specified at time of trade confirmation, or to a designated FedEx Hold location selected by the client. Estimated delivery windows are standard projections based on current wholesale availability; unforeseen supply chain disruptions, mint production delays, or carrier delays may extend delivery times. West Hills Capital is not liable for delays caused by third-party carriers, customs, or events outside our reasonable control. Title and risk of loss transfer to the client upon delivery to the carrier.
+              {NON_IRA_DELIVERY} {IRA_DELIVERY} Physical shipments are insured. Estimated delivery windows are standard projections based on current wholesale availability; unforeseen supply chain disruptions, mint production delays, or carrier delays may extend delivery times. West Hills Capital is not liable for delays caused by third-party carriers, customs, or events outside our reasonable control. Title and risk of loss transfer to the client upon delivery to the carrier.
             </p>
           </section>
 
           <section>
             <h2 className="text-2xl font-serif font-semibold text-foreground mb-4">11. Cancellation and Default</h2>
             <p>
-              Because precious metals are volatile commodities and trade execution involves real-time market commitments, West Hills Capital does not accept cancellations or returns after a transaction is verbally confirmed. If a client fails to fund a confirmed transaction within the agreed timeframe, the client will be responsible for any market loss we incur to liquidate or offset the position, plus any applicable fees. West Hills Capital reserves the right to pursue all available legal remedies in the event of client default.
+              Because precious metals are volatile commodities and trade execution involves real-time market commitments, West Hills Capital does not accept cancellations or returns after a self-serve agreement is signed or a phone-assisted transaction is confirmed. For self-serve purchases, failure to fund by the agreement deadline may result in cancellation and a fee equal to the greater of $125 or the actual market loss, as stated in the purchase agreement. For other confirmed transactions, a client who fails to fund within the agreed timeframe is responsible for market loss incurred to liquidate or offset the position, plus applicable fees. West Hills Capital reserves the right to pursue all available legal remedies in the event of client default.
             </p>
           </section>
 

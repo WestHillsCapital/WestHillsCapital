@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { usePageMeta } from "@/hooks/use-page-meta";
+import { NON_IRA_DELIVERY, IRA_DELIVERY, SELF_SERVE_PRICE_LOCK } from "@/lib/purchase-policy";
 
 export default function Disclosures() {
   usePageMeta({
@@ -33,7 +34,7 @@ export default function Disclosures() {
           <section>
             <h2 className="text-2xl font-serif font-semibold text-foreground mb-4">3. Funding and Settlement (Cleared Funds Policy)</h2>
             <p>
-              West Hills Capital strictly enforces a "cleared funds" policy. Trades are executed, and prices are locked, only after full payment has been received and cleared by our banking institution. We do not extend credit, offer margin, or execute orders based on promises of future funding. Prices discussed prior to funds clearing are indicative estimates only and are not binding commitments.
+              {SELF_SERVE_PRICE_LOCK} Self-serve wire payment must be received by the end of the next business day, and shipment requires cleared funds. Phone-assisted purchases follow the confirmed terms provided by your representative. IRA execution and price locking remain subject to custodian funding and clearance, as described below. We do not extend credit or offer margin.
             </p>
           </section>
 
@@ -53,6 +54,7 @@ export default function Disclosures() {
 
           <section>
             <h2 className="text-2xl font-serif font-semibold text-foreground mb-4">6. Delivery Windows</h2>
+            <p className="mb-4">{NON_IRA_DELIVERY} {IRA_DELIVERY}</p>
             <p>
               Estimated delivery windows provided at the time of trade confirmation are standard projections based on current wholesale availability. While we strive to meet all estimates, unforeseen supply chain disruptions, mint production delays, or transit interruptions may extend delivery times. West Hills Capital is not liable for delays caused by third-party carriers or events outside our reasonable control. We will proactively communicate any material delay to the client.
             </p>
@@ -68,7 +70,7 @@ export default function Disclosures() {
           <section>
             <h2 className="text-2xl font-serif font-semibold text-foreground mb-4">8. Trade Confirmation and Cancellation</h2>
             <p>
-              Upon verbal confirmation of a trade on a recorded line, the transaction is binding on both parties. Because precious metals are volatile commodities, West Hills Capital does not accept order cancellations or returns after a trade is confirmed. If a client attempts to default on a confirmed transaction, they will be responsible for any market loss West Hills Capital incurs to liquidate or offset the position, plus applicable fees.
+              A self-serve purchase becomes binding when the purchase agreement is signed; requesting a signing link does not itself commit the purchase. Phone-assisted trades become binding upon confirmation on a recorded line and acceptance by West Hills Capital. Because precious metals are volatile commodities, confirmed transactions are not eligible for cancellations or returns. Failure to fund a self-serve order by its agreement deadline may result in cancellation and a fee equal to the greater of $125 or actual market loss, as stated in the purchase agreement. Other confirmed transactions remain subject to their agreed default terms.
             </p>
           </section>
 

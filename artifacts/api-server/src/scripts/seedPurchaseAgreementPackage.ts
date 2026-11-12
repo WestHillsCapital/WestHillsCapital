@@ -16,6 +16,7 @@ import { getDb } from "../db";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { isEncryptionEnabled, getOrCreateAccountDek, encryptBuffer } from "../lib/encryption";
 import { logger } from "../lib/logger";
+import { PURCHASE_AGREEMENT_PRICE_TERMS, PURCHASE_AGREEMENT_PICKUP_NOTICE } from "../lib/purchaseAgreementTerms";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const W          = 612;           // letter width (pt)
@@ -253,7 +254,7 @@ async function buildPdf(): Promise<{
   addMap("fedex_location_zip",     1, 519, 243, W - MARGIN - 519);
 
   // Adult sig notice
-  text(p1, "Adult signature required at pickup.", MARGIN, 230, 9, italic, GRAY);
+  text(p1, PURCHASE_AGREEMENT_PICKUP_NOTICE, MARGIN, 230, 9, italic, GRAY);
 
   hline(p1, 215);
 
@@ -292,10 +293,7 @@ async function buildPdf(): Promise<{
   cy -= 8;
   text(p2, "4.  PRICE", MARGIN, cy, 10.5, bold, DARK);
   cy -= 16;
-  const s4Text =
-    "The estimated total above reflects live market pricing at the time of this Agreement. " +
-    "Final price is confirmed at trade execution, which occurs upon confirmed receipt of cleared " +
-    "funds. Prices may vary slightly at execution.";
+  const s4Text = PURCHASE_AGREEMENT_PRICE_TERMS;
   cy = drawWrapped(p2, s4Text, MARGIN, cy, TEXT_W, reg, 9.5, DARK, 14);
 
   // ── Section 5: Terms ───────────────────────────────────────────────────────
@@ -414,6 +412,18 @@ function buildFields() {
 async function main() {
   console.log("Building Purchase Agreement PDF…");
   const { bytes, pageSizes, documentId, mappings } = await buildPdf();
+
+  // Review/export must never connect to the database or replace a live package.
+  if (process.argv.includes("--export-only")) {
+    const { mkdirSync, writeFileSync } = await import("node:fs");
+    const { fileURLToPath } = await import("node:url");
+    const directory = fileURLToPath(new URL("../../../../generated-artifacts/whc-review/", import.meta.url));
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(`${directory}/whc-mapped-purchase-agreement.pdf`, bytes);
+    writeFileSync(`${directory}/whc-mapped-purchase-agreement.json`, JSON.stringify({ pageSizes, documentId, mappings, fields: buildFields() }, null, 2));
+    console.log("Exported agreement PDF and matching field mappings; no database or live package was changed.");
+    return;
+  }
 
   const db       = getDb();
   const filename = "whc-purchase-agreement.pdf";

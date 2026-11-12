@@ -1,3 +1,4 @@
+import { NON_IRA_DELIVERY, SELF_SERVE_PRICE_LOCK } from "@/lib/purchase-policy";
 import { useState, useEffect, useRef } from "react";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { useProductPrices, type ProductPrice } from "@/hooks/use-pricing";
@@ -354,10 +355,7 @@ export default function Buy() {
                 <div>
                   <p className="font-semibold text-foreground mb-1">FedEx Staffed Locations Only</p>
                   <p className="text-sm text-foreground/70">
-                    West Hills Capital ships exclusively to FedEx Office or FedEx Ship Center locations —
-                    never to residential addresses or unmanned drop boxes. This protects your metals from
-                    porch theft and ensures a documented, insured chain of custody. Adult signature is
-                    required at pickup.
+                    {NON_IRA_DELIVERY} Adult signature is required at pickup.
                   </p>
                 </div>
               </div>
@@ -369,7 +367,7 @@ export default function Buy() {
                   <p className="text-sm text-foreground/70">
                     A flat shipping and insurance fee of <strong>{formatUSD(FLAT_FEE)}</strong> applies to
                     orders under <strong>{FREE_GOLD_OZ} troy oz of gold</strong> or{" "}
-                    <strong>{FREE_SILVER_OZ} troy oz of silver</strong>. Orders above those thresholds ship
+                    <strong>{FREE_SILVER_OZ} troy oz of silver</strong>. Orders meeting at least either threshold ship
                     at no additional charge. All shipments are sent FedEx 2-Day, fully insured.
                   </p>
                 </div>
@@ -380,8 +378,7 @@ export default function Buy() {
                 <div>
                   <p className="font-semibold text-foreground mb-1">Payment Deadline</p>
                   <p className="text-sm text-foreground/70">
-                    When you sign your purchase agreement, West Hills Capital locks your price with our
-                    supplier immediately. Funds must be received by <strong>end of next business day</strong>.
+                    {SELF_SERVE_PRICE_LOCK} Funds must be received by <strong>end of next business day</strong>.
                     A cancellation fee of <strong>$125 or actual market loss sustained — whichever is
                     greater</strong> — applies if payment is not received.
                   </p>
@@ -485,7 +482,7 @@ export default function Buy() {
                       </div>
                     </div>
                     <p className="px-4 py-2 text-xs text-foreground/40 border-t border-border">
-                      Final price confirmed at trade execution after payment clears.
+                      Prices are estimates until you sign. The agreement price becomes binding at signing, not after payment clears.
                     </p>
                   </div>
                 )}
@@ -761,9 +758,8 @@ export default function Buy() {
                 <div>
                   <p className="font-bold mb-2">4. Price</p>
                   <p>
-                    The estimated total above reflects live market pricing at the time of this Agreement.
-                    Final price is confirmed at trade execution, which occurs upon confirmed receipt of
-                    cleared funds. Prices may vary slightly at execution.
+                    {SELF_SERVE_PRICE_LOCK} Review the product quantities, unit prices, shipping,
+                    and total in the agreement before signing. Shipment follows receipt of cleared funds.
                   </p>
                 </div>
 
@@ -778,8 +774,9 @@ export default function Buy() {
                 </div>
 
                 <div className="border-t border-border pt-4 text-xs text-foreground/50">
-                  By clicking <em>Send for Signature</em>, Buyer acknowledges they have read and agree
-                  to this Agreement. Electronic signature will be collected via a secure link sent to{" "}
+                  Clicking <em>Send for Signature</em> requests a secure signing link; it does not
+                  itself make the purchase binding. The purchase becomes binding when Buyer signs
+                  the agreement. Electronic signature will be collected via a secure link sent to{" "}
                   <strong className="text-foreground">{customer.email}</strong>.
                 </div>
               </div>
@@ -855,7 +852,7 @@ export default function Buy() {
                 <p className="text-foreground/65">2. Verify your identity — a one-time code will be sent to you.</p>
                 <p className="text-foreground/65">3. Review and sign the Purchase Agreement.</p>
                 <p className="text-foreground/65">4. Your invoice with wire instructions arrives by email immediately after signing.</p>
-                <p className="text-foreground/65">5. Wire funds by end of next business day to lock your price.</p>
+                <p className="text-foreground/65">5. Your agreement price is binding when you sign. Wire funds by end of next business day to pay for the signed order.</p>
               </div>
               <p className="text-xs text-foreground/45">
                 Confirmation ID: <strong className="text-foreground">{session.confirmationId}</strong>

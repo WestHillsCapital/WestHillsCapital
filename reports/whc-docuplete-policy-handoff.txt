@@ -1,0 +1,60 @@
+WHC PURCHASE AGREEMENT: DOCUPLETE HANDOFF
+
+Owner-confirmed policies
+- WHC accepts self-serve online and representative-assisted phone purchases.
+- All non-IRA purchases require staffed FedEx Office or FedEx Ship Center pickup.
+- For self-serve purchases, the agreement price becomes binding when the buyer signs.
+
+Website and Git source status
+The checkout preview, public policy pages, PDF generator, blank-template export,
+and mapped two-page purchase-agreement package source have been aligned.
+Sample, blank, and mapped review PDFs were generated without changing live data.
+The separately stored live Docuplete package has NOT been replaced. A Git push
+does not automatically prove that an existing package's stored PDF was updated.
+
+Safe mapped-template export, with no database writes:
+pnpm --filter @workspace/api-server exec tsx src/scripts/seedPurchaseAgreementPackage.ts --export-only
+
+This writes the PDF and corresponding field/mapping export to the ignored
+generated-artifacts/whc-review directory. Do not run the seeder without
+--export-only for this review: its normal mode deletes/recreates a package.
+When replacing a live document, keep its PDF and matching field coordinates
+together; legal-text wrapping can move the signature block.
+
+Exact replacement wording for the self-serve agreement's Price paragraph
+For self-serve purchases, the price stated in your purchase agreement becomes
+binding when you sign it. Payment funds the signed order; it does not set a new
+price. Review the product quantities, unit prices, shipping, and total in the
+agreement before signing. Shipment follows receipt of cleared funds.
+
+Delivery paragraph to use consistently
+All non-IRA purchases require pickup at a staffed FedEx Office or FedEx Ship
+Center. We do not ship non-IRA orders to residential addresses or unmanned
+drop boxes. Adult signature is required at pickup.
+
+Signing-link distinction
+Requesting or receiving a signing link does not make the purchase binding.
+The purchase becomes binding when the buyer signs the agreement.
+
+Keep the existing wire deadline and default fee unchanged unless separately
+approved: payment received by end of the next business day after signing;
+default fee of the greater of $125 or actual market loss.
+
+Verification before release
+1. Check the current Docuplete package used by WHC, including its base document
+   and any generated clauses. Preserve all mapped fields and signature fields.
+2. Remove any claim that self-serve pricing is first confirmed after funds clear
+   or may vary at execution. Make sure the agreement and invoice use the same
+   order quantities, unit prices, shipping, and total.
+3. Check that delivery is staffed FedEx pickup, not residential delivery, and
+   that no call is required for the self-serve order.
+4. Review the agreement alongside WHC Terms and Disclosures. Have the contract
+   wording reviewed before release; this handoff is not legal certification.
+5. When explicitly authorized to resume end-to-end testing, use a designated
+   test session to inspect the actual document, signature completion, invoice,
+   and staff notification. Do not test against a real customer's order.
+
+Scope limits
+This update changes wording only. It does not add automated supplier trading,
+price-lock enforcement, or new signing-session behavior. Staff must verify the
+supplier lock and honor the price in the signed self-serve agreement.

@@ -5,6 +5,12 @@ import FAQ from "@/pages/FAQ";
 import { canonicalSiteUrl } from "@/lib/site-url";
 import { PricingExplainer } from "@/components/education/PricingExplainer";
 import { IraEssentials } from "@/components/education/IraEssentials";
+import { renderToStaticMarkup } from "react-dom/server";
+import Terms from "@/pages/Terms";
+import Disclosures from "@/pages/Disclosures";
+import About from "@/pages/About";
+import Radio from "@/pages/Radio";
+import { PURCHASE_CHANNELS, NON_IRA_DELIVERY, SELF_SERVE_PRICE_LOCK } from "@/lib/purchase-policy";
 
 afterEach(cleanup);
 
@@ -116,5 +122,68 @@ describe("sourced buyer education", () => {
     expect(ira).not.toContain("are not commingled with other accounts");
     expect(readFileSync("dist/public/robots.txt", "utf8"))
       .toContain("Sitemap: https://www.westhillscapital.com/sitemap.xml");
+  });
+});
+
+describe("owner-approved purchase policies", () => {
+  it.each([
+    "../api-server/src/lib/generatePurchaseAgreementPdf.ts",
+    "../api-server/src/scripts/exportDocupleteTemplate.ts",
+    "../api-server/src/scripts/seedPurchaseAgreementPackage.ts",
+  ])("keeps the PDF agreement source aligned: %s", (file) => {
+    const source = readFileSync(file, "utf8");
+    expect(source).toContain("PURCHASE_AGREEMENT_PRICE_TERMS");
+    expect(source).toContain("PURCHASE_AGREEMENT_PICKUP_NOTICE");
+    expect(source).not.toContain("Final price is confirmed at trade execution");
+    expect(source).not.toContain("Prices may vary slightly at execution");
+  });
+
+  const textOf = (html: string) => new DOMParser().parseFromString(html, "text/html").body.textContent!;
+
+  it("publishes both purchase channels and staffed pickup on Home and FAQ", async () => {
+    const { renderMarketingPage } = await import("@/prerender");
+    for (const route of ["/", "/faq"]) {
+      const text = textOf(renderMarketingPage(route).html);
+      expect(text).toContain(PURCHASE_CHANNELS);
+      expect(text).toContain(NON_IRA_DELIVERY);
+      expect(text).toContain(SELF_SERVE_PRICE_LOCK);
+      expect(text).not.toContain("Every purchase begins with a private call");
+      expect(text).not.toContain("we don't take orders online");
+      expect(text).not.toContain("delivery to your home");
+    }
+  });
+
+  it("uses the approved answers in FAQ structured data as well as visible copy", () => {
+    const { container } = render(<FAQ />);
+    const schema = JSON.parse(container.querySelector('script[type="application/ld+json"]')!.textContent!);
+    const questions = schema.mainEntity as { name: string; acceptedAnswer: { text: string } }[];
+    expect(questions.find(q => q.name === "Can I buy without a phone call?")!.acceptedAnswer.text).toContain(PURCHASE_CHANNELS);
+    expect(questions.find(q => q.name === "When is pricing locked in?")!.acceptedAnswer.text).toContain(SELF_SERVE_PRICE_LOCK);
+    expect(questions.find(q => q.name === "Can non-IRA purchases be shipped to my home?")!.acceptedAnswer.text).toContain(NON_IRA_DELIVERY);
+  });
+
+  it("removes call-only and post-payment price-lock claims from legal and supporting pages", () => {
+    for (const Page of [Terms, Disclosures, About, Radio]) {
+      const text = textOf(renderToStaticMarkup(<Page />));
+      expect(text).not.toContain("Every purchase begins with a private call");
+      expect(text).not.toContain("Every commitment is confirmed verbally");
+      expect(text).not.toContain("prices are locked, only after full payment");
+      expect(text).not.toContain("delivery to your home");
+      expect(text.toLowerCase()).toContain("self-serve");
+      expect(text).toContain("FedEx");
+    }
+  });
+
+  it("preserves distinct IRA rules and clarifies signing rather than sending or paying", async () => {
+    const { renderMarketingPage } = await import("@/prerender");
+    expect(textOf(renderMarketingPage("/ira").html)).toContain("No trade is executed before funds are fully settled");
+    const source = readFileSync("src/pages/Buy.tsx", "utf8");
+    expect(source).toContain("it does not");
+    expect(source).toContain("itself make the purchase binding");
+    expect(source).not.toContain("Prices may vary slightly at execution");
+    expect(source).not.toContain("Wire funds by end of next business day to lock your price");
+    expect(source).toContain("{SELF_SERVE_PRICE_LOCK}");
+    const staff = readFileSync("../api-server/src/routes/buy.ts", "utf8");
+    expect(staff).toContain("do not reprice the signed order");
   });
 });

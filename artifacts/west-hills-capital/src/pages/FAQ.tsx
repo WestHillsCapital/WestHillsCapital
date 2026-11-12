@@ -1,6 +1,7 @@
 import { Children, isValidElement, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { usePageMeta } from "@/hooks/use-page-meta";
+import { PURCHASE_CHANNELS, NON_IRA_DELIVERY, IRA_DELIVERY, SELF_SERVE_PRICE_LOCK } from "@/lib/purchase-policy";
 
 interface FAQItem {
   q: string;
@@ -13,15 +14,19 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
     items: [
       {
         q: "What does West Hills Capital actually do?",
-        a: "We help clients allocate a portion of their savings into physical gold and silver — coins they own outright and can take delivery of or hold in an IRA. We don't sell financial products, manage portfolios, or give investment advice. Our focus is disciplined, transparent execution of physical metal purchases.",
+        a: "We help clients buy physical gold and silver online or by phone, with staffed FedEx pickup for non-IRA orders or custodial depository delivery for IRA purchases. We don't sell financial products, manage portfolios, or give investment advice. Our focus is disciplined, transparent execution of physical metal purchases.",
+      },
+      {
+        q: "Can I buy without a phone call?",
+        a: `${PURCHASE_CHANNELS} Online checkout lets you select metals, choose a staffed FedEx pickup location, and review and sign your purchase agreement. ${SELF_SERVE_PRICE_LOCK}`,
       },
       {
         q: "What happens on the first call?",
-        a: "We'll discuss your situation, walk through current pricing, and answer any questions. If it makes sense to move forward, the commitment happens on the call itself — that's why a phone call is necessary rather than an online order. We block 45 minutes, though calls can be more concise or run longer depending on what you need. We never rush anyone.",
+        a: "If you choose to speak with us, we'll discuss your situation, walk through current pricing, and answer questions. A call is optional for self-serve non-IRA purchases. We block 45 minutes, though calls can be shorter or longer depending on what you need. We never rush anyone.",
       },
       {
         q: "How does the commitment work?",
-        a: "When you say yes, you own the metal at that price and owe West Hills Capital for it. We handle the execution on your behalf and you wire payment — most clients send it the same day, and we extend grace through the following business day. It's a straightforward purchase: you know exactly what you're buying, exactly what it costs, and we take care of the rest.",
+        a: `${SELF_SERVE_PRICE_LOCK} For online orders, wire payment must be received by the end of the next business day after signing. Phone-assisted purchases follow the terms confirmed with your representative. Review the applicable agreement before committing.`,
       },
       {
         q: "Is there a minimum order?",
@@ -51,7 +56,7 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
               <li><strong>Silver: 5%</strong></li>
             </ul>
             <p className="mt-2">
-              No hidden fees, no "handling" add-ons. The commission is built into the per-unit price we quote you on the call.
+              No hidden fees, no "handling" add-ons. The commission is built into the per-unit price shown in your quote or purchase agreement.
             </p>
           </>
         ),
@@ -62,7 +67,7 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
       },
       {
         q: "When is pricing locked in?",
-        a: "Pricing is locked at the moment of your verbal commitment on the call. Spot prices move continuously, so locking in requires a live conversation — it's one of the reasons we don't take orders online.",
+        a: `${SELF_SERVE_PRICE_LOCK} Sending a request for a signing link does not itself lock your price. For phone-assisted purchases, confirm the binding price and terms with your representative. IRA trades remain subject to custodian funding and clearance.`,
       },
     ],
   },
@@ -84,11 +89,11 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
       },
       {
         q: "How do I get wire transfer instructions?",
-        a: "Complete wire instructions are provided as part of every transaction — you'll receive them directly from us after your commitment is made on the call. We do not publish banking details publicly.",
+        a: "For self-serve purchases, your invoice with wire instructions is emailed after you sign the purchase agreement. For phone-assisted purchases, your representative provides the transaction instructions. We do not publish banking details publicly. Verify instructions directly with our office before sending funds.",
       },
       {
         q: "When does my order ship?",
-        a: "Your trade is committed on the call. Once payment is received and cleared, your order typically ships within 48 hours via FedEx 2-Day. High-volume periods can introduce delays on the supply side — we'll always let you know if that's the case.",
+        a: "For self-serve purchases, the agreement becomes binding when signed. Once payment is received and cleared, your order typically ships within 48 hours via FedEx 2-Day to your selected staffed FedEx location. High-volume periods can introduce supply delays — we'll let you know if that happens. IRA delivery follows the custodial arrangement.",
       },
     ],
   },
@@ -97,7 +102,7 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
     items: [
       {
         q: "How is metal shipped?",
-        a: "All shipments go out via FedEx 2-Day, fully insured, with adult signature required at delivery. We do not ship using standard postal services.",
+        a: `${NON_IRA_DELIVERY} Non-IRA shipments go via FedEx 2-Day, fully insured, with adult signature required at pickup. ${IRA_DELIVERY}`,
       },
       {
         q: "How long does delivery take?",
@@ -108,12 +113,8 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
         a: "Shipping and insurance is a flat $25 for orders under 300 American Silver Eagles or 15 American Gold Eagles or Gold Buffalos. For larger orders, shipping is included.",
       },
       {
-        q: "Do you recommend shipping to my home or to a FedEx location?",
-        a: (
-          <>
-            We recommend directing your shipment to a <strong>FedEx Office or Ship Center</strong> rather than a residential address. Even with signature required, home deliveries can occasionally be left on a porch or at a neighbor's — that's not a risk worth taking with physical metals. Picking up directly at a FedEx location eliminates that entirely. Just let us know on the call and we'll route the shipment to the nearest FedEx Office or Ship Center to you.
-          </>
-        ),
+        q: "Can non-IRA purchases be shipped to my home?",
+        a: `${NON_IRA_DELIVERY} This requirement applies whether you buy online or by phone. Choose your pickup location in online checkout, or confirm it with your representative. ${IRA_DELIVERY}`,
       },
     ],
   },

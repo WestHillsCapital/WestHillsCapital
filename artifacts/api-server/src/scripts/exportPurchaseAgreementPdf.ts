@@ -3,7 +3,9 @@
  * Exports a sample WHC Purchase Agreement PDF for review.
  * Usage: cd artifacts/api-server && npx tsx src/scripts/exportPurchaseAgreementPdf.ts
  */
-import { writeFileSync } from "node:fs";
+import { writeFileSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { generatePurchaseAgreementPdf } from "../lib/generatePurchaseAgreementPdf";
 
 const SAMPLE: Parameters<typeof generatePurchaseAgreementPdf>[0] = {
@@ -30,7 +32,8 @@ const SAMPLE: Parameters<typeof generatePurchaseAgreementPdf>[0] = {
 };
 
 generatePurchaseAgreementPdf(SAMPLE).then(bytes => {
-  const out = "/home/runner/workspace/whc-purchase-agreement.pdf";
+  const out = process.argv[2] ?? fileURLToPath(new URL("../../../../generated-artifacts/whc-review/whc-purchase-agreement.pdf", import.meta.url));
+  mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, bytes);
   console.log(`Saved: ${out}  (${bytes.length.toLocaleString()} bytes)`);
 }).catch(err => { console.error(err); process.exit(1); });

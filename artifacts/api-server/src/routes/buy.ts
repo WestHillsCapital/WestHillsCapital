@@ -103,10 +103,10 @@ router.post("/session", async (req, res) => {
     ...(callerPrefill as Record<string, string>),
     BUYER_FIRST_NAME: firstName,
     BUYER_LAST_NAME:  lastName,
-    BUYER_FULL_NAME:  fullName ? `${fullName},` : "",
+    BUYER_FULL_NAME:  fullName,
     BUYER_EMAIL:      email,
     BUYER_PHONE:      phone,
-    BUYER_ADDRESS:    [fullName, street, city, state, zip].filter(Boolean).join(", "),
+    BUYER_ADDRESS:    [street, city, state, zip].filter(Boolean).join(", "),
     CONFIRMATION_ID:  confirmationId,
     AGREEMENT_DATE:   agreementDate,
   };
@@ -128,7 +128,7 @@ router.post("/session", async (req, res) => {
 
     if (!response.ok) {
       const body = await response.text();
-      logger.error(`[Buy/Session] Docuplete API error — status=${response.status} body=${body}`);
+      logger.error({ status: response.status, body }, "[Buy/Session] Docuplete API error");
       res.status(502).json({ error: "Could not create signing session — please try again" });
       return;
     }
@@ -320,7 +320,7 @@ router.post("/webhook", async (req, res) => {
     Date: ${new Date().toLocaleString("en-US", { timeZone: "America/Chicago" })} CST
   </p>
   <p style="margin:8px 0 0;font-size:13px;color:#888;">
-    The customer will wire funds by end of next business day. Execute the trade with DG once payment clears.
+    The signed self-serve agreement fixes the customer's price. Funds are due by end of next business day. Verify the supplier price lock and arrange fulfillment after funds clear; do not reprice the signed order.
   </p>
 </div>`,
     );

@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { PricingExplainer } from "@/components/education/PricingExplainer";
+import { SELF_SERVE_PRICE_LOCK } from "@/lib/purchase-policy";
 import { useProductPrices, useBuybackPrices, useSpotPrices } from "@/hooks/use-pricing";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -441,7 +442,7 @@ export default function LivePricing() {
         {/* PRODUCTS GRID */}
         <div className="text-center max-w-2xl mx-auto mb-10">
           <h2 className="text-3xl font-serif font-semibold mb-3">Products We Offer</h2>
-          <p className="text-foreground/55 leading-relaxed">Final trade pricing is confirmed at the time of execution.</p>
+          <p className="text-foreground/55 leading-relaxed">{SELF_SERVE_PRICE_LOCK} For phone-assisted or IRA purchases, confirm the applicable pricing and execution terms with your representative.</p>
         </div>
 
         {loadingProducts ? (
@@ -472,7 +473,7 @@ export default function LivePricing() {
             </div>
             <div className="text-center mb-20">
               <p className="text-sm text-foreground/50 mb-4">
-                Prices are updated based on live market conditions. Final pricing is confirmed at the time of execution.
+                Prices are updated based on live market conditions and are indicative before commitment. For self-serve purchases, the agreement price becomes binding when you sign.
               </p>
               <Link href="/schedule">
                 <Button size="lg" className="h-12 px-10 group">
@@ -568,7 +569,7 @@ export default function LivePricing() {
           <div className="space-y-3 text-sm text-foreground/60 leading-relaxed">
             <p>Trades are confirmed directly with a representative prior to execution.</p>
             <p>Wire transfers must be received by the end of the next business day following trade confirmation. Personal and business checks are accepted. Execution and shipment occur only after funds are fully cleared and available without restriction.</p>
-            <p>Final trade pricing is confirmed at the time of execution.</p>
+            <p>{SELF_SERVE_PRICE_LOCK} Phone-assisted and IRA purchases follow their confirmed transaction terms.</p>
           </div>
         </div>
 

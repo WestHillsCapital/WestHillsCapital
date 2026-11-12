@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Phone } from "lucide-react";
 import { usePageMeta } from "@/hooks/use-page-meta";
+import { PURCHASE_CHANNELS, NON_IRA_DELIVERY } from "@/lib/purchase-policy";
 
 export default function About() {
   usePageMeta({
@@ -74,7 +75,7 @@ export default function About() {
             How We Operate
           </h2>
           <p>
-            Every order is funded with cleared capital. We don't offer leveraged trades, financed purchases, or margin accounts. Every commitment is confirmed verbally, on a live call, at the moment it's made — pricing is locked at that point, and nothing moves before you know exactly what you're buying and exactly what it costs.
+            We don't offer leveraged trades, financed purchases, or margin accounts. Self-serve purchases become binding at the price stated in the agreement when you sign; shipment follows receipt of cleared funds. For phone-assisted purchases, your representative confirms the applicable price and terms. You should know exactly what you're buying and exactly what it costs before committing.
           </p>
           <p>
             Our commissions are disclosed and consistent: 2% on gold, 5% on silver. The silver rate reflects real shipping and insurance costs on a heavy, lower-value-per-ounce metal. There are no handling fees, no storage markups, no hidden lines in the pricing. What you're quoted is what you pay.
@@ -124,9 +125,10 @@ export default function About() {
             We welcome the opportunity to speak with you.
           </h2>
           <p className="text-foreground/55 text-base mb-8 leading-relaxed max-w-xl mx-auto">
-            Every purchase begins with a private call — no pressure, no automated execution. Just an honest conversation about your objectives.
+            {PURCHASE_CHANNELS} No pressure. If you prefer a conversation, we're here to help. {NON_IRA_DELIVERY}
           </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 justify-center">
+            <Link href="/buy"><Button size="lg" className="h-11 px-9">Buy Online</Button></Link>
             <Link href="/schedule">
               <Button size="lg" className="h-11 px-9 group">
                 Schedule Your Call

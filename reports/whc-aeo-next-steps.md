@@ -11,13 +11,19 @@
 
 These are implementation results, not claims that a production deployment or indexing update has occurred. Both Replit services were left stopped.
 
-## Decisions required before rewriting commercial terms
-1. Does self-serve checkout coexist with assisted phone purchases? Homepage/FAQ still describe call-only purchases.
-2. Is staffed FedEx pickup mandatory only for self-serve checkout, or for every non-IRA purchase? Homepage and checkout currently differ.
-3. For each channel, when is the price legally binding: verbal commitment, signing, or execution after cleared funds? Obtain review of agreement language before changing it.
-4. Confirm the shipping threshold wording, including equality at 15 gold ounces or 300 silver ounces.
+## Owner-confirmed policies now reflected in source
+1. Both self-serve online and representative-assisted phone purchases are supported.
+2. Every non-IRA purchase requires staffed FedEx pickup, including phone-assisted orders; residential delivery is not an alternative.
+3. For self-serve purchases, the price stated in the agreement becomes binding when the buyer signs. Requesting a signing link is not a commitment, and payment clearance does not reprice the signed order.
 
-No order, shipping, payment, fee, or price-lock policy was changed in this pass.
+Updated Home, FAQ and its structured data, Buy, Pricing, About, Radio, Terms, Disclosures, and the staff notification wording. IRA custodial delivery and funding requirements remain separate. No fee amounts, funding deadlines, trading integrations, or signature mechanics were changed.
+
+The checkout shipping explanation now says orders meeting either existing threshold qualify, matching the existing greater-than-or-equal calculation; the thresholds themselves were not changed.
+
+## Signing-template review required before release
+Git also contains the purchase-agreement PDF generator, blank-template exporter, and mapped two-page package source. Those sources have now been aligned with the approved signing-price and staffed-pickup policies. Generated sample, blank, and mapped PDFs were checked for the approved clauses and page bounds; the blank and signature-page layouts were visually reviewed.
+
+The separately stored live Docuplete package was not replaced. Source alignment and a Git push do not prove an existing package's stored PDF changed. Use `whc-docuplete-policy-handoff.txt` for the live-package checks. No real signing sessions, supplier trades, database updates, or package replacements were performed.
 
 ## Technical work still open
 - Real HTTP 404 handling: preserve valid static and database-backed content, private/signing routes, API routing, and intentional 410 responses. Do not replace the SPA catch-all with an indiscriminate 404 rule.

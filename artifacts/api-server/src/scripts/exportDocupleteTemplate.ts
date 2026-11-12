@@ -7,7 +7,10 @@
  *
  * Usage: cd artifacts/api-server && npx tsx src/scripts/exportDocupleteTemplate.ts
  */
-import { writeFileSync } from "node:fs";
+import { writeFileSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { PURCHASE_AGREEMENT_PRICE_TERMS, PURCHASE_AGREEMENT_SIGNING_NOTICE, PURCHASE_AGREEMENT_PICKUP_NOTICE } from "../lib/purchaseAgreementTerms";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import type { PDFFont, PDFPage, Color } from "pdf-lib";
 
@@ -155,7 +158,7 @@ async function build(): Promise<Uint8Array> {
   x = seg(p, "  \u2014  ", x, y, 9, bold);
   uline(p, y - 2, x, PW - MR);      // FEDEX_LOCATION_ADDRESS + city + state + zip
   y -= 13;
-  dt(p, "Adult signature required at pickup.", ML, y, 8.5, ital, GRAY);
+  dt(p, PURCHASE_AGREEMENT_PICKUP_NOTICE, ML, y, 8.5, ital, GRAY);
   y -= LH + 8;
 
   // ── SECTION 2: PAYMENT ─────────────────────────────────────────────────────
@@ -178,9 +181,7 @@ async function build(): Promise<Uint8Array> {
   // ── SECTION 4: PRICE ───────────────────────────────────────────────────────
   dt(p, "4. Price", ML, y, BSZ, bold); y -= LH;
   y = wrap(p,
-    "The estimated total above reflects live market pricing at the time of this Agreement. " +
-    "Final price is confirmed at trade execution, which occurs upon confirmed receipt of cleared " +
-    "funds. Prices may vary slightly at execution.",
+    PURCHASE_AGREEMENT_PRICE_TERMS,
     ML, y, TW, reg, BSZ, LH) - 8;
 
   // ── SECTION 5: TERMS ───────────────────────────────────────────────────────
@@ -194,19 +195,18 @@ async function build(): Promise<Uint8Array> {
   hr(p, y + 6);
   y -= 4;
 
-  x = seg(p, "By clicking ", ML, y, 8.5, ital, GRAY);
-  x = seg(p, "Send for Signature", x, y, 8.5, boldI, GRAY);
-  seg(p, ", Buyer acknowledges they have read and agree to this Agreement.", x, y, 8.5, ital, GRAY);
+  dt(p, PURCHASE_AGREEMENT_SIGNING_NOTICE, ML, y, 8.5, ital, GRAY);
   y -= 12;
 
-  x = seg(p, "Electronic signature will be collected via a secure link sent to ", ML, y, 8.5, ital, GRAY);
+  x = seg(p, "Secure signing link sent to: ", ML, y, 8.5, ital, GRAY);
   uline(p, y - 2, x, x + 200); // BUYER_EMAIL
 
   return doc.save();
 }
 
 build().then(bytes => {
-  const out = "/home/runner/workspace/whc-purchase-agreement-template.pdf";
+  const out = process.argv[2] ?? fileURLToPath(new URL("../../../../generated-artifacts/whc-review/whc-purchase-agreement-template.pdf", import.meta.url));
+  mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, bytes);
   console.log(`Saved: ${out}  (${bytes.length.toLocaleString()} bytes)`);
 }).catch(err => { console.error(err); process.exit(1); });
